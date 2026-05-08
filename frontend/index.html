@@ -2040,6 +2040,10 @@
                     });
                 });
 
+                watch(wechatApiKey, (newVal) => {
+                    localStorage.setItem('wechat_api_key', newVal || '');
+                });
+
                 // 对话笔记
                 const noteIngesting = ref(false);
                 const noteSources = ref(['豆包', 'DeepSeek', '千问', 'Kimi', '元宝', 'Claude', 'ChatGPT', '其他']);
@@ -2127,9 +2131,21 @@
                     selectedPaper.value = null;
                     viewingNote.value = null;
                     viewingArticle.value = null;
-                    if (index === 'library') loadPapers();
-                    if (index === 'notes') loadAllNotes();
-                    if (index === 'articles') loadAllArticles();
+                    if (index === 'library') {
+                        ElementPlus.ElMessage.success('已切换到论文库');
+                        loadPapers();
+                    }
+                    if (index === 'notes') {
+                        ElementPlus.ElMessage.success('已切换到笔记库');
+                        loadAllNotes();
+                    }
+                    if (index === 'articles') {
+                        ElementPlus.ElMessage.success('已切换到文章库');
+                        loadAllArticles();
+                    }
+                    if (index === 'ingest') {
+                        ElementPlus.ElMessage.success('已切换到入库页面');
+                    }
                 }
 
                 function showIngest() {
@@ -3799,14 +3815,20 @@
                     try {
                         const response = await axios.post('/api/ingest/wechat', {
                             url: article.url,
-                            extract_content_only: false
+                            extract_content_only: wechatExtractOnly.value
                         });
-                        if (response.data.success) {
+                        if (response.data.message && response.data.message.includes('successfully')) {
                             ElementPlus.ElMessage.success(`文章「${article.title}」导入成功！`);
+                            selectedArticles.value = [];
                             await refreshArticlesStatus();
                             await loadAllArticles();
+                        } else if (response.data.error) {
+                            ElementPlus.ElMessage.error(`导入失败: ${response.data.error}`);
                         } else {
-                            ElementPlus.ElMessage.error(`导入失败: ${response.data.message}`);
+                            ElementPlus.ElMessage.success(`文章「${article.title}」导入成功！`);
+                            selectedArticles.value = [];
+                            await refreshArticlesStatus();
+                            await loadAllArticles();
                         }
                     } catch (error) {
                         console.error('导入文章失败:', error);
@@ -3870,6 +3892,7 @@
                         articleTotal.value = response.data.total;
                         articleOffset.value = response.data.offset;
                         hasMoreArticles.value = response.data.has_more;
+                        ElementPlus.ElMessage.success('状态已刷新');
                     } catch (e) {
                         const msg = e.response?.data?.message || e.response?.data?.error || '刷新状态失败';
                         ElementPlus.ElMessage.error(msg);
@@ -3888,10 +3911,12 @@
                             size: 20,
                             api_key: wechatApiKey.value || null
                         });
+                        const newArticlesCount = response.data.articles.length;
                         wechatArticles.value = [...wechatArticles.value, ...response.data.articles];
                         articleTotal.value = response.data.total;
                         articleOffset.value = response.data.offset;
                         hasMoreArticles.value = response.data.has_more;
+                        ElementPlus.ElMessage.success(`成功加载 ${newArticlesCount} 篇文章`);
                     } catch (e) {
                         ElementPlus.ElMessage.error('加载更多失败');
                     } finally {

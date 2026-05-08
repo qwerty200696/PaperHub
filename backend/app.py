@@ -30,7 +30,13 @@ def create_app(config_name='default'):
     @app.errorhandler(Exception)
     def handle_exception(e):
         import traceback
+        from werkzeug.exceptions import HTTPException
         app.logger.error(f"未处理的异常: {e}\n{traceback.format_exc()}")
+        if isinstance(e, HTTPException):
+            return jsonify({
+                'error': str(e),
+                'type': type(e).__name__
+            }), e.code
         return jsonify({
             'error': str(e),
             'type': type(e).__name__
