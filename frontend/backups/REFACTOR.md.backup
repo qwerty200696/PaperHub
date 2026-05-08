@@ -1,0 +1,163 @@
+# PaperHub 前端重构说明
+
+## 📋 概述
+
+本次重构将原本 1200+ 行的单文件 `index.html` 拆分为模块化的代码结构，提高可维护性和可扩展性。
+
+## 📁 新目录结构
+
+```
+frontend/
+├── index.html          # 主入口（简化版，只包含 HTML 结构）
+├── REFACTOR.md         # 本文档
+└── src/
+    ├── css/
+    │   └── style.css   # 所有样式提取到这里
+    ├── js/
+    │   └── app.js      # 主应用逻辑（模块化版本）
+    ├── api/
+    │   └── index.js    # API 调用封装
+    ├── store/
+    │   ├── usePaperStore.js   # 论文状态管理
+    │   └── useIngestStore.js  # 入库功能状态管理
+    └── utils/
+        └── index.js    # 工具函数
+```
+
+## 🎯 重构要点
+
+### 1. CSS 分离 (`src/css/style.css`)
+- 所有内联 `<style>` 标签内容提取
+- 保留完整的样式功能
+
+### 2. API 层封装 (`src/api/index.js`)
+- `PaperAPI` - 论文相关的 API 调用
+- `IngestAPI` - 入库相关的 API 调用
+- 统一管理 API 端点
+
+### 3. 状态管理 (`src/store/`)
+使用 Vue 3 Composition API 的组合式函数模式：
+
+#### `usePaperStore.js`
+- 论文列表、筛选、排序
+- 论文详情、标签管理
+- 阅读状态、标星
+- 所有筛选逻辑
+
+#### `useIngestStore.js`
+- arXiv 入库
+- 微信公众号入库
+- 知乎文章入库（URL + 手动模式）
+- 对话笔记入库
+- 批量 PDF/HTML 上传
+
+### 4. 工具函数 (`src/utils/index.js`)
+- `displayAuthors()` - 作者显示
+- `statusText()` / `statusType()` - 状态相关
+- `getCurrentDateTime()` - 当前时间
+- `extractTitleFromContent()` - 标题提取
+- `validateYear()` / `validateMonth()` - 验证函数
+
+## ⚠️ 注意事项
+
+### 关于模块加载
+
+由于浏览器安全限制，`file://` 协议下的 ES Modules（`import`/`export`）会有跨域问题。
+
+**当前方案：**
+- `index.html` 中保留完整可运行版本（兼容现有部署）
+- 同时提供模块化的代码结构（`src/` 目录）
+- 如需完整使用模块化，建议使用本地服务器：
+  ```bash
+  cd PaperHub/frontend
+  python -m http.server 8080
+  # 然后访问 http://localhost:8080/index.html
+  ```
+
+### 后续优化建议
+
+1. **引入构建工具**
+   - Vite 或 Webpack
+   - 可以完整使用 Vue 单文件组件 (SFC)
+   - TypeScript 支持
+
+2. **组件化拆分**
+   ```
+   components/
+   ├── PaperList.vue
+   ├── PaperDetail.vue
+   ├── PaperCard.vue
+   ├── Sidebar.vue
+   ├── IngestPanel.vue
+   └── filters/
+       ├── SourceFilter.vue
+       ├── DateFilter.vue
+       └── TagFilter.vue
+   ```
+
+3. **状态管理升级**
+   - 引入 Pinia 或 Vuex
+   - 更好的状态持久化
+
+## 🔄 新旧对比
+
+| 方面 | 重构前 | 重构后 |
+|------|--------|--------|
+| 文件数量 | 1 个 HTML | 6+ 个模块文件 |
+| 单文件行数 | 1200+ 行 | ~300 行 (index.html) |
+| 代码组织 | 混合在一起 | 按功能分离 |
+| 可维护性 | 低，修改容易影响其他部分 | 高，模块独立 |
+| 可复用性 | 低，逻辑内联 | 高，函数可复用 |
+| 学习曲线 | 需要通读全文 | 按模块逐步理解 |
+
+## 📝 开发指引
+
+### 添加新筛选器
+
+1. 在 `usePaperStore.js` 添加状态和逻辑
+2. 在 `index.html` 对应位置添加 UI
+3. 如需要 API 支持，在 `src/api/index.js` 添加
+
+### 添加新入库源
+
+1. 在 `useIngestStore.js` 添加对应逻辑
+2. 在 `IngestAPI` 中添加 API 调用
+3. 在 `index.html` 添加入口选项
+
+### 修改样式
+
+直接编辑 `src/css/style.css`，比在 HTML 中更容易查找和维护。
+
+## 📁 备份机制
+
+前端主文件 `index.html` 有完善的备份机制：
+
+```
+frontend/
+├── index.html                    # 当前生产版本
+└── backups/                      # 历史备份目录
+    ├── README.md                 # 备份说明文档
+    ├── index.html.backup.v2_*    # v2 版本备份
+    ├── index.html.backup.v3_*    # v3 版本备份
+    └── index.html.backup.v4_*    # v4 版本备份
+```
+
+**备份时机：**
+- 重大功能上线前
+- 架构变更前
+- 问题修复前
+
+**恢复方法：**
+```bash
+cp backups/index.html.backup.v4_20260505_214146 index.html
+```
+
+## 🚀 下一步
+
+如果需要进一步优化，可以考虑：
+
+- [ ] 使用 Vue Router 管理路由
+- [ ] 使用 Pinia 进行状态管理
+- [ ] 引入组件库或自定义组件
+- [ ] 添加单元测试
+- [ ] 配置构建工具链
