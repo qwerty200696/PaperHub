@@ -1,0 +1,15 @@
+# 基础
+*.log
+.env
+.DS_Store
+Thumbs.db
+
+# Node.js
+node_modules/
+dist/
+.npm
+
+# Python
+__pycache__/
+.venv/
+*.pyc
