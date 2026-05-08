@@ -19,7 +19,7 @@ except ImportError:
     )
 
 __all__ = [
-    'Base', 'Paper', 'Tag', 'Note', 'Article', 'PaperVersion', 'WechatSubscription',
+    'Base', 'Paper', 'Tag', 'Note', 'Article', 'PaperVersion', 'WechatSubscription', 'WechatConfig',
     'paper_tags', 'note_tags', 'note_papers',
     'article_papers', 'article_tags', 'note_articles'
 ]

@@ -340,3 +340,20 @@ class WechatSubscription(Base):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
+
+
+class WechatConfig(Base):
+    __tablename__ = 'wechat_config'
+
+    id = Column(Integer, primary_key=True)
+    api_key = Column(String(100))
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'api_key': self.api_key,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }

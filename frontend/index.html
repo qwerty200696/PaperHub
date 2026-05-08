@@ -2042,6 +2042,7 @@
 
                 watch(wechatApiKey, (newVal) => {
                     localStorage.setItem('wechat_api_key', newVal || '');
+                    saveWechatConfig();
                 });
 
                 // 对话笔记
@@ -3735,6 +3736,30 @@
                 }
 
                 // ============ 公众号订阅功能 ============
+                async function loadWechatConfig() {
+                    try {
+                        const response = await axios.get('/api/wechat/config');
+                        if (response.data.api_key && !wechatApiKey.value) {
+                            wechatApiKey.value = response.data.api_key;
+                            localStorage.setItem('wechat_api_key', response.data.api_key);
+                        }
+                    } catch (e) {
+                        console.error('加载微信配置失败:', e);
+                    }
+                }
+
+                async function saveWechatConfig() {
+                    try {
+                        const response = await axios.post('/api/wechat/config', {
+                            api_key: wechatApiKey.value
+                        });
+                        localStorage.setItem('wechat_api_key', wechatApiKey.value);
+                        ElementPlus.ElMessage.success('API密钥保存成功');
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('保存失败');
+                    }
+                }
+
                 async function loadSubscriptions() {
                     try {
                         const response = await axios.get('/api/wechat/subscriptions');
@@ -4171,6 +4196,7 @@
                     loadAllNotes();
                     loadAllArticles();
                     loadSearchHistory(); // 加载搜索历史
+                    loadWechatConfig(); // 加载微信配置（含默认API key）
                     loadSubscriptions(); // 加载公众号订阅列表
                 });
 

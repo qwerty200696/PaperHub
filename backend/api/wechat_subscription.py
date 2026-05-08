@@ -181,6 +181,53 @@ def search_account():
     })
 
 
+@bp.route('/wechat/config', methods=['GET'])
+def get_wechat_config():
+    """获取微信公众号相关配置"""
+    WechatConfig = get_models()[5] if len(get_models()) > 5 else None
+    
+    session = get_session()
+    config = None
+    if WechatConfig:
+        config = session.query(WechatConfig).first()
+    
+    api_key = config.api_key if config and config.api_key else DEFAULT_API_KEY
+    session.close()
+    
+    return jsonify({
+        'api_key': api_key,
+        'has_custom_key': config and config.api_key is not None
+    })
+
+
+@bp.route('/wechat/config', methods=['POST'])
+def save_wechat_config():
+    """保存微信公众号配置"""
+    data = request.get_json()
+    api_key = data.get('api_key', '').strip()
+    
+    WechatConfig = get_models()[5] if len(get_models()) > 5 else None
+    if not WechatConfig:
+        return jsonify({'error': '配置模型不可用'}), 500
+    
+    session = get_session()
+    
+    config = session.query(WechatConfig).first()
+    if config:
+        config.api_key = api_key if api_key else None
+    else:
+        config = WechatConfig(api_key=api_key if api_key else None)
+        session.add(config)
+    
+    session.commit()
+    session.close()
+    
+    return jsonify({
+        'message': '配置保存成功',
+        'api_key': api_key or DEFAULT_API_KEY
+    })
+
+
 @bp.route('/wechat/subscriptions', methods=['POST'])
 def add_subscription():
     """添加微信公众号订阅"""
