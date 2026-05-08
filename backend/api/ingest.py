@@ -1,0 +1,611 @@
+"""
+Ingest API - 入库 API
+"""
+import json
+import uuid
+from pathlib import Path
+from flask import Blueprint, jsonify, request
+from werkzeug.utils import secure_filename
+
+bp = Blueprint('ingest', __name__)
+
+ALLOWED_EXTENSIONS = {'pdf', 'html', 'htm'}
+
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def get_session():
+    """获取全局数据库 Session"""
+    try:
+        from backend.config import get_session as _get_session
+    except ImportError:
+        from config import get_session as _get_session
+    return _get_session()
+
+
+def get_models():
+    try:
+        from backend.models import Paper, Note, Article
+    except ImportError:
+        from models import Paper, Note, Article
+    return Paper, Note, Article
+
+
+@bp.route('/ingest/arxiv', methods=['POST'])
+def ingest_arxiv():
+    data = request.get_json()
+    if not data or 'input' not in data:
+        return jsonify({'error': 'Missing input parameter'}), 400
+
+    try:
+        from services import arxiv_fetcher, deduplicator
+    except ImportError:
+        from backend.services import arxiv_fetcher, deduplicator
+
+    try:
+        arxiv_id = arxiv_fetcher.parse_arxiv_input(data['input'])
+
+        Paper, Note, Article = get_models()
+        session = get_session()
+
+        existing = session.query(Paper).filter(Paper.arxiv_id == arxiv_id).first()
+        if existing:
+            return jsonify({
+                'error': 'Paper already exists',
+                'paper_id': existing.id,
+                'paper': existing.to_dict()
+            }), 409
+
+        paper_data = arxiv_fetcher.fetch_arxiv_paper(arxiv_id)
+
+        duplicate = deduplicator.check_duplicate(
+            session, Paper,
+            title=paper_data['title'],
+            doi=paper_data['doi'],
+            arxiv_id=arxiv_id,
+            url=f"https://arxiv.org/abs/{arxiv_id}"
+        )
+        if duplicate:
+            return jsonify({
+                'error': 'Paper already exists',
+                'duplicate_type': 'arxiv_id/title/doi',
+                'paper_id': duplicate.id,
+                'paper': duplicate.to_dict()
+            }), 409
+
+        file_path = arxiv_fetcher.download_pdf(paper_data['pdf_url'], arxiv_id)
+        content = arxiv_fetcher.extract_pdf_text(file_path)
+
+        paper = Paper(
+            title=paper_data['title'],
+            authors=json.dumps(paper_data['authors'], ensure_ascii=False),
+            abstract=paper_data['abstract'],
+            content=content,
+            url=f"https://arxiv.org/abs/{arxiv_id}",
+            source='arxiv',
+            doi=paper_data['doi'],
+            arxiv_id=arxiv_id,
+            published_at=paper_data['published_at'],
+            file_path=file_path,
+            save_local=True,
+            status='pending',
+            starred=False
+        )
+
+        session.add(paper)
+        session.commit()
+        session.refresh(paper)
+
+        return jsonify({
+            'message': 'Paper ingested successfully',
+            'paper': paper.to_dict()
+        }), 201
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ingest/note', methods=['POST'])
+def ingest_note():
+    """
+    导入对话笔记/大模型对话内容 - 导入到笔记库
+
+    Request JSON:
+    {
+        "title": "文章标题",
+        "source": "Claude 对话 / ChatGPT / ...",
+        "content": "Markdown 格式的正文内容",
+        "created_at": "2026-04-30T12:00:00" 可选，默认当前时间
+    }
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Missing request body'}), 400
+
+    required_fields = ['title', 'source', 'content']
+    for field in required_fields:
+        if field not in data or not data[field].strip():
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+
+    title = data['title'].strip()
+    source = data['source'].strip()
+    content = data['content'].strip()
+
+    created_at = None
+    if data.get('created_at'):
+        try:
+            from datetime import datetime
+            created_at = datetime.fromisoformat(data['created_at'].replace('Z', '+00:00'))
+        except:
+            pass
+
+    try:
+        try:
+            from services import note_importer
+        except ImportError:
+            from backend.services import note_importer
+
+        note_data = note_importer.save_note(title, source, content, created_at)
+
+        Paper, Note, Article = get_models()
+        session = get_session()
+
+        try:
+            from backend.services.note_deduplicator import check_note_duplicate
+        except ImportError:
+            from services.note_deduplicator import check_note_duplicate
+
+        existing_note = check_note_duplicate(
+            session, Note,
+            title=note_data['title'],
+            content=note_data['content'],
+            url=note_data['source_url']
+        )
+        if existing_note:
+            return jsonify({
+                'error': 'Note already exists',
+                'note_id': existing_note.id,
+                'note': existing_note.to_dict()
+            }), 409
+
+        note = Note(
+            title=note_data['title'],
+            content=note_data['content'],
+            source=source,
+            url=note_data['source_url'],
+            published_at=note_data['published_at'],
+            file_path=note_data['file_path']
+        )
+
+        session.add(note)
+        session.commit()
+        session.refresh(note)
+
+        return jsonify({
+            'message': 'Note ingested successfully',
+            'note': note.to_dict()
+        }), 201
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ingest/zhihu', methods=['POST'])
+def ingest_zhihu():
+    """
+    导入知乎专栏文章 - 导入到文章库
+
+    模式 1 - URL 自动导入:
+    {
+        "url": "https://zhuanlan.zhihu.com/p/xxx",
+        "cookie": "浏览器复制的知乎Cookie"
+    }
+
+    模式 2 - 手动粘贴内容:
+    {
+        "title": "文章标题",
+        "author": "知乎作者名称",
+        "content": "Markdown 格式的正文内容",
+        "created_at": "2026-04-30T12:00:00" 可选，默认当前时间
+    }
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Missing request body'}), 400
+
+    Paper, Note, Article = get_models()
+    session = get_session()
+
+    try:
+        try:
+            from services import note_importer, zhihu_parser
+        except ImportError:
+            from backend.services import note_importer, zhihu_parser
+    except ImportError:
+        from services import note_importer
+        zhihu_parser = None
+
+    try:
+        if data.get('url') and data.get('cookie') and zhihu_parser:
+            url = data['url'].strip()
+            cookie = data['cookie'].strip()
+
+            if not url or not cookie:
+                return jsonify({'error': 'URL 和 Cookie 不能为空'}), 400
+
+            article_data = zhihu_parser.save_zhihu_article(url, cookie)
+            source_url = url
+            file_path = article_data['file_path']
+            published_at = article_data['published_at']
+            title = article_data['title']
+            content = article_data['content']
+        else:
+            required_fields = ['title', 'content']
+            for field in required_fields:
+                if field not in data or not data[field].strip():
+                    return jsonify({'error': f'Missing required field: {field}'}), 400
+
+            title = data['title'].strip()
+            author = data.get('author', '知乎专栏').strip()
+            content = data['content'].strip()
+
+            created_at = None
+            if data.get('created_at'):
+                try:
+                    from datetime import datetime
+                    created_at = datetime.fromisoformat(data['created_at'].replace('Z', '+00:00'))
+                except:
+                    pass
+
+            article_data = note_importer.save_note(title, f'知乎 · {author}', content, created_at, subfolder='zhihu')
+            source_url = article_data['source_url']
+            file_path = article_data['file_path']
+            published_at = article_data['published_at']
+
+        try:
+            from backend.services.article_deduplicator import check_article_duplicate
+        except ImportError:
+            from services.article_deduplicator import check_article_duplicate
+
+        existing_article = check_article_duplicate(
+            session, Article,
+            title=title,
+            content=content,
+            url=source_url
+        )
+        if existing_article:
+            return jsonify({
+                'error': 'Article already exists',
+                'article_id': existing_article.id,
+                'article': existing_article.to_dict()
+            }), 409
+
+        article = Article(
+            title=title,
+            content=content,
+            author=author if not data.get('url') else article_data.get('author', '知乎专栏'),
+            source='zhihu',
+            url=source_url,
+            published_at=published_at,
+            file_path=file_path
+        )
+
+        session.add(article)
+        session.commit()
+        session.refresh(article)
+
+        return jsonify({
+            'message': 'Zhihu article ingested successfully',
+            'article': article.to_dict()
+        }), 201
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ingest/pdf', methods=['POST'])
+def ingest_pdf():
+    try:
+        from backend.config import BASE_DIR
+    except ImportError:
+        from config import BASE_DIR
+    from datetime import date
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No files uploaded'}), 400
+
+    files = request.files.getlist('file')
+    if not files or files[0].filename == '':
+        return jsonify({'error': 'No files selected'}), 400
+
+    pdf_url = request.form.get('pdf_url', '').strip()
+
+    results = []
+    Paper, Note, Article = get_models()
+    session = get_session()
+
+    try:
+        from services import pdf_processor, wechat_parser, deduplicator, article_deduplicator
+    except ImportError:
+        from backend.services import pdf_processor, wechat_parser, deduplicator, article_deduplicator
+
+    check_article_duplicate = article_deduplicator.check_article_duplicate
+
+    for file in files:
+        if file and allowed_file(file.filename):
+            try:
+                filename = secure_filename(file.filename)
+                unique_id = str(uuid.uuid4())[:8]
+                save_filename = f"{unique_id}_{filename}"
+                relative_path = f"data/papers/uploaded/{save_filename}"
+                full_path = BASE_DIR / relative_path
+                full_path.parent.mkdir(parents=True, exist_ok=True)
+
+                file.save(str(full_path))
+
+                is_html = filename.lower().endswith('.html') or filename.lower().endswith('.htm')
+
+                if is_html:
+                    article_data = wechat_parser.parse_local_html(str(full_path))
+
+                    existing_article = check_article_duplicate(
+                        session, Article,
+                        title=article_data['title'],
+                        content=article_data['content'],
+                        url=article_data['source_url']
+                    )
+                    if existing_article:
+                        Path(full_path).unlink(missing_ok=True)
+                        results.append({
+                            'filename': filename,
+                            'status': 'duplicate',
+                            'article_id': existing_article.id,
+                            'title': existing_article.title,
+                            'message': f'Duplicate detected: {existing_article.title[:50]}...'
+                        })
+                        continue
+
+                    Path(full_path).unlink(missing_ok=True)
+
+                    article = Article(
+                        title=article_data['title'],
+                        content=article_data['content'],
+                        author=article_data.get('account_name', '微信公众号'),
+                        source='wechat',
+                        url=article_data['source_url'],
+                        published_at=article_data['published_at'],
+                        file_path=article_data['file_path']
+                    )
+
+                    session.add(article)
+                    session.flush()
+
+                    results.append({
+                        'filename': filename,
+                        'status': 'success',
+                        'article_id': article.id,
+                        'title': article.title
+                    })
+                else:
+                    existing = session.query(Paper).filter(Paper.file_path == relative_path).first()
+                    if existing:
+                        results.append({
+                            'filename': filename,
+                            'status': 'duplicate',
+                            'paper_id': existing.id,
+                            'message': 'File already exists'
+                        })
+                        continue
+
+                    pdf_data = pdf_processor.process_pdf_file(str(full_path), filename)
+
+                    duplicate = deduplicator.check_duplicate(
+                        session, Paper,
+                        title=pdf_data['title']
+                    )
+                    if duplicate:
+                        Path(full_path).unlink(missing_ok=True)
+                        results.append({
+                            'filename': filename,
+                            'status': 'duplicate',
+                            'paper_id': duplicate.id,
+                            'title': duplicate.title,
+                            'message': f'Duplicate detected: {duplicate.title[:50]}...'
+                        })
+                        continue
+
+                    paper = Paper(
+                        title=pdf_data['title'],
+                        authors=json.dumps(pdf_data['authors'], ensure_ascii=False),
+                        abstract=pdf_data['abstract'],
+                        content=pdf_data['content'],
+                        source='pdf',
+                        url=pdf_url if pdf_url else None,
+                        published_at=date.today(),
+                        file_path=relative_path,
+                        save_local=True,
+                        status='pending',
+                        starred=False
+                    )
+
+                    session.add(paper)
+                    session.flush()
+
+                    results.append({
+                        'filename': filename,
+                        'status': 'success',
+                        'paper_id': paper.id,
+                        'title': paper.title
+                    })
+
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                results.append({
+                    'filename': file.filename,
+                    'status': 'error',
+                    'error': str(e)
+                })
+
+    session.commit()
+
+    success_count = sum(1 for r in results if r['status'] == 'success')
+    return jsonify({
+        'message': f'Successfully ingested {success_count}/{len(results)} files',
+        'success': success_count,
+        'total': len(results),
+        'results': results
+    }), 200
+
+
+@bp.route('/ingest/wechat/local', methods=['POST'])
+def ingest_wechat_local():
+    data = request.get_json()
+    if not data or 'html_path' not in data:
+        return jsonify({'error': 'Missing html_path parameter'}), 400
+
+    html_path = data['html_path'].strip()
+    assets_folder = data.get('assets_folder', None)
+    from pathlib import Path
+
+    if not Path(html_path).exists():
+        return jsonify({'error': 'HTML 文件不存在'}), 400
+
+    try:
+        try:
+            from services import wechat_parser
+        except ImportError:
+            from backend.services import wechat_parser
+        article_data = wechat_parser.parse_local_html(html_path, assets_folder)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'解析失败: {str(e)}'}), 500
+
+    Paper, Note, Article = get_models()
+    session = get_session()
+
+    try:
+        from backend.services.article_deduplicator import check_article_duplicate
+    except ImportError:
+        from services.article_deduplicator import check_article_duplicate
+
+    existing_article = check_article_duplicate(
+        session, Article,
+        title=article_data['title'],
+        content=article_data['content'],
+        url=article_data['source_url']
+    )
+    if existing_article:
+        return jsonify({
+            'article_id': existing_article.id,
+            'title': existing_article.title,
+            'duplicate': True,
+            'message': 'Duplicate detected'
+        }), 200
+
+    article = Article(
+        title=article_data['title'],
+        content=article_data['content'],
+        author=article_data.get('account_name', '微信公众号'),
+        source='wechat',
+        url=article_data['source_url'],
+        published_at=article_data['published_at'],
+        file_path=article_data['file_path']
+    )
+
+    session.add(article)
+    session.commit()
+    session.refresh(article)
+
+    return jsonify({
+        'article_id': article.id,
+        'title': article.title,
+        'message': 'Success'
+    }), 200
+
+
+@bp.route('/ingest/wechat', methods=['POST'])
+def ingest_wechat():
+    data = request.get_json()
+    if not data or 'url' not in data:
+        return jsonify({'error': 'Missing url parameter'}), 400
+
+    url = data['url'].strip()
+    extract_content_only = data.get('extract_content_only', False)
+    try:
+        from services import wechat_parser
+    except ImportError:
+        from backend.services import wechat_parser
+
+    if not wechat_parser.is_wechat_url(url):
+        return jsonify({'error': '不是有效的微信公众号链接'}), 400
+
+    Paper, Note, Article = get_models()
+    session = get_session()
+
+    try:
+        from backend.services.article_deduplicator import check_article_duplicate
+    except ImportError:
+        from services.article_deduplicator import check_article_duplicate
+
+    try:
+        article_data = wechat_parser.fetch_wechat_article_new(url, 'html')
+
+        if not article_data:
+            return jsonify({'error': '获取文章内容失败'}), 500
+
+        existing_article = check_article_duplicate(
+            session, Article,
+            title=article_data['title'],
+            content=article_data['content'],
+            url=url
+        )
+        if existing_article:
+            return jsonify({
+                'error': 'Article already exists',
+                'article_id': existing_article.id,
+                'article': existing_article.to_dict()
+            }), 409
+
+        file_path = article_data.get('file_path')
+
+        article = Article(
+            title=article_data['title'],
+            content=article_data['content'],
+            author=article_data.get('account_name', '微信公众号'),
+            source='wechat',
+            url=url,
+            published_at=article_data['published_at'],
+            file_path=file_path
+        )
+
+        session.add(article)
+        session.commit()
+        session.refresh(article)
+
+        return jsonify({
+            'message': 'Article ingested successfully',
+            'article': article.to_dict()
+        }), 201
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
