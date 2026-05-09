@@ -186,16 +186,15 @@ def get_note_routes(app):
 
     @notes_bp.route('/<int:note_id>', methods=['DELETE'])
     def delete_note(note_id):
-        """删除笔记（软删除）"""
+        """删除笔记（硬删除）"""
         session = get_session()
         try:
             note = session.query(Note).filter(
-                Note.id == note_id,
-                Note.is_deleted == False
+                Note.id == note_id
             ).first()
             if not note:
                 return jsonify({'error': '笔记不存在'}), 404
-            note.is_deleted = True
+            session.delete(note)
             session.commit()
             return jsonify({'message': '删除成功'})
         except Exception as e:
