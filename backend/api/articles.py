@@ -2,6 +2,9 @@
 文章库 API
 处理微信公众号、知乎文章等网络文章的CRUD和关联管理
 """
+import os
+import shutil
+from pathlib import Path
 from flask import Blueprint, request, jsonify
 
 bp = Blueprint('articles', __name__, url_prefix='/api/articles')
@@ -171,18 +174,40 @@ def get_article_routes(app):
 
     @bp.route('/<int:article_id>', methods=['DELETE'])
     def delete_article(article_id):
-        """删除文章（软删除）"""
+        """删除文章（硬删除 + 清理本地微信文件）"""
+        try:
+            from backend.config import PAPERS_DIR
+        except ImportError:
+            from config import PAPERS_DIR
+
         session = get_session()
         try:
             article = session.query(Article).filter(
-                Article.id == article_id,
-                Article.is_deleted == False
+                Article.id == article_id
             ).first()
 
             if not article:
                 return jsonify({'error': 'Article not found'}), 404
 
-            article.is_deleted = True
+            # 清理本地文件（微信公众号文章）
+            if article.file_path and article.source == 'wechat':
+                wechat_dir = PAPERS_DIR / 'wechat'
+                try:
+                    file_path = os.path.abspath(article.file_path)
+                    # 验证文件路径在 data/papers/wechat 目录下，防止路径遍历
+                    if wechat_dir in Path(file_path).parents or Path(file_path).parent == wechat_dir:
+                        # 删除 .html 文件
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                        # 删除对应的 _files 文件夹
+                        file_path_obj = Path(file_path)
+                        files_dir = file_path_obj.parent / f"{file_path_obj.stem}_files"
+                        if os.path.exists(files_dir) and os.path.isdir(files_dir):
+                            shutil.rmtree(files_dir)
+                except Exception as e:
+                    print(f"清理文章本地文件失败: {e}")
+
+            session.delete(article)
             session.commit()
 
             return jsonify({'message': 'Article deleted successfully'}), 200
