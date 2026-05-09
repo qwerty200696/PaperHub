@@ -1,6 +1,9 @@
 """
 笔记 API - 独立笔记 CRUD + 笔记-论文关联管理
 """
+import os
+import re
+from pathlib import Path
 from flask import Blueprint, jsonify, request
 from datetime import datetime
 
@@ -186,7 +189,12 @@ def get_note_routes(app):
 
     @notes_bp.route('/<int:note_id>', methods=['DELETE'])
     def delete_note(note_id):
-        """删除笔记（硬删除）"""
+        """删除笔记（硬删除 + 同步清理笔记内引用的本地图片）"""
+        try:
+            from backend.config import PAPERS_DIR
+        except ImportError:
+            from config import PAPERS_DIR
+
         session = get_session()
         try:
             note = session.query(Note).filter(
@@ -194,6 +202,22 @@ def get_note_routes(app):
             ).first()
             if not note:
                 return jsonify({'error': '笔记不存在'}), 404
+
+            # 清理笔记内容中引用的 note_images 图片
+            note_images_dir = PAPERS_DIR / 'note_images'
+            if note.content:
+                # 匹配 Markdown 图片语法 ![...](/api/note-images/xxx.png)
+                image_paths = re.findall(r'/api/note-images/([^\)\s]+)', note.content)
+                for img_name in image_paths:
+                    try:
+                        img_path = note_images_dir / img_name
+                        img_path_abs = os.path.abspath(str(img_path))
+                        # 安全校验，确保图片在 note_images 目录内
+                        if str(note_images_dir) in img_path_abs and os.path.exists(img_path_abs):
+                            os.remove(img_path_abs)
+                    except Exception as e:
+                        print(f"清理笔记图片失败: {e}")
+
             session.delete(note)
             session.commit()
             return jsonify({'message': '删除成功'})
