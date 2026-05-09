@@ -1158,17 +1158,154 @@
                     <el-tabs v-model="ingestTab" type="border-card">
                         <!-- arXiv 入库 -->
                         <el-tab-pane label="arXiv 入库" name="arxiv">
-                            <el-input
-                                v-model="arxivInput"
-                                placeholder="输入arXiv ID或链接，例如：2604.08224"
-                                style="margin-bottom: 16px;"
-                                @keyup.enter="ingestArxiv"
-                            >
-                                <template #append>
-                                    <el-button type="primary" @click="ingestArxiv" :loading="ingesting">入库</el-button>
+                            <!-- 方法一：ID输入 -->
+                            <el-card style="margin-bottom: 20px;">
+                                <template #header>
+                                    <div style="font-weight: 600;">方法一：ID输入</div>
                                 </template>
-                            </el-input>
-                            <p style="color: #909399;">支持格式：2604.08224 或 https://arxiv.org/abs/2604.08224</p>
+                                <el-input
+                                    v-model="arxivInput"
+                                    placeholder="输入arXiv ID或链接，例如：2604.08224"
+                                    style="margin-bottom: 16px;"
+                                    @keyup.enter="ingestArxiv"
+                                >
+                                    <template #append>
+                                        <el-button type="primary" @click="ingestArxiv" :loading="ingesting">入库</el-button>
+                                    </template>
+                                </el-input>
+                                <p style="color: #909399; margin: 0;">支持格式：2604.08224 或 https://arxiv.org/abs/2604.08224</p>
+                            </el-card>
+
+                            <!-- 方法二：关键词搜索 -->
+                            <el-card>
+                                <template #header>
+                                    <div style="font-weight: 600;">方法二：关键词搜索</div>
+                                </template>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                                    <div>
+                                        <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">关键词（逗号分隔）</label>
+                                        <el-input v-model="arxivKeywords" placeholder="如：machine learning, deep learning" size="small"></el-input>
+                                        <div v-if="arxivSearchHistory.length > 0" style="margin-top: 8px;">
+                                            <span style="font-size: 12px; color: #909399; margin-right: 8px;">历史:</span>
+                                            <el-tag
+                                                v-for="(keyword, index) in arxivSearchHistory"
+                                                :key="index"
+                                                size="small"
+                                                effect="plain"
+                                                style="cursor: pointer; margin-right: 4px;"
+                                                @click="selectHistoryKeyword(keyword)"
+                                            >
+                                                {{ keyword }}
+                                            </el-tag>
+                                            <el-button
+                                                v-if="arxivSearchHistory.length > 0"
+                                                size="mini"
+                                                text
+                                                @click="clearArxivSearchHistory"
+                                            >
+                                                清空历史
+                                            </el-button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">返回数量</label>
+                                        <el-select v-model="arxivMaxResults" size="small" style="width: 100%;">
+                                            <el-option :value="10" label="10"></el-option>
+                                            <el-option :value="20" label="20"></el-option>
+                                            <el-option :value="50" label="50"></el-option>
+                                            <el-option :value="100" label="100"></el-option>
+                                        </el-select>
+                                    </div>
+                                </div>
+                                <div style="margin-bottom: 16px;">
+                                    <label style="font-size: 13px; color: #606266; margin-bottom: 8px; display: block;">📂 分类筛选（可选）</label>
+                                    <el-collapse accordion>
+                                        <el-collapse-item v-for="(categories, group) in arxivGroupedCategories" :key="group" :title="group.toUpperCase()">
+                                            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                                <el-tag
+                                                    v-for="cat in categories"
+                                                    :key="cat.code"
+                                                    :type="arxivCategories.includes(cat.code) ? 'primary' : ''"
+                                                    :effect="arxivCategories.includes(cat.code) ? 'dark' : 'plain'"
+                                                    size="small"
+                                                    style="cursor: pointer;"
+                                                    @click="toggleArxivCategory(cat.code)"
+                                                >
+                                                    {{ cat.code }}
+                                                </el-tag>
+                                            </div>
+                                        </el-collapse-item>
+                                    </el-collapse>
+                                </div>
+                                <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                                    <div style="flex: 1;">
+                                        <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">开始日期</label>
+                                        <el-date-picker v-model="arxivStartDate" type="date" format="YYYY-MM-DD" value-format="YYYY-MM-DD" size="small" style="width: 100%;"></el-date-picker>
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">结束日期</label>
+                                        <el-date-picker v-model="arxivEndDate" type="date" format="YYYY-MM-DD" value-format="YYYY-MM-DD" size="small" style="width: 100%;"></el-date-picker>
+                                    </div>
+                                </div>
+                                <el-button type="primary" size="small" @click="searchArxiv" :loading="arxivSearchLoading">
+                                    <el-icon :icon="Search"></el-icon> 搜索 arXiv
+                                </el-button>
+                                <el-button size="small" @click="clearArxivSearch">重置</el-button>
+
+                                <div v-if="arxivSearchResults.length > 0" style="margin-top: 20px; border-top: 1px solid #ebeef5; padding-top: 20px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                        <span style="color: #606266; font-size: 13px;">找到 {{ arxivSearchResults.length }} 篇论文</span>
+                                        <el-button size="small" text @click="selectAllArxivPapers">
+                                            {{ selectedArxivPapers.length === arxivSearchResults.length ? '取消全选' : '全选' }}
+                                        </el-button>
+                                    </div>
+                                    <div style="max-height: 400px; overflow-y: auto;">
+                                        <el-card
+                                            v-for="paper in arxivSearchResults"
+                                            :key="paper.arxiv_id"
+                                            :class="{ 'arxiv-selected': selectedArxivPapers.includes(paper.arxiv_id) }"
+                                            style="margin-bottom: 8px; cursor: pointer;"
+                                            @click="toggleArxivPaperSelection(paper.arxiv_id)"
+                                        >
+                                            <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                                <el-checkbox
+                                                    v-model="selectedArxivPapers"
+                                                    :label="paper.arxiv_id"
+                                                    style="margin-top: 4px;"
+                                                ></el-checkbox>
+                                                <div style="flex: 1;">
+                                                    <h4 style="margin: 0 0 4px 0; font-size: 14px;">{{ paper.title }}</h4>
+                                                    <div style="color: #909399; font-size: 12px; margin-bottom: 4px;">{{ paper.authors.join(', ') }}</div>
+                                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                                        <el-tag size="mini" type="warning">arXiv:{{ paper.arxiv_id }}</el-tag>
+                                                        <el-tag size="mini" v-for="cat in paper.categories" :key="cat">{{ cat }}</el-tag>
+                                                        <el-tag size="mini" v-if="importedArxivIds.has(normalizeArxivId(paper.arxiv_id))" size="mini" type="success">已导入</el-tag>
+                                                        <span style="color: #909399; font-size: 12px;">{{ paper.published_at }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </el-card>
+                                    </div>
+                                    <div style="display: flex; gap: 8px; margin-top: 16px;">
+                                        <el-button
+                                            type="success"
+                                            size="small"
+                                            :disabled="selectedArxivPapers.length === 0"
+                                            @click="importSelectedPapers(false)"
+                                        >
+                                            <el-icon :icon="Download"></el-icon> 导入元数据 ({{ selectedArxivPapers.length }})
+                                        </el-button>
+                                        <el-button
+                                            type="primary"
+                                            size="small"
+                                            :disabled="selectedArxivPapers.length === 0"
+                                            @click="importSelectedPapers(true)"
+                                        >
+                                            <el-icon :icon="Download"></el-icon> 导入并下载PDF
+                                        </el-button>
+                                    </div>
+                                </div>
+                            </el-card>
                         </el-tab-pane>
 
                         <!-- 微信公众号 -->
@@ -1828,6 +1965,20 @@
                 const arxivInput = ref('');
                 const ingesting = ref(false);
                 const newTagName = ref('');
+
+                // ============ arXiv 关键词搜索状态 ============
+                const arxivKeywords = ref('');
+                const arxivMaxResults = ref(20);
+                const arxivCategories = ref([]);
+                const arxivStartDate = ref('');
+                const arxivEndDate = ref('');
+                const arxivSearchResults = ref([]);
+                const arxivSearchLoading = ref(false);
+                const selectedArxivPapers = ref([]);
+                const arxivAllCategories = ref({});
+                const arxivGroupedCategories = ref({});
+                const arxivSearchHistory = ref([]);
+                const importedArxivIds = ref(new Set());
                 
                 // ============ 全局搜索状态 ============
                 const searchInput = ref('');
@@ -3727,6 +3878,187 @@
                     await IngestModule.value.ingestArxiv();
                 }
 
+                // ============ arXiv 关键词搜索功能 ============
+                function loadArxivSearchHistory() {
+                    try {
+                        const saved = localStorage.getItem('arxiv_search_history');
+                        if (saved) {
+                            arxivSearchHistory.value = JSON.parse(saved);
+                        } else {
+                            arxivSearchHistory.value = ['machine learning', 'deep learning', 'natural language processing', 'computer vision'];
+                        }
+                    } catch (e) {
+                        console.error('加载搜索历史失败:', e);
+                        arxivSearchHistory.value = ['machine learning', 'deep learning', 'natural language processing', 'computer vision'];
+                    }
+                }
+
+                function loadImportedArxivIds() {
+                    importedArxivIds.value.clear();
+                    const dbIds = [];
+                    if (allPapersCache.value) {
+                        allPapersCache.value.forEach(paper => {
+                            if (paper.arxiv_id) {
+                                const normalizedId = paper.arxiv_id.replace(/v\d+$/, '');
+                                importedArxivIds.value.add(normalizedId);
+                                importedArxivIds.value.add(paper.arxiv_id);
+                                dbIds.push(paper.arxiv_id);
+                            }
+                        });
+                    }
+                    console.log('=== 数据库中已有的 arXiv ID ===', dbIds);
+                    ElementPlus.ElMessage.info(`已加载 ${dbIds.length} 个已导入的 arXiv ID`);
+                }
+
+                function normalizeArxivId(id) {
+                    if (!id) return '';
+                    return id.replace(/v\d+$/, '');
+                }
+
+                function saveArxivSearchHistory(keywords) {
+                    if (!keywords.trim()) return;
+                    
+                    const index = arxivSearchHistory.value.indexOf(keywords.trim());
+                    if (index > -1) {
+                        arxivSearchHistory.value.splice(index, 1);
+                    }
+                    arxivSearchHistory.value.unshift(keywords.trim());
+                    
+                    if (arxivSearchHistory.value.length > 10) {
+                        arxivSearchHistory.value = arxivSearchHistory.value.slice(0, 10);
+                    }
+                    
+                    localStorage.setItem('arxiv_search_history', JSON.stringify(arxivSearchHistory.value));
+                }
+
+                function selectHistoryKeyword(keyword) {
+                    arxivKeywords.value = keyword;
+                }
+
+                function clearArxivSearchHistory() {
+                    arxivSearchHistory.value = [];
+                    localStorage.removeItem('arxiv_search_history');
+                }
+
+                async function loadArxivCategories() {
+                    try {
+                        const res = await axios.get('/api/papers/search/categories');
+                        arxivAllCategories.value = res.data.categories || {};
+                        arxivGroupedCategories.value = res.data.grouped_categories || {};
+                    } catch (e) {
+                        console.error('加载arXiv分类失败:', e);
+                    }
+                }
+
+                async function searchArxiv() {
+                    arxivSearchLoading.value = true;
+                    try {
+                        const params = {
+                            keywords: arxivKeywords.value || undefined,
+                            categories: arxivCategories.value.length > 0 ? arxivCategories.value.join(',') : undefined,
+                            max_results: arxivMaxResults.value,
+                            start_date: arxivStartDate.value || undefined,
+                            end_date: arxivEndDate.value || undefined
+                        };
+                        const res = await axios.get('/api/papers/search', { params });
+                        arxivSearchResults.value = res.data.results || [];
+                        selectedArxivPapers.value = [];
+                        
+                        const searchIds = arxivSearchResults.value.map(p => p.arxiv_id);
+                        console.log('=== importedArxivIds 内容 ===', Array.from(importedArxivIds.value));
+                        console.log('=== allPapersCache.value 长度 ===', allPapersCache.value?.length || 0);
+                        
+                        const matchedIds = searchIds.filter(id => {
+                            const normalized = normalizeArxivId(id);
+                            const has = importedArxivIds.value.has(normalized);
+                            console.log(`  检查: ${id} -> 标准化: ${normalized} -> 是否存在: ${has}`);
+                            return has;
+                        });
+                        
+                        console.log('=== 搜索结果 arXiv ID ===', searchIds);
+                        console.log('=== 已匹配到已导入的 ID ===', matchedIds);
+                        
+                        ElementPlus.ElMessage.success(`找到 ${arxivSearchResults.value.length} 篇论文，其中 ${matchedIds.length} 篇已导入`);
+                        
+                        saveArxivSearchHistory(arxivKeywords.value);
+                    } catch (e) {
+                        console.error('搜索arXiv失败:', e);
+                        ElementPlus.ElMessage.error('搜索失败，请稍后重试');
+                    } finally {
+                        arxivSearchLoading.value = false;
+                    }
+                }
+
+                function clearArxivSearch() {
+                    arxivKeywords.value = '';
+                    arxivCategories.value = [];
+                    arxivMaxResults.value = 20;
+                    arxivStartDate.value = '';
+                    arxivEndDate.value = '';
+                    arxivSearchResults.value = [];
+                    selectedArxivPapers.value = [];
+                }
+
+                function toggleArxivCategory(code) {
+                    const index = arxivCategories.value.indexOf(code);
+                    if (index > -1) {
+                        arxivCategories.value.splice(index, 1);
+                    } else {
+                        arxivCategories.value.push(code);
+                    }
+                }
+
+                function toggleArxivPaperSelection(arxivId) {
+                    const index = selectedArxivPapers.value.indexOf(arxivId);
+                    if (index > -1) {
+                        selectedArxivPapers.value.splice(index, 1);
+                    } else {
+                        selectedArxivPapers.value.push(arxivId);
+                    }
+                }
+
+                function selectAllArxivPapers() {
+                    if (selectedArxivPapers.value.length === arxivSearchResults.value.length) {
+                        selectedArxivPapers.value = [];
+                    } else {
+                        selectedArxivPapers.value = arxivSearchResults.value.map(p => p.arxiv_id);
+                    }
+                }
+
+                async function importSelectedPapers(savePdf = false) {
+                    if (selectedArxivPapers.value.length === 0) {
+                        ElementPlus.ElMessage.warning('请先选择要导入的论文');
+                        return;
+                    }
+
+                    const papersToImport = arxivSearchResults.value.filter(
+                        p => selectedArxivPapers.value.includes(p.arxiv_id)
+                    );
+
+                    try {
+                        const res = await axios.post('/api/papers/search/import', {
+                            papers: papersToImport,
+                            save_pdf: savePdf
+                        });
+
+                        ElementPlus.ElMessage.success(
+                            `成功导入 ${res.data.imported} 篇论文，跳过 ${res.data.skipped} 篇重复论文`
+                        );
+
+                        if (res.data.errors && res.data.errors.length > 0) {
+                            console.warn('导入错误:', res.data.errors);
+                        }
+
+                        await loadPapers();
+                        loadImportedArxivIds();
+                        selectedArxivPapers.value = [];
+                        arxivSearchResults.value = [];
+                    } catch (e) {
+                        console.error('导入失败:', e);
+                        ElementPlus.ElMessage.error('导入失败');
+                    }
+                }
+
                 async function ingestWechat() {
                     if (!_initIngestModule()) {
                         ElementPlus.ElMessage.warning('模块加载中，请稍候...');
@@ -4188,16 +4520,19 @@
                 });
 
                 // ============ 初始化 ============
-                onMounted(() => {
+                onMounted(async () => {
                     console.log('App mounted, loading all data...');
                     // ✅ 预加载三大库所有数据，用户切换时立即显示
                     loadTags(); // 标签先加载，三库共用
-                    loadPapers();
+                    await loadPapers();
                     loadAllNotes();
                     loadAllArticles();
                     loadSearchHistory(); // 加载搜索历史
                     loadWechatConfig(); // 加载微信配置（含默认API key）
                     loadSubscriptions(); // 加载公众号订阅列表
+                    loadArxivCategories(); // 加载arXiv分类列表
+                    loadArxivSearchHistory(); // 加载arXiv搜索历史
+                    loadImportedArxivIds(); // 加载已导入的arXiv ID
                 });
 
                 // ============ 标签加载（与全局标签复用） ============
@@ -4215,6 +4550,14 @@
                     sidebarRef, startResize,
                     goBackToList, goToPaper, goToArticle, goToNote, unlinkPaperArticle,
                     selectedPaper, total, arxivInput, ingesting, newTagName,
+
+                    // ============ arXiv 关键词搜索 =============
+                    arxivKeywords, arxivMaxResults, arxivCategories, arxivStartDate, arxivEndDate,
+                    arxivSearchResults, arxivSearchLoading, selectedArxivPapers, arxivGroupedCategories,
+                    arxivSearchHistory, importedArxivIds,
+                    searchArxiv, clearArxivSearch, toggleArxivCategory, toggleArxivPaperSelection,
+                    selectAllArxivPapers, importSelectedPapers, loadArxivCategories,
+                    selectHistoryKeyword, clearArxivSearchHistory, loadImportedArxivIds, normalizeArxivId,
 
                     // ============ AI 解读 =============
                     aiSummary, aiSummaryLoading, aiSummaryError,

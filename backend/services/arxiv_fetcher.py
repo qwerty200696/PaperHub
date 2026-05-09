@@ -138,6 +138,9 @@ def search_arxiv_papers(keywords=None, categories=None, max_results=20,
     Returns:
         论文列表，每个元素是包含论文信息的字典
     """
+    import logging
+    logger = logging.getLogger('arxiv')
+    
     client = arxiv.Client()
     
     # 构建查询字符串
@@ -146,8 +149,8 @@ def search_arxiv_papers(keywords=None, categories=None, max_results=20,
     if keywords:
         if isinstance(keywords, str):
             keywords = [keywords]
-        # 多关键词使用 AND 逻辑连接
-        keyword_query = ' AND '.join(f'"{kw}"' for kw in keywords)
+        # 多关键词使用 AND 逻辑连接（不使用引号，避免触发限流）
+        keyword_query = ' AND '.join(keywords)
         query_parts.append(keyword_query)
     
     if categories:
@@ -158,6 +161,9 @@ def search_arxiv_papers(keywords=None, categories=None, max_results=20,
         query_parts.append(f'({category_query})')
     
     query = ' AND '.join(query_parts) if query_parts else 'cat:cs.*'
+    
+    logger.info(f"构建的查询字符串: {query}")
+    logger.info(f"关键词: {keywords}, 分类: {categories}, 最大结果数: {max_results}")
     
     # 设置排序方式
     sort_by_map = {
@@ -179,36 +185,44 @@ def search_arxiv_papers(keywords=None, categories=None, max_results=20,
     )
     
     results = []
-    for paper in client.results(search):
-        # 时间范围过滤
-        if start_date and paper.published.date() < start_date:
-            continue
-        if end_date and paper.published.date() > end_date:
-            continue
-        
-        # 提取分类信息
-        category_l1 = None
-        category_l2 = None
-        if paper.categories:
-            primary_category = paper.categories[0]
-            if '.' in primary_category:
-                category_l1, category_l2 = primary_category.split('.', 1)
-            else:
-                category_l1 = primary_category
-        
-        results.append({
-            'title': paper.title,
-            'authors': [a.name for a in paper.authors],
-            'abstract': paper.summary,
-            'published_at': paper.published.date(),
-            'pdf_url': paper.pdf_url,
-            'categories': paper.categories,
-            'category_l1': category_l1,
-            'category_l2': category_l2,
-            'doi': paper.doi,
-            'arxiv_id': paper.get_short_id().replace('arXiv:', '') if paper.get_short_id() else None,
-            'url': f"https://arxiv.org/abs/{paper.get_short_id().replace('arXiv:', '')}" if paper.get_short_id() else None
-        })
+    try:
+        for paper in client.results(search):
+            # 时间范围过滤
+            if start_date and paper.published.date() < start_date:
+                continue
+            if end_date and paper.published.date() > end_date:
+                continue
+            
+            # 提取分类信息
+            category_l1 = None
+            category_l2 = None
+            if paper.categories:
+                primary_category = paper.categories[0]
+                if '.' in primary_category:
+                    category_l1, category_l2 = primary_category.split('.', 1)
+                else:
+                    category_l1 = primary_category
+            
+            results.append({
+                'title': paper.title,
+                'authors': [a.name for a in paper.authors],
+                'abstract': paper.summary,
+                'published_at': paper.published.date(),
+                'pdf_url': paper.pdf_url,
+                'categories': paper.categories,
+                'category_l1': category_l1,
+                'category_l2': category_l2,
+                'doi': paper.doi,
+                'arxiv_id': paper.get_short_id().replace('arXiv:', '') if paper.get_short_id() else None,
+                'url': f"https://arxiv.org/abs/{paper.get_short_id().replace('arXiv:', '')}" if paper.get_short_id() else None
+            })
+        logger.info(f"搜索完成，共找到 {len(results)} 篇论文")
+    except Exception as e:
+        logger.error(f"搜索失败: {str(e)}")
+        logger.error(f"错误类型: {type(e).__name__}")
+        import traceback
+        logger.error(f"堆栈跟踪: {traceback.format_exc()}")
+        raise
     
     return results
 

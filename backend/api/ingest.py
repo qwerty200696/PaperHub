@@ -33,6 +33,153 @@ def get_models():
     return Paper, Note, Article
 
 
+@bp.route('/ingest/arxiv/search', methods=['GET'])
+def search_arxiv():
+    """
+    搜索 arXiv 论文
+    
+    Query Parameters:
+    - keywords: 关键词（逗号分隔）
+    - max_results: 返回数量（默认10）
+    - categories: 分类筛选（逗号分隔）
+    - start_date: 开始日期（YYYY-MM-DD）
+    - end_date: 结束日期（YYYY-MM-DD）
+    """
+    keywords = request.args.get('keywords', '')
+    max_results = int(request.args.get('max_results', 10))
+    categories = request.args.get('categories', '')
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+
+    try:
+        from services import arxiv_fetcher
+    except ImportError:
+        from backend.services import arxiv_fetcher
+
+    try:
+        # 解析关键词
+        keyword_list = [k.strip() for k in keywords.split(',') if k.strip()] if keywords else None
+
+        # 解析分类
+        category_list = [c.strip() for c in categories.split(',') if c.strip()] if categories else None
+
+        # 解析日期
+        start_date_obj = None
+        end_date_obj = None
+        if start_date:
+            from datetime import datetime
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        if end_date:
+            from datetime import datetime
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+        results = arxiv_fetcher.search_arxiv_papers(
+            keywords=keyword_list,
+            categories=category_list,
+            max_results=max_results,
+            start_date=start_date_obj,
+            end_date=end_date_obj
+        )
+
+        return jsonify(results), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ingest/arxiv/batch', methods=['POST'])
+def ingest_arxiv_batch():
+    """
+    批量导入 arXiv 论文
+    
+    Request JSON:
+    {
+        "arxiv_ids": ["2604.08224", "2604.12345"],
+        "download_pdf": true
+    }
+    """
+    data = request.get_json()
+    if not data or 'arxiv_ids' not in data:
+        return jsonify({'error': 'Missing arxiv_ids parameter'}), 400
+
+    arxiv_ids = data['arxiv_ids']
+    download_pdf = data.get('download_pdf', True)
+
+    if not isinstance(arxiv_ids, list) or len(arxiv_ids) == 0:
+        return jsonify({'error': 'arxiv_ids must be a non-empty list'}), 400
+
+    try:
+        from services import arxiv_fetcher, deduplicator
+    except ImportError:
+        from backend.services import arxiv_fetcher, deduplicator
+
+    Paper, Note, Article = get_models()
+    session = get_session()
+
+    success_count = 0
+    failed_count = 0
+    errors = []
+
+    for arxiv_id in arxiv_ids:
+        try:
+            # 检查是否已存在
+            existing = session.query(Paper).filter(Paper.arxiv_id == arxiv_id).first()
+            if existing:
+                continue
+
+            paper_data = arxiv_fetcher.fetch_arxiv_paper(arxiv_id)
+
+            duplicate = deduplicator.check_duplicate(
+                session, Paper,
+                title=paper_data['title'],
+                doi=paper_data['doi'],
+                arxiv_id=arxiv_id,
+                url=f"https://arxiv.org/abs/{arxiv_id}"
+            )
+            if duplicate:
+                continue
+
+            file_path = None
+            content = None
+            if download_pdf:
+                file_path = arxiv_fetcher.download_pdf(paper_data['pdf_url'], arxiv_id)
+                content = arxiv_fetcher.extract_pdf_text(file_path)
+
+            paper = Paper(
+                title=paper_data['title'],
+                authors=json.dumps(paper_data['authors'], ensure_ascii=False),
+                abstract=paper_data['abstract'],
+                content=content,
+                url=f"https://arxiv.org/abs/{arxiv_id}",
+                source='arxiv',
+                doi=paper_data['doi'],
+                arxiv_id=arxiv_id,
+                published_at=paper_data['published_at'],
+                file_path=file_path,
+                save_local=download_pdf,
+                status='pending',
+                starred=False
+            )
+
+            session.add(paper)
+            success_count += 1
+
+        except Exception as e:
+            failed_count += 1
+            errors.append({'arxiv_id': arxiv_id, 'error': str(e)})
+
+    session.commit()
+
+    return jsonify({
+        'message': f'Successfully ingested {success_count}/{len(arxiv_ids)} papers',
+        'count': success_count,
+        'failed': failed_count,
+        'errors': errors
+    }), 200
+
+
 @bp.route('/ingest/arxiv', methods=['POST'])
 def ingest_arxiv():
     data = request.get_json()
