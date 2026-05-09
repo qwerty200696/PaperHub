@@ -1,9 +1,10 @@
 """
 PaperHub Backend - Flask 主应用
 """
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 from pathlib import Path
 from flask_cors import CORS
+import logging
 
 try:
     from backend.config import config, BASE_DIR, init_db, get_session, close_scoped_session
@@ -11,8 +12,33 @@ except ImportError:
     from config import config, BASE_DIR, init_db, get_session, close_scoped_session
 
 
+_scan_patterns = [
+    '/sse', '/status', '/v1/mcp', '/api/mcp', '/mcp',
+    '/soap/', '/cgi-bin/', '/_catalog', '/web-static/',
+    '/favicon.ico/', '/favicon.png', '/.env', '/.git',
+    '/wp-', '/phpmyadmin', '/admin', '/manager',
+    '/api/v1/', '/api/v2/', '/actuator', '/swagger',
+    '/.well-known/', '/apple-app-site-association'
+]
+
+
+def _is_scan_request(path):
+    for pattern in _scan_patterns:
+        if pattern in path:
+            return True
+    return False
+
+
+class ScanFilter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        for pattern in _scan_patterns:
+            if pattern in msg:
+                return False
+        return True
+
+
 def create_app(config_name='default'):
-    import logging
     app = Flask(__name__, static_folder=str(BASE_DIR / 'frontend'))
     app.config.from_object(config[config_name])
 
@@ -20,6 +46,9 @@ def create_app(config_name='default'):
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
+
+    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger.addFilter(ScanFilter())
 
     CORS(app, origins=app.config['CORS_ORIGINS'])
 
@@ -30,7 +59,13 @@ def create_app(config_name='default'):
     @app.errorhandler(Exception)
     def handle_exception(e):
         import traceback
-        from werkzeug.exceptions import HTTPException
+        from werkzeug.exceptions import HTTPException, NotFound
+        path = request.path
+        if isinstance(e, NotFound) and _is_scan_request(path):
+            return jsonify({
+                'error': 'Not Found',
+                'type': 'NotFound'
+            }), 404
         app.logger.error(f"未处理的异常: {e}\n{traceback.format_exc()}")
         if isinstance(e, HTTPException):
             return jsonify({
