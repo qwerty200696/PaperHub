@@ -28,7 +28,7 @@
                     v-model="searchInput"
                     placeholder="搜索论文、文章、笔记... (⌘K 聚焦)"
                     @input="handleSearchInput"
-                    @keydown.prevent.stop="handleSearchKeyDown"
+                    @keydown="handleSearchKeyDown"
                     @focus="showSearchDropdown = true"
                 ></input>
                 <span v-if="searchInput && !searchLoading" class="search-clear" @click.stop="clearSearchInput">✕</span>
