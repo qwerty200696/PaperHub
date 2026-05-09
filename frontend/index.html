@@ -26,9 +26,9 @@
                     type="text"
                     class="search-bar"
                     v-model="searchInput"
-                    placeholder="搜索论文、文章、笔记..."
+                    placeholder="搜索论文、文章、笔记... (⌘K 聚焦)"
                     @input="handleSearchInput"
-                    @keyup.enter="executeSearch"
+                    @keydown.prevent.stop="handleSearchKeyDown"
                     @focus="showSearchDropdown = true"
                 ></input>
                 <span v-if="searchInput && !searchLoading" class="search-clear" @click.stop="clearSearchInput">✕</span>
@@ -42,7 +42,9 @@
                             v-for="(suggestion, index) in searchSuggestions"
                             :key="'suggest-' + index"
                             class="search-dropdown-item"
+                            :class="{ 'search-dropdown-item-selected': selectedDropdownIndex === index }"
                             @click="selectSuggestion(suggestion)"
+                            @mouseenter="selectedDropdownIndex = index"
                         >
                             <span class="icon">🔍</span>
                             <span class="text">{{ suggestion }}</span>
@@ -60,6 +62,8 @@
                             v-for="(query, index) in searchHistory"
                             :key="'history-' + index"
                             class="search-dropdown-item"
+                            :class="{ 'search-dropdown-item-selected': selectedDropdownIndex === (searchSuggestions.length + index) }"
+                            @mouseenter="selectedDropdownIndex = searchSuggestions.length + index"
                         >
                             <span class="icon">📜</span>
                             <span class="text" @click="selectSuggestion(query)">{{ query }}</span>
@@ -1960,12 +1964,14 @@
                 const currentSearchPage = ref(1);
                 const showSearchResults = ref(false);
                 const searchLoading = ref(false);
+                const selectedDropdownIndex = ref(-1); // 键盘导航选中的下拉项索引
                 // 防抖定时器和 AbortController 用于取消未完成请求
                 let _suggestionTimer = null;
                 let _suggestionAbortController = null;
                 let _searchAbortController = null;
-                // 全局点击事件处理函数引用（用于注销）
+                // 全局事件处理函数引用（用于注销）
                 let _handleClickOutside = null;
+                let _handleGlobalKeyDown = null;
 
                 // ============ AI 解读状态 ============
                 const aiSummary = ref('');
@@ -3661,7 +3667,62 @@
                 function selectSuggestion(query) {
                     searchInput.value = query;
                     showSearchDropdown.value = false;
+                    selectedDropdownIndex.value = -1;
                     executeSearch();
+                }
+
+                function getTotalDropdownItems() {
+                    return searchSuggestions.value.length + searchHistory.value.length;
+                }
+
+                function handleSearchKeyDown(e) {
+                    const totalItems = getTotalDropdownItems();
+                    
+                    console.log('[Search 键盘事件] key:', e.key, '当前选中索引:', selectedDropdownIndex.value, '总数:', totalItems);
+                    
+                    if (e.key === 'ArrowDown') {
+                        // 向下箭头：移动到下一项，循环
+                        e.preventDefault();
+                        if (totalItems > 0) {
+                            selectedDropdownIndex.value = Math.min(selectedDropdownIndex.value + 1, totalItems - 1);
+                        }
+                    } else if (e.key === 'ArrowUp') {
+                        // 向上箭头：移动到上一项，循环
+                        e.preventDefault();
+                        if (totalItems > 0) {
+                            selectedDropdownIndex.value = Math.max(selectedDropdownIndex.value - 1, -1);
+                        }
+                    } else if (e.key === 'Enter') {
+                        // 回车：如果有选中的项，直接选中它，否则走普通搜索
+                        e.preventDefault();
+                        if (selectedDropdownIndex.value >= 0) {
+                            const totalSuggestions = searchSuggestions.value.length;
+                            if (selectedDropdownIndex.value < totalSuggestions) {
+                                selectSuggestion(searchSuggestions.value[selectedDropdownIndex.value]);
+                            } else {
+                                const historyIndex = selectedDropdownIndex.value - totalSuggestions;
+                                selectSuggestion(searchHistory.value[historyIndex]);
+                            }
+                        } else {
+                            executeSearch();
+                        }
+                    } else if (e.key === 'Escape') {
+                        // ESC 键：关闭下拉面板
+                        e.preventDefault();
+                        showSearchDropdown.value = false;
+                        selectedDropdownIndex.value = -1;
+                    } else {
+                        // 其他按键：重置选中索引为-1（回到输入状态）
+                        selectedDropdownIndex.value = -1;
+                    }
+                }
+
+                function focusSearchBox() {
+                    const searchInputEl = document.querySelector('.search-bar');
+                    if (searchInputEl) {
+                        searchInputEl.focus();
+                        showSearchDropdown.value = true;
+                    }
                 }
 
                 async function goToSearchResult(result) {
@@ -4514,15 +4575,31 @@
                     };
                     document.addEventListener('click', _handleClickOutside, true);
                     console.log('[Search 初始化] 外部点击监听器已成功注册!');
+                    
+                    // 注册全局键盘快捷键：Ctrl+K / Cmd+K 聚焦搜索框
+                    _handleGlobalKeyDown = (e) => {
+                        // Ctrl+K (Windows/Linux) 或者 Cmd+K (Mac)
+                        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                            e.preventDefault(); // 防止浏览器默认行为（比如Chrome的定位到搜索栏）
+                            focusSearchBox();
+                            console.log('[Search 快捷键] 捕获到 Ctrl+K / Cmd+K，聚焦搜索框成功!');
+                        }
+                    };
+                    document.addEventListener('keydown', _handleGlobalKeyDown);
+                    console.log('[Search 初始化] 全局快捷键监听器已成功注册!');
                 });
                 
                 onUnmounted(() => {
                     // 组件卸载时移除全局事件监听器，防止内存泄漏
                     if (_handleClickOutside) {
-                        // 事件类型和 addEventListener 完全一致，都是 click，第三个参数 true
                         document.removeEventListener('click', _handleClickOutside, true);
                         console.log('[Search 清理] 外部点击监听器已成功移除!');
                         _handleClickOutside = null;
+                    }
+                    if (_handleGlobalKeyDown) {
+                        document.removeEventListener('keydown', _handleGlobalKeyDown);
+                        console.log('[Search 清理] 全局快捷键监听器已成功移除!');
+                        _handleGlobalKeyDown = null;
                     }
                     // 清理所有定时器和未完成请求
                     if (_suggestionTimer) {
@@ -4658,9 +4735,9 @@
                     formatDateTime, getCurrentDateTime, extractTitleFromContent,
                     
                     // ============ 全局搜索 =============
-                    searchInput, showSearchDropdown, searchSuggestions, searchHistory, searchLoading,
+                    searchInput, showSearchDropdown, searchSuggestions, searchHistory, searchLoading, selectedDropdownIndex,
                     searchResults, searchTotal, searchBreakdown, currentSearchPage, showSearchResults,
-                    handleSearchInput, executeSearch, clearSearchInput, selectSuggestion,
+                    handleSearchInput, executeSearch, clearSearchInput, selectSuggestion, handleSearchKeyDown,
                     goToSearchResult, closeSearchResults, deleteSearchHistoryItem, clearSearchHistory
                 };
             }

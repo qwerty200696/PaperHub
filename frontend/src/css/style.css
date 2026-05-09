@@ -337,8 +337,10 @@ body {
     color: #606266;
 }
 
-.search-dropdown-item:hover {
-    background: #f5f7fa;
+.search-dropdown-item:hover,
+.search-dropdown-item-selected {
+    background: #ecf5ff !important;
+    color: #409eff !important;
 }
 
 .search-dropdown-item .icon {
