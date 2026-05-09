@@ -1969,6 +1969,9 @@
                 let _suggestionTimer = null;
                 let _suggestionAbortController = null;
                 let _searchAbortController = null;
+                // 搜索结果本地缓存（LRU最多20条）
+                const _searchResultCache = new Map();
+                const MAX_SEARCH_CACHE_SIZE = 20;
                 // 全局事件处理函数引用（用于注销）
                 let _handleClickOutside = null;
                 let _handleGlobalKeyDown = null;
@@ -3621,8 +3624,38 @@
                     }
                 }
 
+                function getSearchCacheKey(query) {
+                    return `q:${query.trim().toLowerCase()}`;
+                }
+
+                function setSearchCache(query, data) {
+                    const key = getSearchCacheKey(query);
+                    // 如果缓存已满，淘汰最早（最久未使用）的条目
+                    if (_searchResultCache.size >= MAX_SEARCH_CACHE_SIZE) {
+                        const oldestKey = _searchResultCache.keys().next().value;
+                        _searchResultCache.delete(oldestKey);
+                        console.log('[Search 缓存] 已淘汰最旧缓存键:', oldestKey);
+                    }
+                    _searchResultCache.set(key, data);
+                    console.log('[Search 缓存] 已写入缓存:', key, '当前缓存总数:', _searchResultCache.size);
+                }
+
+                function getSearchCache(query) {
+                    const key = getSearchCacheKey(query);
+                    if (_searchResultCache.has(key)) {
+                        // LRU: 把命中的键移到最后，代表最近使用
+                        const value = _searchResultCache.get(key);
+                        _searchResultCache.delete(key);
+                        _searchResultCache.set(key, value);
+                        console.log('[Search 缓存] ✅ 缓存命中! 直接返回, key:', key);
+                        return value;
+                    }
+                    return null;
+                }
+
                 async function executeSearch() {
-                    if (!searchInput.value.trim()) return;
+                    const query = searchInput.value.trim();
+                    if (!query) return;
                     
                     // 取消上一个未完成的全局搜索请求
                     if (_searchAbortController) {
@@ -3633,11 +3666,24 @@
                     showSearchDropdown.value = false;
                     showSearchResults.value = true;
                     currentSearchPage.value = 1;
+                    
+                    // 先检查本地缓存
+                    const cachedData = getSearchCache(query);
+                    if (cachedData) {
+                        // 缓存命中，直接秒返回
+                        searchResults.value = cachedData.results;
+                        searchTotal.value = cachedData.total;
+                        searchBreakdown.value = cachedData.breakdown || { papers: 0, articles: 0, notes: 0 };
+                        saveSearchHistory(query);
+                        return;
+                    }
+                    
+                    // 缓存未命中，发网络请求
                     searchLoading.value = true;
                     
                     try {
                         _searchAbortController = new AbortController();
-                        const url = `/api/search?q=${encodeURIComponent(searchInput.value)}&module=all&page=1&size=20&highlight=true`;
+                        const url = `/api/search?q=${encodeURIComponent(query)}&module=all&page=1&size=20&highlight=true`;
                         const response = await fetch(url, { signal: _searchAbortController.signal });
                         const data = await response.json();
                         
@@ -3645,7 +3691,13 @@
                             searchResults.value = data.results;
                             searchTotal.value = data.total;
                             searchBreakdown.value = data.breakdown || { papers: 0, articles: 0, notes: 0 };
-                            saveSearchHistory(searchInput.value);
+                            saveSearchHistory(query);
+                            // 写入缓存
+                            setSearchCache(query, {
+                                results: data.results,
+                                total: data.total,
+                                breakdown: data.breakdown
+                            });
                         } else {
                             ElementPlus.ElMessage.error(data.error || '搜索失败');
                         }
