@@ -2773,12 +2773,7 @@
                     }
                 }
 
-                // ============ 笔记库函数 - 代理到 src/modules/noteModule.js ============
-                // ✅ 已模块化！700行代码移到独立文件
-                // HTML 模板 100% 兼容，无需改动
-
                 function noteSourceText(source) {
-                    if (window.noteModule) return window.noteModule.noteSourceText(source);
                     const map = { 'manual': '手动', 'paper_note': '论文笔记' };
                     return map[source] || source || '笔记';
                 }
@@ -2825,18 +2820,11 @@
                 }
 
                 function clearNoteFilters() {
-                    if (window.noteModule) {
-                        window.noteModule.clearNoteFilters();
-                        noteSelectedStatus.value = null;
-                        noteSelectedTagIds.value = [];
-                        return;
-                    }
                     noteSelectedStatus.value = null;
                     noteSelectedTagIds.value = [];
                 }
 
                 async function loadAllNotes() {
-                    // ✅ 强制保证：先自己加载数据，页面绝对不能空白！
                     try {
                         const res = await axios.get('/api/notes?per_page=500');
                         allNotes.value = (res.data.notes || []).map(n => ({
@@ -2845,19 +2833,9 @@
                     } catch (e) {
                         console.error('加载笔记列表失败:', e);
                     }
-
-                    // 📦 模块增强：模块加载后，用模块的实现（可选）
-                    if (window.noteModule) {
-                        // 可选：模块可以做额外的数据处理
-                    }
                 }
 
-                // ==================== 文章库函数 - 代理到 src/modules/articleModule.js ====================
-                // ✅ 已模块化！500行代码移到独立文件
-                // HTML 模板 100% 兼容，无需改动
-
                 async function loadAllArticles() {
-                    // ✅ 强制保证：先自己加载数据，页面绝对不能空白！
                     try {
                         const res = await axios.get('/api/articles');
                         allArticles.value = (res.data.articles || []).map(a => ({
@@ -2867,15 +2845,9 @@
                     } catch (e) {
                         console.error('加载文章列表失败:', e);
                     }
-
-                    // 📦 模块增强：模块加载后，用模块的实现（可选）
-                    if (window.articleModule) {
-                        // 可选：模块可以做额外的数据处理
-                    }
                 }
 
                 function getArticlePreviewUrl(article) {
-                    if (window.articleModule) return window.articleModule.getArticlePreviewUrl(article);
                     if (!article || !article.file_path) return '';
                     const parts = article.file_path.split('/');
                     const filename = parts.pop();
@@ -2884,7 +2856,6 @@
                 }
 
                 function formatAuthor(author) {
-                    if (window.articleModule) return window.articleModule.formatAuthor(author);
                     if (!author) return '';
                     try {
                         const parsed = JSON.parse(author);
@@ -2935,18 +2906,9 @@
                         }
                     }
 
-                    // 📦 模块增强（可选）
-                    // if (window.articleModule) {
-                    //     await window.articleModule.viewArticleDetail(article);
-                    // }
                 }
 
                 async function updateArticleStatus(article) {
-                    if (window.articleModule) {
-                        await window.articleModule.updateArticleStatus(article.id, article.status);
-                        allArticles.value = window.articleModule.allArticles.value;
-                        return;
-                    }
                     try {
                         await axios.put(`/api/articles/${article.id}`, { status: article.status });
                         ElementPlus.ElMessage.success('阅读状态已更新');
@@ -2956,7 +2918,6 @@
                 }
 
                 async function toggleArticleStar(article) {
-                    // ✅ 核心功能：本地完整实现，零依赖！
                     article.starred = !article.starred;
                     try {
                         await axios.put(`/api/articles/${article.id}`, { starred: article.starred });
@@ -2965,11 +2926,6 @@
                         article.starred = !article.starred;
                         ElementPlus.ElMessage.error('操作失败');
                     }
-
-                    // 📦 模块增强（可选）
-                    // if (window.articleModule) {
-                    //     await window.articleModule.toggleArticleStar(article);
-                    // }
                 }
 
                 function toggleArticleStatusFilter(status) {
@@ -3001,12 +2957,6 @@
                 }
 
                 function clearArticleFilters() {
-                    if (window.articleModule) {
-                        window.articleModule.clearArticleFilters();
-                        articleSelectedStatus.value = null;
-                        articleSelectedTagIds.value = [];
-                        return;
-                    }
                     articleSelectedStatus.value = null;
                     articleSelectedTagIds.value = [];
                 }
@@ -3026,19 +2976,7 @@
                     await _removeTagFromResource('article', article, tag);
                 }
 
-                async function unlinkPaperFromArticle(articleId, paperId) {
-                    if (window.articleModule) {
-                        await window.articleModule.unlinkPaperArticle(paperId, articleId);
-                        viewingArticle.value = window.articleModule.viewingArticle.value;
-                        allArticles.value = window.articleModule.allArticles.value;
-                        return;
-                    }
-                }
-
                 function goBackToArticles() {
-                    if (window.articleModule) {
-                        window.articleModule.viewingArticle.value = null;
-                    }
                     viewingArticle.value = null;
                     loadAllArticles();
                 }
@@ -3050,13 +2988,6 @@
                             { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
                         );
                     } catch (e) {
-                        return;
-                    }
-                    if (window.articleModule) {
-                        await window.articleModule.deleteArticle(articleId);
-                        allArticles.value = window.articleModule.allArticles.value;
-                        viewingArticle.value = null;
-                        ElementPlus.ElMessage.success('文章已删除');
                         return;
                     }
                     try {
@@ -3132,7 +3063,6 @@
 
 
                 async function viewNoteDetail(note) {
-                    // ✅ 核心功能：本地完整实现，零依赖！
                     try {
                         const res = await axios.get(`/api/notes/${note.id}`);
                         viewingNote.value = res.data.note;
@@ -3149,11 +3079,6 @@
                             console.error('更新笔记状态失败:', e);
                         }
                     }
-
-                    // 📦 模块增强（可选）
-                    // if (window.noteModule) {
-                    //     await window.noteModule.viewNoteDetail(note);
-                    // }
                 }
 
                 async function showLinkPaperDialog(noteId) {
@@ -3393,7 +3318,6 @@
                 }
 
                 function renderMarkdown(content) {
-                    if (window.noteModule) return window.noteModule.renderMarkdown(content);
                     if (!content) return '';
                     try {
                         return marked.parse(content);
@@ -3480,7 +3404,6 @@
                 // ============ 论文操作 - 代理到 src/modules/paperModule.js ============
                 // ============ 论文操作 - 代理到 paperModule.js ============
                 async function viewPaper(paper) {
-                    // ✅ 核心功能：本地完整实现，零依赖！
                     localStorage.setItem('filter_state', JSON.stringify({
                         selectedSource: selectedSource.value,
                         selectedStatus: selectedStatus.value,
@@ -3500,29 +3423,17 @@
                         selectedPaper.value = paper;
                     }
                     await loadPaperNotes();
-
-                    // 📦 模块增强（可选）
-                    // if (window.paperModule) {
-                    //     await window.paperModule.viewPaper(paper, updatePaperStatus);
-                    // }
                 }
 
                 async function updatePaperStatus(paper) {
-                    // ✅ 核心功能：本地完整实现，零依赖！
                     try {
                         await axios.put(`/api/papers/${paper.id}`, { status: paper.status });
                     } catch (e) {
                         ElementPlus.ElMessage.error('更新失败');
                     }
-
-                    // 📦 模块增强（可选）
-                    // if (window.paperModule) {
-                    //     await window.paperModule.updatePaperStatus(paper);
-                    // }
                 }
 
                 async function deletePaper(paper) {
-                    // ✅ 核心功能：本地完整实现，零依赖！
                     try {
                         await ElementPlus.ElMessageBox.confirm(
                             '确定要删除这篇论文吗？', '警告',
@@ -3535,15 +3446,9 @@
                     } catch (e) {
                         if (e !== 'cancel') ElementPlus.ElMessage.error('删除失败');
                     }
-
-                    // 📦 模块增强（可选）
-                    // if (window.paperModule) {
-                    //     await window.paperModule.deletePaper(paper);
-                    // }
                 }
 
                 async function toggleStar(paper) {
-                    // ✅ 核心功能：本地完整实现，零依赖！
                     paper.starred = !paper.starred;
                     try {
                         await axios.put(`/api/papers/${paper.id}`, { starred: paper.starred });
@@ -3552,11 +3457,6 @@
                         paper.starred = !paper.starred;
                         ElementPlus.ElMessage.error('操作失败');
                     }
-
-                    // 📦 模块增强（可选）
-                    // if (window.paperModule) {
-                    //     await window.paperModule.toggleStar(paper);
-                    // }
                 }
 
                 async function updateSaveLocal(paper, saveLocal) {
@@ -3575,24 +3475,16 @@
                     }
                 }
 
-                // ============ 笔记状态 & 标星操作 - 代理到 noteModule.js ============
                 async function updateNoteStatus(note) {
-                    // ✅ 核心功能：本地完整实现，零依赖！
                     try {
                         await axios.put(`/api/notes/${note.id}`, { status: note.status });
                         ElementPlus.ElMessage.success('笔记状态已更新');
                     } catch (e) {
                         ElementPlus.ElMessage.error('更新状态失败');
                     }
-
-                    // 📦 模块增强（可选）
-                    // if (window.noteModule) {
-                    //     await window.noteModule.updateNoteStatus(note);
-                    // }
                 }
 
                 async function toggleNoteStar(note) {
-                    // ✅ 核心功能：本地完整实现，零依赖！
                     note.starred = !note.starred;
                     try {
                         await axios.put(`/api/notes/${note.id}`, { starred: note.starred });
@@ -3601,10 +3493,6 @@
                         note.starred = !note.starred;
                         ElementPlus.ElMessage.error('操作失败');
                     }
-                    // 📦 模块增强（可选）
-                    // if (window.noteModule) {
-                    //     await window.noteModule.toggleNoteStar(note);
-                    // }
                 }
 
                 async function toggleNotePinned(note) {
@@ -3895,7 +3783,8 @@
                 }
 
                 async function downloadPaper(paper) {
-                    await window.paperModule.downloadPaper(paper);
+                    if (!paper.url) return;
+                    window.open(paper.url, '_blank');
                 }
 
                 // ============ 入库功能 - 响应式代理 V3 ============
@@ -4406,8 +4295,13 @@
                 }
 
                 function getCurrentDateTime() {
-                    if (!window.fileUploadModule) return new Date().toISOString().slice(0, 16);
-                    return window.fileUploadModule.getCurrentDateTime();
+                    const d = new Date();
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const hour = String(d.getHours()).padStart(2, '0');
+                    const minute = String(d.getMinutes()).padStart(2, '0');
+                    return `${year}-${month}-${day} ${hour}:${minute}`;
                 }
 
                 function extractTitleFromContent(content) {
@@ -4532,21 +4426,7 @@
                     zhihuUrlForm.value = { url: '', cookie: zhihuUrlForm.value.cookie };
                 }
 
-                // 导入所有模块（注意路径是相对于 index.html 的！）
-                import('/src/api/index.js').then(({ PaperAPI, IngestAPI }) => {
-                    import('/src/utils/index.js').then((utils) => {
-                        import('/src/store/usePaperStore.js').then(({ usePaperStore }) => {
-                            import('/src/store/useIngestStore.js').then(({ useIngestStore }) => {
-                                window.PaperAPI = PaperAPI;
-                                window.IngestAPI = IngestAPI;
-                                window.moduleUtils = utils;
-                                window.usePaperStore = usePaperStore;
-                                window.useIngestStore = useIngestStore;
-                                console.log('✅ 所有模块加载完成!');
-                            });
-                        });
-                    });
-                });
+
 
                 // ============ 初始化 ============
                 onMounted(async () => {
