@@ -1,15 +1,16 @@
 /**
  * 笔记编辑器模块
- * 封装笔记编辑相关的通用逻辑
+ * 封装笔记编辑相关的通用逻辑，支持粘贴图片上传
  */
 
 export function createNoteEditorModule({ Vue, ElementPlus, axios, onNotesChange }) {
-    const { ref } = Vue
+    const { ref, nextTick } = Vue
 
     const noteEditorVisible = ref(false)
     const noteEditorForm = ref({ title: '', content: '' })
     const editingNote = ref(null)
     const noteSaving = ref(false)
+    const imageUploading = ref(false)
 
     /**
      * 显示笔记编辑器
@@ -23,6 +24,70 @@ export function createNoteEditorModule({ Vue, ElementPlus, axios, onNotesChange 
             noteEditorForm.value = { title: '', content: '' }
         }
         noteEditorVisible.value = true
+        nextTick(() => {
+            setTimeout(setupPasteHandler, 100)
+        })
+    }
+
+    /**
+     * 设置文本域粘贴图片处理器
+     */
+    function setupPasteHandler() {
+        const textarea = document.querySelector('.el-dialog textarea')
+        if (!textarea) return
+        
+        textarea.addEventListener('paste', async function(e) {
+            if (!e.clipboardData) return
+            const items = e.clipboardData.items
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i]
+                if (item.type.indexOf('image') !== -1) {
+                    e.preventDefault()
+                    const blob = item.getAsFile()
+                    await uploadPastedImage(blob, textarea)
+                    return
+                }
+            }
+        })
+    }
+
+    /**
+     * 上传粘贴的图片
+     */
+    async function uploadPastedImage(file, textarea) {
+        if (imageUploading.value) {
+            ElementPlus.ElMessage.warning('图片正在上传中，请稍候...')
+            return
+        }
+        imageUploading.value = true
+        try {
+            ElementPlus.ElMessage.success('正在上传图片...')
+            const formData = new FormData()
+            formData.append('image', file, 'pasted_image.png')
+            const res = await axios.post('/api/note-images/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            })
+            if (res.data.success) {
+                const markdownImage = `![图片](${res.data.url})`
+                const start = textarea.selectionStart
+                const end = textarea.selectionEnd
+                const oldContent = noteEditorForm.value.content
+                noteEditorForm.value.content = 
+                    oldContent.substring(0, start) + markdownImage + '\n' + oldContent.substring(end)
+                nextTick(() => {
+                    textarea.focus()
+                    const newPos = start + markdownImage.length + 1
+                    textarea.setSelectionRange(newPos, newPos)
+                })
+                ElementPlus.ElMessage.success('图片已插入')
+            } else {
+                ElementPlus.ElMessage.error('图片上传失败')
+            }
+        } catch (err) {
+            ElementPlus.ElMessage.error('图片上传失败: ' + (err.response?.data?.error || err.message))
+        } finally {
+            imageUploading.value = false
+        }
     }
 
     /**
@@ -101,6 +166,7 @@ export function createNoteEditorModule({ Vue, ElementPlus, axios, onNotesChange 
         noteEditorForm,
         editingNote,
         noteSaving,
+        imageUploading,
         showNoteEditor,
         saveNote,
         deleteNote

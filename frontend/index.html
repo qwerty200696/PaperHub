@@ -2056,6 +2056,7 @@
                 const noteEditorForm = ref({ title: '', content: '' });
                 const editingNote = ref(null);
                 const noteSaving = ref(false);
+                const imageUploading = ref(false);
 
                 // 笔记库独立页面状态
                 const allNotes = ref([]);
@@ -3307,6 +3308,62 @@
                     }
                 }
 
+                function setupNoteEditorPasteHandler() {
+                    setTimeout(() => {
+                        const textarea = document.querySelector('.el-dialog textarea');
+                        if (!textarea) return;
+                        textarea.addEventListener('paste', async function(e) {
+                            if (!e.clipboardData) return;
+                            const items = e.clipboardData.items;
+                            for (let i = 0; i < items.length; i++) {
+                                const item = items[i];
+                                if (item.type.indexOf('image') !== -1) {
+                                    e.preventDefault();
+                                    const blob = item.getAsFile();
+                                    await uploadPastedNoteImage(blob, textarea);
+                                    return;
+                                }
+                            }
+                        });
+                    }, 100);
+                }
+                
+                async function uploadPastedNoteImage(file, textarea) {
+                    if (imageUploading.value) {
+                        ElementPlus.ElMessage.warning('图片正在上传中，请稍候...');
+                        return;
+                    }
+                    imageUploading.value = true;
+                    try {
+                        ElementPlus.ElMessage.success('正在上传图片...');
+                        const formData = new FormData();
+                        formData.append('image', file, 'pasted_image.png');
+                        const res = await axios.post('/api/note-images/upload', formData, {
+                            headers: { 'Content-Type': 'multipart/form-data' }
+                        });
+                        if (res.data.success) {
+                            const markdownImage = `![图片](${res.data.url})`;
+                            const start = textarea.selectionStart;
+                            const end = textarea.selectionEnd;
+                            const oldContent = noteEditorForm.value.content;
+                            noteEditorForm.value.content = 
+                                oldContent.substring(0, start) + markdownImage + '\n' + oldContent.substring(end);
+                            setTimeout(() => {
+                                textarea.focus();
+                                const newPos = start + markdownImage.length + 1;
+                                textarea.setSelectionRange(newPos, newPos);
+                            }, 0);
+                            ElementPlus.ElMessage.success('图片已插入');
+                        } else {
+                            ElementPlus.ElMessage.error('图片上传失败');
+                        }
+                    } catch (err) {
+                        ElementPlus.ElMessage.error('图片上传失败: ' + (err.response?.data?.error || err.message));
+                    } finally {
+                        imageUploading.value = false;
+                    }
+                }
+
                 function showNoteEditor(note) {
                     if (note) {
                         editingNote.value = note;
@@ -3316,6 +3373,7 @@
                         noteEditorForm.value = { title: '', content: '' };
                     }
                     noteEditorVisible.value = true;
+                    setupNoteEditorPasteHandler();
                 }
 
                 function showArticleNoteEditor(note) {
@@ -3327,6 +3385,7 @@
                         noteEditorForm.value = { title: '', content: '' };
                     }
                     noteEditorVisible.value = true;
+                    setupNoteEditorPasteHandler();
                 }
 
                 function toggleNoteExpand(noteId) {
