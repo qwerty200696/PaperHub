@@ -206,8 +206,8 @@ def get_note_routes(app):
             # 清理笔记内容中引用的 note_images 图片
             note_images_dir = PAPERS_DIR / 'note_images'
             if note.content:
-                # 匹配 Markdown 图片语法 ![...](/api/note-images/xxx.png)
-                image_paths = re.findall(r'/api/note-images/([^\)\s]+)', note.content)
+                # 匹配 Markdown 图片语法 ![...](/static/note_images/xxx.png)
+                image_paths = re.findall(r'/static/note_images/([^\)\s]+)', note.content)
                 for img_name in image_paths:
                     try:
                         img_path = note_images_dir / img_name
