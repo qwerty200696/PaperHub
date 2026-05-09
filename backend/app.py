@@ -68,6 +68,10 @@ def create_app(config_name='default'):
     def zhihu_static(filename):
         return send_from_directory(str(BASE_DIR / 'data/papers/zhihu'), filename)
 
+    @app.route('/static/note_images/<path:filename>')
+    def note_images_static(filename):
+        return send_from_directory(str(BASE_DIR / 'data/papers/note_images'), filename)
+
     @app.route('/src/<path:filename>')
     def frontend_src(filename):
         return send_from_directory(str(BASE_DIR / 'frontend/src'), filename)
@@ -81,15 +85,16 @@ def create_app(config_name='default'):
 
 def register_routes(app):
     try:
-        from backend.api import papers, ingest, notes, articles, ai, wechat_subscription, search
+        from backend.api import papers, ingest, notes, articles, ai, wechat_subscription, search, note_images
     except ImportError:
-        from api import papers, ingest, notes, articles, ai, wechat_subscription, search
+        from api import papers, ingest, notes, articles, ai, wechat_subscription, search, note_images
 
     app.register_blueprint(papers.bp, url_prefix='/api')
     app.register_blueprint(ingest.bp, url_prefix='/api')
     app.register_blueprint(wechat_subscription.bp, url_prefix='/api')
     app.register_blueprint(search.search_bp, url_prefix='/api')
     app.register_blueprint(ai.bp)
+    app.register_blueprint(note_images.bp)
     notes.get_note_routes(app)
     articles.get_article_routes(app)
 
