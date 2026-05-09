@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenClaw 核心技术架构解析</title>
+    <style>
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+            line-height: 1.8;
+            color: #333;
+            background-color: #f4f5f6;
+        }
+        .note-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.4;
+            margin-bottom: 12px;
+            color: #222;
+        }
+        .meta-info {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .meta-info .source {
+            color: #576b95;
+            font-weight: 500;
+            margin-right: 16px;
+        }
+        .meta-info .date {
+            color: #b2b2b2;
+        }
+        h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-top: 32px;
+            margin-bottom: 16px;
+            color: #222;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #576b95;
+        }
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 24px;
+            margin-bottom: 12px;
+            color: #333;
+        }
+        p {
+            margin-bottom: 16px;
+            text-align: justify;
+        }
+        code {
+            background: #f6f8fa;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 14px;
+            color: #e36209;
+        }
+        pre {
+            background: #f6f8fa;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 16px 0;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+            color: #24292e;
+        }
+        blockquote {
+            border-left: 4px solid #576b95;
+            padding-left: 16px;
+            margin: 16px 0;
+            color: #6a737d;
+            background: #f8f9fa;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            border-radius: 0 8px 8px 0;
+        }
+        ul, ol {
+            padding-left: 24px;
+            margin-bottom: 16px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+        }
+        th, td {
+            border: 1px solid #e1e4e8;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background: #f6f8fa;
+            font-weight: 600;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid #e1e4e8;
+            margin: 32px 0;
+        }
+        strong {
+            color: #222;
+            font-weight: 600;
+        }
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="note-container">
+        <h1>OpenClaw 核心技术架构解析</h1>
+        <div class="meta-info">
+            <span class="source">豆包</span>
+            <span class="date">2026年05月06日 10:18</span>
+        </div>
+        <div class="content">
+<p>其实一点都不乱，你现在看到的<strong>五大模块</strong>，本质就是<strong>把前面那两种架构拆得更细、更工程化、更贴近真实代码</strong>的版本。</p>
+<p>我给你一句话先点透：</p>
+<blockquote>
+<p>前面说的「三层 / 四层」是<strong>架构概念</strong>，<br />
+现在这个「五大模块」是<strong>代码实现级的详细拆解</strong>，<br />
+它们完全能对上，只是颗粒度不一样。</p>
+</blockquote>
+<hr />
+<h1 id="_1">一、直接把三套架构全部对齐</h1>
+<p>先给你一张清晰对应表：</p>
+<table>
+<thead>
+<tr>
+<th>早期概念架构</th>
+<th>细化模块版</th>
+<th>现在这份<strong>详细技术架构</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gateway</td>
+<td>Gateway</td>
+<td><strong>Gateway</strong></td>
+</tr>
+<tr>
+<td>Agent</td>
+<td>Agent</td>
+<td><strong>Agent System</strong></td>
+</tr>
+<tr>
+<td>Workspace</td>
+<td>Skills</td>
+<td><strong>Plugin System</strong> + <strong>Sandbox</strong></td>
+</tr>
+<tr>
+<td>Workspace</td>
+<td>Memory</td>
+<td><strong>Context Engine</strong></td>
+</tr>
+</tbody>
+</table>
+<p>也就是说：<br />
+<strong>现在这 5 个模块 = 前面所有架构的完整版展开</strong></p>
+<hr />
+<h1 id="5">二、为什么这次拆成了 5 个？</h1>
+<p>因为前面是<strong>讲设计</strong>，这次是<strong>讲代码</strong>。</p>
+<h2 id="1-agent-system">1. Agent System</h2>
+<p>原来的 Agent 只说是“大脑”，<br />
+现在把它细化成：<br />
+- LLM 推理<br />
+- 工具调用逻辑<br />
+- 沙箱管理<br />
+所以单独成一大块。</p>
+<h2 id="2-gateway">2. Gateway</h2>
+<p>没变，依旧是<strong>通信枢纽 + 路由中心</strong>。</p>
+<h2 id="3-sandbox">3. Sandbox</h2>
+<p>原来归在 Workspace 里，<br />
+现在因为安全太重要，<strong>单独拎出来成为一级模块</strong>。</p>
+<h2 id="4-context-engine">4. Context Engine</h2>
+<p>原来叫 Memory，<br />
+现在升级成专业的<strong>长上下文管理引擎</strong>，所以独立成模块。</p>
+<h2 id="5-plugin-system">5. Plugin System</h2>
+<p>原来叫 Skills，<br />
+现在上升为整个框架的<strong>扩展底座</strong>，IoC + Hook，所以也独立成顶级模块。</p>
+<hr />
+<h1 id="_2">三、用最通俗的话总结</h1>
+<ul>
+<li><strong>Gateway</strong>：总调度、传话、路由</li>
+<li><strong>Agent System</strong>：大脑 + 决策中心</li>
+<li><strong>Sandbox</strong>：安全笼子，防止搞坏电脑</li>
+<li><strong>Context Engine</strong>：记忆与长上下文管理</li>
+<li><strong>Plugin System</strong>：插件扩展中心，加功能不用改核心</li>
+</ul>
+<p>这五个合在一起，就是一个<strong>完整可运行的智能体框架</strong>。</p>
+<hr />
+<h1 id="_3">四、你看到“划分很多”的真正原因</h1>
+<ol>
+<li><strong>从设计概念 → 代码实现</strong>，必然越拆越细</li>
+<li>前面是<strong>概括性描述</strong>，适合写简介</li>
+<li>现在是<strong>深度技术解析</strong>，适合写论文/文档/源码分析</li>
+<li>所有模块都能追溯到之前的三层/四层，<strong>没有新增逻辑，只是细化</strong></li>
+</ol>
+<hr />
+<h1 id="_4">五、最终一句话总结</h1>
+<p>你看到的三种划分方式，<br />
+本质是<strong>同一个 OpenClaw 架构，从粗到细的三层表达</strong>：</p>
+<ol>
+<li><strong>三层（Gateway-Agent-Workspace）</strong>：设计哲学</li>
+<li><strong>四层（Gateway-Agent-Skills-Memory）</strong>：功能模块</li>
+<li><strong>五层（Agent+Gateway+Sandbox+Context+Plugin）</strong>：代码级技术架构</li>
+</ol>
+<p>它们<strong>不冲突、不矛盾、完全一致</strong>，只是颗粒度越来越细。</p>
+<p>如果你需要，我可以帮你把<strong>三段内容整合成一段统一、无矛盾、可直接放进论文的架构描述</strong>。</p>
+        </div>
+    </div>
+</body>
+</html>
