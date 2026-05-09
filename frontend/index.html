@@ -30,7 +30,7 @@
                     @keyup.enter="executeSearch"
                     @focus="showSearchDropdown = true"
                     @blur="setTimeout(() => showSearchDropdown = false, 200)"
-                />
+                ></input>
                 <span v-if="searchInput" class="search-clear" @click.stop="clearSearchInput">✕</span>
                 
                 <!-- 搜索下拉面板 -->
@@ -195,7 +195,7 @@
                             size="small"
                             style="width: 100%; margin-top: 4px;"
                             @change="filterByDateRange"
-                        />
+                        ></el-date-picker>
 
                         <!-- 清除日期按钮 -->
                         <el-button
@@ -583,7 +583,7 @@
                             <!-- ========== 笔记区域 ========== -->
                             <div style="margin-bottom: 32px;">
                                 <h3 style="font-size: 16px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #ebeef5; display: flex; justify-content: space-between; align-items: center;">
-                                    <span>📋 笔记 <el-badge :value="paperNotes.length" :hidden="paperNotes.length === 0" :max="99" /></span>
+                                    <span>📋 笔记 <el-badge :value="paperNotes.length" :hidden="paperNotes.length === 0" :max="99"></el-badge></span>
                                     <el-button type="primary" size="small" @click="showNoteEditor(null)">+ 写笔记</el-button>
                                 </h3>
                                 <div v-if="paperNotes.length === 0" style="text-align: center; padding: 40px 0; color: #909399;">
@@ -622,7 +622,7 @@
                             <!-- ========== 关联文章区域 ========== -->
                             <div style="margin-bottom: 32px;">
                                 <h3 style="font-size: 16px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #ebeef5; display: flex; justify-content: space-between; align-items: center;">
-                                    <span>📰 关联文章 <el-badge :value="selectedPaper.articles?.length || 0" :hidden="!(selectedPaper.articles?.length > 0)" :max="99" /></span>
+                                    <span>📰 关联文章 <el-badge :value="selectedPaper.articles?.length || 0" :hidden="!(selectedPaper.articles?.length > 0)" :max="99"></el-badge></span>
                                 </h3>
                                 <div v-if="!selectedPaper.articles || selectedPaper.articles.length === 0" style="text-align: center; padding: 30px 0; color: #909399;">
                                     暂无关联文章
@@ -677,7 +677,7 @@
 
                     <!-- 笔记列表 -->
                     <div v-if="getFilteredNotes.length === 0" class="empty-state">
-                        <el-empty :description="noteSearchKeyword ? '没有找到匹配的笔记' : '暂无笔记，点击右上角新建'" />
+                        <el-empty :description="noteSearchKeyword ? '没有找到匹配的笔记' : '暂无笔记，点击右上角新建'"></el-empty>
                     </div>
                     <el-card v-for="note in getFilteredNotes" :key="note.id" class="note-card" :class="[note.starred ? 'note-starred' : '', 'note-' + (note.status || 'pending')]" style="margin-bottom: 12px; cursor: pointer;" @click="viewNoteDetail(note)">
                         <div style="display: flex; justify-content: space-between; align-items: start;">
@@ -1065,7 +1065,7 @@
                         <el-card>
                             <template #header>
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-weight: 600;">📝 关联笔记 <el-badge :value="viewingArticle.notes.length" :max="99" /></span>
+                                    <span style="font-weight: 600;">📝 关联笔记 <el-badge :value="viewingArticle.notes.length" :max="99"></el-badge></span>
                                     <el-button type="success" size="small" @click="showArticleNoteEditor(null)">+ 写笔记</el-button>
                                 </div>
                             </template>
@@ -1109,10 +1109,10 @@
                 <el-dialog v-model="noteEditorVisible" :title="editingNote ? '编辑笔记' : '写笔记'" width="600px" :close-on-click-modal="false">
                     <el-form label-position="top">
                         <el-form-item label="标题（可选）">
-                            <el-input v-model="noteEditorForm.title" placeholder="给笔记起个标题..." maxlength="200" show-word-limit />
+                            <el-input v-model="noteEditorForm.title" placeholder="给笔记起个标题..." maxlength="200" show-word-limit></el-input>
                         </el-form-item>
                         <el-form-item label="正文" style="margin-bottom: 0;">
-                            <el-input v-model="noteEditorForm.content" type="textarea" :rows="10" placeholder="使用 Markdown 书写笔记..." />
+                            <el-input v-model="noteEditorForm.content" type="textarea" :rows="10" placeholder="使用 Markdown 书写笔记..."></el-input>
                         </el-form-item>
                         <div style="margin-top: 8px; color: #909399; font-size: 12px;">支持 Markdown 格式</div>
                     </el-form>
@@ -1313,17 +1313,16 @@
                                 
                                 <!-- 第三方API密钥配置 -->
                                 <div class="api-key-section-small">
-                                    <div class="api-key-row">
-                                        <span class="api-key-label">🔑 第三方API密钥</span>
+                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                        <span style="color: #92400e; font-weight: 500; font-size: 15px; white-space: nowrap;">🔑 第三方API密钥</span>
                                         <el-input
                                             v-model="wechatApiKey"
                                             placeholder="输入API密钥（可选）"
                                             type="text"
-                                            class="api-key-input-small"
-                                        />
+                                            style="flex: 1; min-width: 200px; max-width: 300px;"
+                                        ></el-input>
                                         <el-button 
-                                            type="text" 
-                                            class="btn-get-key-small"
+                                            type="primary"
                                             @click="openApiKeyWebsite"
                                         >
                                             获取密钥
@@ -1420,7 +1419,7 @@
                                                     @click="selectSubscriptionAccount(account)"
                                                 >
                                                     <div class="account-avatar">
-                                                        <img v-if="account.avatar" :src="account.avatar" alt="avatar" />
+                                                        <img v-if="account.avatar" :src="account.avatar" alt="avatar"></img>
                                                         <span v-else>📱</span>
                                                     </div>
                                                     <div class="account-info">
@@ -1479,7 +1478,7 @@
                                                     :disabled="article.imported"
                                                     class="custom-checkbox"
                                                     @click.stop
-                                                />
+                                                ></el-checkbox>
                                                 <div class="article-info">
                                                     <div class="article-title">{{ article.title }}</div>
                                                     <div class="article-meta">
@@ -1552,7 +1551,7 @@
                                 <!-- 加载状态 -->
                                 <div v-else-if="checkingArticles" class="empty-state loading-state">
                                     <div class="loading-spinner">
-                                        <el-spinner size="medium" />
+                                        <el-spinner size="medium"></el-spinner>
                                     </div>
                                     <p class="empty-text">正在检查新文章...</p>
                                 </div>
@@ -1612,7 +1611,7 @@
                                         format="YYYY-MM-DD HH:mm"
                                         value-format="YYYY-MM-DDTHH:mm:ss"
                                         style="width: 100%;"
-                                    />
+                                    ></el-date-picker>
                                 </el-form-item>
                                 <el-form-item label="正文">
                                     <el-input
@@ -1641,7 +1640,7 @@
                                         v-model="pdfSourceUrl"
                                         placeholder="可选，填写后会将此URL记录为PDF的来源（如 https://example.com/paper.pdf）"
                                         clearable
-                                    />
+                                    ></el-input>
                                 </el-form-item>
                             </el-form>
                             <el-upload
@@ -1657,7 +1656,7 @@
                                 drag
                                 style="margin-bottom: 16px;"
                             >
-                                <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                                <el-icon class="el-icon--upload"><upload-filled></upload-filled></el-icon>
                                 <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
                                 <template #tip>
                                     <div class="el-upload__tip">支持批量上传 PDF / 微信公众号HTML 文件</div>
@@ -1694,7 +1693,7 @@
                                         format="YYYY-MM-DD HH:mm"
                                         value-format="YYYY-MM-DDTHH:mm:ss"
                                         style="width: 100%;"
-                                    />
+                                    ></el-date-picker>
                                 </el-form-item>
                                 <el-form-item label="正文">
                                     <el-input
