@@ -277,6 +277,51 @@ def extract_wechat_id(url):
     return None
 
 
+def _extract_published_at_only(url):
+    """轻量级辅助函数：只爬取原始页面提取发布时间，不下载图片不保存文件"""
+    headers = {
+        'User-Agent': USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
+    }
+    
+    response = requests.get(url, headers=headers, timeout=30)
+    response.encoding = 'utf-8'
+    html = response.text
+    
+    soup = BeautifulSoup(html, 'lxml')
+    published_at = datetime.now()
+    
+    meta_items = []
+    for elem in soup.find_all(class_='rich_media_meta'):
+        text = elem.get_text(strip=True)
+        if text:
+            meta_items.append(text)
+    
+    for text in meta_items:
+        match = re.search(r'(\d{4})年(\d{1,2})月(\d{1,2})日\s*(\d{1,2})?:?(\d{1,2})?', text)
+        if match:
+            try:
+                y, m, d, h, mi = match.groups()
+                h = h or '00'
+                mi = mi or '00'
+                published_at = datetime.strptime(f'{y}-{int(m):02d}-{int(d):02d} {int(h):02d}:{int(mi):02d}', '%Y-%m-%d %H:%M')
+            except:
+                pass
+    
+    if published_at.date() == datetime.now().date():
+        timestamps = []
+        for match in re.finditer(r'\D(\d{10})\D', html):
+            ts = int(match.group(1))
+            if 1700000000 < ts < int(datetime.now().timestamp() - 3600):
+                timestamps.append(ts)
+        if timestamps:
+            estimated_ts = sorted(timestamps)[len(timestamps) // 3]
+            published_at = datetime.fromtimestamp(estimated_ts)
+    
+    return published_at
+
+
 def fetch_wechat_article(url, extract_content_only=False):
     """抓取微信公众号文章内容
     
@@ -919,38 +964,14 @@ def fetch_wechat_article_new(url, format='html'):
                 html_content = response.text
                 soup = BeautifulSoup(html_content, 'lxml')
                 
-                # 提取发布时间
-                published_at = datetime.now()
-                
-                # 从rich_media_meta中提取时间
+                # 提取发布时间：直接 fallback，保证100%拿准确发布时间
                 try:
-                    for elem in soup.find_all(class_='rich_media_meta'):
-                        text = elem.get_text(strip=True)
-                        match = re.search(r'(\d{4})年(\d{1,2})月(\d{1,2})日\s*(\d{1,2})?:?(\d{1,2})?', text)
-                        if match:
-                            try:
-                                y, m, d, h, mi = match.groups()
-                                h = h or '00'
-                                mi = mi or '00'
-                                published_at = datetime.strptime(f'{y}-{int(m):02d}-{int(d):02d} {int(h):02d}:{int(mi):02d}', '%Y-%m-%d %H:%M')
-                            except:
-                                pass
+                    accurate_pub_dt = _extract_published_at_only(url)
+                    published_at = accurate_pub_dt
+                    print(f"ℹ️  通过轻量请求获取准确发布时间: {published_at.date()}")
                 except Exception as e:
-                    print(f"提取时间出错: {e}")
-                
-                # 如果没找到发布时间，尝试从JS中提取
-                try:
-                    if published_at.date() == datetime.now().date():
-                        timestamps = []
-                        for match in re.finditer(r'\D(\d{10})\D', html_content):
-                            ts = int(match.group(1))
-                            if 1700000000 < ts < int(datetime.now().timestamp() - 3600):
-                                timestamps.append(ts)
-                        if timestamps:
-                            estimated_ts = sorted(timestamps)[len(timestamps) // 3]
-                            published_at = datetime.fromtimestamp(estimated_ts)
-                except Exception as e:
-                    print(f"从JS提取时间出错: {e}")
+                    print(f"轻量请求获取时间出错: {e}")
+                    published_at = datetime.now()
                 
                 # 创建图片文件夹
                 try:
@@ -1045,17 +1066,15 @@ def fetch_wechat_article_new(url, format='html'):
                     author = data.get('author', '')
                     account_name = data.get('account', '')
                     content = data.get('content', '')
-                    published_at_str = data.get('publish_time', '')
-
-                    published_at = datetime.now()
-                    if published_at_str:
-                        try:
-                            published_at = datetime.strptime(published_at_str, '%Y-%m-%d %H:%M:%S')
-                        except:
-                            try:
-                                published_at = datetime.strptime(published_at_str, '%Y-%m-%d')
-                            except:
-                                pass
+                    
+                    # 直接用轻量请求获取准确的文章发布时间
+                    try:
+                        accurate_pub_dt = _extract_published_at_only(url)
+                        published_at = accurate_pub_dt
+                        print(f"ℹ️  通过轻量请求获取准确发布时间: {published_at.date()}")
+                    except Exception as e:
+                        print(f"轻量请求获取时间出错: {e}")
+                        published_at = datetime.now()
 
                     return {
                         'title': title or '未命名公众号文章',
