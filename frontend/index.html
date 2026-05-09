@@ -20,7 +20,8 @@
             
             <!-- 搜索栏 -->
             <div class="search-bar-container" ref="searchContainer">
-                <span class="search-icon">🔍</span>
+                <span class="search-icon" v-if="!searchLoading">🔍</span>
+                <span class="search-icon search-spinner" v-if="searchLoading">⏳</span>
                 <input
                     type="text"
                     class="search-bar"
@@ -29,9 +30,8 @@
                     @input="handleSearchInput"
                     @keyup.enter="executeSearch"
                     @focus="showSearchDropdown = true"
-                    @blur="setTimeout(() => showSearchDropdown = false, 200)"
                 ></input>
-                <span v-if="searchInput" class="search-clear" @click.stop="clearSearchInput">✕</span>
+                <span v-if="searchInput && !searchLoading" class="search-clear" @click.stop="clearSearchInput">✕</span>
                 
                 <!-- 搜索下拉面板 -->
                 <div v-if="showSearchDropdown && (searchSuggestions.length > 0 || searchHistory.length > 0)" class="search-dropdown">
@@ -1868,7 +1868,7 @@
         // 这里直接嵌入核心逻辑，但保持模块化结构的概念
         console.log('Vue app setup starting');
 
-        const { createApp, ref, computed, onMounted, watch } = Vue;
+        const { createApp, ref, computed, onMounted, onUnmounted, watch } = Vue;
 
         // 直接在这里重新实现，因为 ES Modules 在 file:// 协议下有跨域限制
         // 但保留模块化的代码组织思想
@@ -1959,6 +1959,13 @@
                 const searchBreakdown = ref({ papers: 0, articles: 0, notes: 0 });
                 const currentSearchPage = ref(1);
                 const showSearchResults = ref(false);
+                const searchLoading = ref(false);
+                // 防抖定时器和 AbortController 用于取消未完成请求
+                let _suggestionTimer = null;
+                let _suggestionAbortController = null;
+                let _searchAbortController = null;
+                // 全局点击事件处理函数引用（用于注销）
+                let _handleClickOutside = null;
 
                 // ============ AI 解读状态 ============
                 const aiSummary = ref('');
@@ -3570,16 +3577,39 @@
                 }
 
                 async function handleSearchInput() {
+                    // 清除上一个防抖定时器
+                    if (_suggestionTimer) {
+                        clearTimeout(_suggestionTimer);
+                        _suggestionTimer = null;
+                    }
+                    // 取消上一个未完成的建议请求
+                    if (_suggestionAbortController) {
+                        _suggestionAbortController.abort();
+                        _suggestionAbortController = null;
+                    }
+                    
                     if (searchInput.value.length >= 2) {
-                        try {
-                            const response = await fetch(`/api/search/suggest?q=${encodeURIComponent(searchInput.value)}&limit=5`);
-                            const data = await response.json();
-                            if (data.success) {
-                                searchSuggestions.value = data.suggestions;
+                        // 300ms 防抖延迟
+                        _suggestionTimer = setTimeout(async () => {
+                            try {
+                                _suggestionAbortController = new AbortController();
+                                const response = await fetch(
+                                    `/api/search/suggest?q=${encodeURIComponent(searchInput.value)}&limit=5`,
+                                    { signal: _suggestionAbortController.signal }
+                                );
+                                const data = await response.json();
+                                if (data.success) {
+                                    searchSuggestions.value = data.suggestions;
+                                }
+                            } catch (e) {
+                                // 正常取消请求不打印错误
+                                if (e.name !== 'AbortError') {
+                                    console.error('Failed to fetch suggestions:', e);
+                                }
+                            } finally {
+                                _suggestionAbortController = null;
                             }
-                        } catch (e) {
-                            console.error('Failed to fetch suggestions:', e);
-                        }
+                        }, 300);
                     } else {
                         searchSuggestions.value = [];
                     }
@@ -3588,13 +3618,21 @@
                 async function executeSearch() {
                     if (!searchInput.value.trim()) return;
                     
+                    // 取消上一个未完成的全局搜索请求
+                    if (_searchAbortController) {
+                        _searchAbortController.abort();
+                        _searchAbortController = null;
+                    }
+                    
                     showSearchDropdown.value = false;
                     showSearchResults.value = true;
                     currentSearchPage.value = 1;
+                    searchLoading.value = true;
                     
                     try {
+                        _searchAbortController = new AbortController();
                         const url = `/api/search?q=${encodeURIComponent(searchInput.value)}&module=all&page=1&size=20&highlight=true`;
-                        const response = await fetch(url);
+                        const response = await fetch(url, { signal: _searchAbortController.signal });
                         const data = await response.json();
                         
                         if (data.success) {
@@ -3606,7 +3644,12 @@
                             ElementPlus.ElMessage.error(data.error || '搜索失败');
                         }
                     } catch (e) {
-                        ElementPlus.ElMessage.error('搜索失败，请检查网络');
+                        if (e.name !== 'AbortError') {
+                            ElementPlus.ElMessage.error('搜索失败，请检查网络');
+                        }
+                    } finally {
+                        searchLoading.value = false;
+                        _searchAbortController = null;
                     }
                 }
 
@@ -4441,6 +4484,59 @@
                     loadArxivCategories(); // 加载arXiv分类列表
                     loadArxivSearchHistory(); // 加载arXiv搜索历史
                     loadImportedArxivIds(); // 加载已导入的arXiv ID
+                    
+                    // 注册外部点击关闭搜索下拉面板 - 用 document.body 作为判断基准，完全不需要 ref！
+                    // 第3个参数 true → 在捕获阶段监听！万无一失的方案
+                    _handleClickOutside = (event) => {
+                        const containerEl = document.querySelector('.search-bar-container');
+                        const dropdownEl = document.querySelector('.search-dropdown');
+                        
+                        console.log('[Search 调试] 事件触发!', {
+                            eventType: event.type,
+                            target: event.target,
+                            showSearchDropdownCurrent: showSearchDropdown.value,
+                            containerExists: !!containerEl,
+                            dropdownExists: !!dropdownEl
+                        });
+                        
+                        if (containerEl) {
+                            // 判断点击的元素是否在 document.body 下的搜索容器外部
+                            const isClickOutsideSearchBar = !containerEl.contains(event.target);
+                            
+                            console.log('[Search 调试] 点击是否在搜索栏外部?', isClickOutsideSearchBar, '事件目标:', event.target);
+                            
+                            // 如果点击在外部并且下拉面板当前是显示的，就收起它
+                            if (isClickOutsideSearchBar && showSearchDropdown.value) {
+                                console.log('[Search 调试] ✅ 确认在外部，现在收起搜索下拉面板!');
+                                showSearchDropdown.value = false;
+                            }
+                        }
+                    };
+                    document.addEventListener('click', _handleClickOutside, true);
+                    console.log('[Search 初始化] 外部点击监听器已成功注册!');
+                });
+                
+                onUnmounted(() => {
+                    // 组件卸载时移除全局事件监听器，防止内存泄漏
+                    if (_handleClickOutside) {
+                        // 事件类型和 addEventListener 完全一致，都是 click，第三个参数 true
+                        document.removeEventListener('click', _handleClickOutside, true);
+                        console.log('[Search 清理] 外部点击监听器已成功移除!');
+                        _handleClickOutside = null;
+                    }
+                    // 清理所有定时器和未完成请求
+                    if (_suggestionTimer) {
+                        clearTimeout(_suggestionTimer);
+                        _suggestionTimer = null;
+                    }
+                    if (_suggestionAbortController) {
+                        _suggestionAbortController.abort();
+                        _suggestionAbortController = null;
+                    }
+                    if (_searchAbortController) {
+                        _searchAbortController.abort();
+                        _searchAbortController = null;
+                    }
                 });
 
                 // ============ 标签加载（与全局标签复用） ============
@@ -4562,7 +4658,7 @@
                     formatDateTime, getCurrentDateTime, extractTitleFromContent,
                     
                     // ============ 全局搜索 =============
-                    searchInput, showSearchDropdown, searchSuggestions, searchHistory,
+                    searchInput, showSearchDropdown, searchSuggestions, searchHistory, searchLoading,
                     searchResults, searchTotal, searchBreakdown, currentSearchPage, showSearchResults,
                     handleSearchInput, executeSearch, clearSearchInput, selectSuggestion,
                     goToSearchResult, closeSearchResults, deleteSearchHistoryItem, clearSearchHistory
