@@ -3680,6 +3680,9 @@
                     
                     // 缓存未命中，发网络请求
                     searchLoading.value = true;
+                    console.log('[Search 模拟延迟] 为了演示缓存效果，故意等500ms...');
+                    // 人工加个500ms延迟，这样即使数据库极快，也能看到loading动画，和缓存秒返回形成鲜明对比
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     
                     try {
                         _searchAbortController = new AbortController();
