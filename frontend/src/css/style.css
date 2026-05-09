@@ -397,6 +397,35 @@ body {
     font-weight: 500;
 }
 
+/* 搜索高亮 <em> 标签样式 */
+.search-result-card em,
+.search-result-title em,
+.search-result-summary em,
+.title_highlight em,
+.abstract_highlight em,
+.summary_highlight em {
+    color: #e6a23c !important;
+    font-weight: 700 !important;
+    background-color: rgba(230, 162, 60, 0.15) !important;
+    padding: 0 2px !important;
+    border-radius: 2px !important;
+    font-style: normal !important;
+}
+
+/* 搜索加载 spinner 动画 */
+.search-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: translateY(-50%) rotate(0deg);
+    }
+    to {
+        transform: translateY(-50%) rotate(360deg);
+    }
+}
+
 /* 搜索结果页面 */
 .search-results-container {
     padding: 24px;
