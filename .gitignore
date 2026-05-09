@@ -13,3 +13,10 @@ dist/
 __pycache__/
 .venv/
 *.pyc
+
+# Project data
+data/
+frontend/backups/
+frontend/design-system.html
+frontend/inspiration.html
+scripts/
