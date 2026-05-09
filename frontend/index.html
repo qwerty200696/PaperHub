@@ -1818,7 +1818,13 @@
 
         <!-- 搜索结果弹窗 -->
         <el-dialog v-model="showSearchResults" title="🔍 搜索结果" width="800px" @close="closeSearchResults">
-            <div v-if="searchResults.length === 0" style="text-align: center; padding: 40px;">
+            <!-- 醒目的搜索中大状态，完全覆盖旧结果 -->
+            <div v-if="searchLoading" style="text-align: center; padding: 60px 40px;">
+                <div class="search-loading-big-icon" style="font-size: 64px; animation: spin 1s linear infinite; margin-bottom: 20px;">⏳</div>
+                <div style="font-size: 18px; font-weight: 600; color: #409eff; margin-bottom: 8px;">正在搜索中...</div>
+                <div style="color: #909399; font-size: 14px;">请稍候，正在检索您的内容...</div>
+            </div>
+            <div v-else-if="searchResults.length === 0" style="text-align: center; padding: 40px;">
                 <div style="font-size: 48px; margin-bottom: 16px;">🔍</div>
                 <div style="color: #909399;">未找到相关结果</div>
             </div>
@@ -3670,7 +3676,7 @@
                     // 先检查本地缓存
                     const cachedData = getSearchCache(query);
                     if (cachedData) {
-                        // 缓存命中，直接秒返回
+                        // 缓存命中：直接秒返回，完全不进入loading状态
                         searchResults.value = cachedData.results;
                         searchTotal.value = cachedData.total;
                         searchBreakdown.value = cachedData.breakdown || { papers: 0, articles: 0, notes: 0 };
@@ -3678,7 +3684,7 @@
                         return;
                     }
                     
-                    // 缓存未命中，发网络请求
+                    // 缓存未命中：真实网络请求 → 显示大「正在搜索中」状态
                     searchLoading.value = true;
                     console.log('[Search 模拟延迟] 为了演示缓存效果，故意等500ms...');
                     // 人工加个500ms延迟，这样即使数据库极快，也能看到loading动画，和缓存秒返回形成鲜明对比
