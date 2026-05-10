@@ -255,7 +255,73 @@ python app.py
 
 ---
 
-## 目录结构（2026.5.8 最新）
+## 功能特性 (Phase 7 - 搜索体验全面升级) ✅ **2026.5.8 最新完成**
+
+- ✅ **搜索框 V1.3 体验升级**
+  - ✅ FTS5 rank加权融合排序，搜索结果相关性大幅提升
+  - ✅ 300ms防抖机制，网络请求量减少70%+
+  - ✅ 键盘导航：上下箭头选建议、Enter选中、ESC关闭面板
+  - ✅ 业界标准快捷键：Ctrl+K / Cmd+K 全局一键聚焦搜索框
+  - ✅ LRU本地缓存（20条），第二次搜同样关键词结果秒返回
+  - ✅ 「正在搜索中」大动态加载状态，用户操作反馈清晰明确
+  - ✅ 点击外部自动关闭下拉面板，捕获阶段监听器完美解决事件冒泡时序问题
+  - ✅ 搜索结果高亮样式（黄色背景 + 粗体）
+
+### ✅ 7.1 日志系统优化
+- ✅ **扫描请求自动过滤**：app.py新增ScanFilter，自动过滤网络扫描探测404请求，控制台清爽无干扰
+- ✅ 异常处理器增强：HTTPException返回原始状态码（404/405等），不再全当500错误
+
+---
+
+## 功能特性 (Phase 8 - 笔记图片粘贴上传 + 清理重构) ✅ **2026.5.9 完成**
+
+- ✅ **笔记图片粘贴上传**
+  - ✅ Cmd+V / Ctrl+V 直接粘贴微信截图/系统截图，自动上传
+  - ✅ 图片保存到 `data/papers/note_images/` 文件夹，uuid重命名避免冲突
+  - ✅ 自动在光标位置生成 Markdown 图片链接 `![图片](/static/note_images/xxx.png)`
+  - ✅ 支持新建笔记和编辑笔记两种场景
+
+- ✅ **新建笔记双重弹窗重叠修复**
+  - ✅ 删除3次重复定义的 noteEditorVisible 弹窗
+  - ✅ 全局仅保留1个独立在全局区域的笔记编辑器弹窗
+
+- ✅ **旧模块化代码清理**
+  - ✅ 删除16个历史遗留废弃模块文件（-3029行冗余代码）
+  - ✅ 清理所有 window. 开头的旧兼容代理代码（-130行）
+  - ✅ 项目架构回归极简：单 index.html + 4个真正被使用的工具模块
+
+---
+
+## 功能特性 (Phase 9 - 三库硬删 + 微信时间精确修复) ✅ **2026.5.10 最新完成**
+
+- ✅ **三库删除策略统一硬删除**
+  - ✅ 论文库：硬删除 + 自动清理本地 PDF/HTML 等文件
+  - ✅ 文章库：硬删除 + 自动清理微信本地 .html 和对应 _files 图片文件夹
+  - ✅ 笔记库：硬删除 + 自动解析笔记Markdown内容，清理引用的note_images图片
+
+- ✅ **微信公众号发布时间精确修复**
+  - ✅ 新增轻量辅助函数，直接爬取原始微信页面获取准确发布时间
+  - ✅ 彻底告别fallback导入当天作为文章发布时间
+  - ✅ 批量修正脚本：一键更新所有已导入微信文章的发布日期
+  - ✅ 重新下载补全脚本：丢失 _files 图片文件夹的文章一键全量重下
+
+- ✅ **维护脚本目录重构**
+  - ✅ 9个实用 maintenance 工具分类管理
+    - 006_add_fts_tables.py - FTS5全文检索表重建同步
+    - check_articles.py - 文章列表快速查看
+    - check_files.py - 文件完整性检查
+    - check_schema.py - 数据库Schema查看
+    - cleanup_data.py - 孤立冗余文件清理
+    - fix_wechat_pub_dates.py - 微信文章发布日期批量修正
+    - inspect_db.py - 数据库综合分析（含软删、重复检查）
+    - purge_deleted.py - 安全永久删除软删记录
+    - redownload_wechat_articles.py - 全部微信文章重新下载补全图片
+  - ✅ tests 目录：专门放临时开发调试/回归测试脚本
+  - ✅ 删除大量冗余历史脚本，项目结构超级干净
+
+---
+
+## 目录结构（2026.5.10 最新）
 
 ```
 PaperHub/
@@ -269,7 +335,7 @@ PaperHub/
 │   │   ├── wechat/             # 微信文章
 │   │   ├── zhihu/              # 知乎文章
 │   │   ├── uploaded/           # 本地上传的 PDF
-│   │   └── notes/              # 笔记文件
+│   │   └── note_images/        # 笔记粘贴上传的图片
 │   ├── db/                      # SQLite数据库
 │   │   └── paperhub.db
 │   └── backups/                 # 备份文件
@@ -286,7 +352,8 @@ PaperHub/
 │   │   ├── articles.py          # 文章库 API
 │   │   ├── notes.py             # 笔记库 API
 │   │   ├── ingest.py            # 统一入库接口
-│   │   └── ai.py                # AI 解读 API
+│   │   ├── ai.py                # AI 解读 API
+│   │   └── note_images.py       # 笔记图片上传 API
 │   ├── services/                # 业务逻辑
 │   │   ├── arxiv_fetcher.py     # arXiv 抓取
 │   │   ├── pdf_processor.py     # PDF 处理
@@ -296,47 +363,47 @@ PaperHub/
 │   │   ├── prompt_engine.py     # Prompt 引擎
 │   │   ├── deduplicator.py      # 论文去重
 │   │   ├── note_deduplicator.py # 笔记去重
-│   │   └── note_importer.py     # 笔记导入
 │   └── models/                  # 数据模型
 │       └── paper.py             # Paper/Article/Note/Tag 6张关联表
 │
 ├── frontend/                    # 前端应用 (CDN版本)
-│   ├── index.html               # ~3000行 单文件应用（生产版本）
-│   ├── index_v1_monolith.html   # V1 单体版本（存档）
-│   ├── backups/                 # 备份目录
-│   │   ├── README.md            # 备份说明
-│   │   └── index.html.backup.*  # 历史版本备份
-│   ├── ARCHITECTURE_AUDIT_V3.md    # V3 架构审计报告
-│   └── REFACTOR_V2_LESSONS.md   # V2 重构经验总结（包含最终混合式架构方案）
+│   ├── index.html               # ~4000行 单文件应用（生产版本）
+│   ├── README.md                # 前端规范（全闭合标签）
 │   └── src/
 │       ├── css/style.css        # Markdown + 状态 + 全局样式
-│       ├── api/                 # API 层封装
-│       ├── modules/             # 功能模块
-│       ├── store/               # 状态管理
-│       └── utils/               # 工具函数
+│       └── modules/             # 4个真正被import使用的工具模块
+│           ├── sortUtils.js
+│           ├── filterUtils.js
+│           ├── ingestModule.js
+│           └── fileUploadModule.js
 │
 ├── scripts/                     # 工具脚本
-│   ├── legacy/                  # 历史遗留脚本（已完成使命）
-│   │   ├── README.md            # 脚本说明
-│   │   ├── migrate_*.py         # 数据迁移脚本
-│   │   ├── clean_*.py           # 数据清理脚本
-│   │   └── *.py                 # 其他临时脚本
-│   ├── show_db.py               # 数据库查看工具
-│   ├── debug_img.py             # 图片调试工具
-│   └── test_*.py                # 测试脚本
+│   ├── maintenance/             # 9个长期维护工具
+│   │   ├── 006_add_fts_tables.py
+│   │   ├── check_articles.py
+│   │   ├── check_files.py
+│   │   ├── check_schema.py
+│   │   ├── cleanup_data.py
+│   │   ├── fix_wechat_pub_dates.py
+│   │   ├── inspect_db.py
+│   │   ├── purge_deleted.py
+│   │   └── redownload_wechat_articles.py
+│   └── tests/                   # 临时开发调试/回归测试脚本
 │
 ├── tools/                       # 第三方工具
 │   └── zhihu_cookie_get.py     # 知乎 Cookie 获取工具
 │
-└── docs/                       # 开发文档 (~3万字)
+└── docs/                       # 开发文档 (~5万字)
     ├── SCHEMA.md                # 数据库设计
-    ├── 大模型融入系统设计方案.md  # AI 功能设计
+    ├── 项目完整复盘与优化清单.md # 全量8000行代码全景分析
     ├── 笔记系统设计方案.md        # 三大模块统一架构
-    ├── 标签筛选系统开发经验总结.md  # 前端过滤架构
+    ├── 标签筛选系统开发经验总结.md
+    ├── 标星与阅读状态系统优化经验总结.md
     ├── 排序系统开发与避坑指南.md
     ├── 前端经典Bug汇总与避坑指南.md
     ├── 微信公众号文章导入踩坑记录.md
-    └── 知乎专栏导入使用说明.md
+    ├── 知乎专栏导入使用说明.md
+    └── 搜索框全面回顾与优化方案.md
 ```
 
 ---
@@ -350,9 +417,12 @@ PaperHub/
 | **Phase 3** | 对话笔记 & 多维筛选 | ✅ **完成** |
 | **Phase 4** | 知乎导入 & 视觉化 & 排序 | ✅ **完成** |
 | **Phase 5** | **三大模块统一架构** | ✅ **完成 2026.5.2** |
-| Phase 6 | SQLite 全文检索 | ⏳ 下一步 |
-| Phase 7 | 批量操作 & UX 优化 | ⏳ 规划中 |
-| Phase 8 | 向量语义检索 | ⏳ 长期 |
+| **Phase 6** | **检索与知识库** | ✅ **完成 2026.5.8** |
+| **Phase 7** | **搜索体验全面升级 V1.3** | ✅ **完成 2026.5.8** |
+| **Phase 8** | **笔记图片粘贴上传 + 清理重构** | ✅ **完成 2026.5.9** |
+| **Phase 9** | **三库硬删 + 微信时间精确修复** | ✅ **完成 2026.5.10** |
+| Phase 10 | 批量操作 & UX 优化 | ⏳ 下一步 |
+| Phase 11 | 向量语义检索 | ⏳ 长期 |
 
 详细进度请查看 [CHECKLIST.md](./CHECKLIST.md)
 
