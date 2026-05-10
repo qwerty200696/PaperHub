@@ -756,3 +756,146 @@ def ingest_wechat():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ingest/web/preview', methods=['POST'])
+def preview_web_article():
+    """
+    预览通用网页 - 不直接入库，返回提取结果让用户编辑
+    Request JSON: { "url": "https://example.com/article" }
+    """
+    data = request.get_json()
+    if not data or 'url' not in data:
+        return jsonify({'error': 'Missing url parameter'}), 400
+    
+    url = data['url'].strip()
+    if not url:
+        return jsonify({'error': 'url不能为空'}), 400
+    
+    Paper, Note, Article = get_models()
+    session = get_session()
+    
+    try:
+        try:
+            from backend.services.web_parser import UniversalWebParser
+        except ImportError:
+            from services.web_parser import UniversalWebParser
+        
+        parser = UniversalWebParser()
+        extract_result = parser.extract_article(url)
+        
+        if not extract_result.get('success') and not extract_result.get('text'):
+            return jsonify({'error': '网页正文提取失败'}), 400
+        
+        return jsonify({
+            'message': 'Preview success',
+            'url': url,
+            'title': extract_result.get('title', ''),
+            'author': extract_result.get('author', ''),
+            'content': extract_result.get('text', ''),
+            'text_length': extract_result.get('text_length', 0),
+            'best_method': extract_result.get('best_method', '')
+        }), 200
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ingest/web', methods=['POST'])
+def ingest_web_general():
+    """
+    入库通用网页 - 经过用户确认后的内容
+    Request JSON: {
+        "url": "https://example.com/article",
+        "title": "编辑后的标题",
+        "author": "编辑后的作者",
+        "content": "编辑后的正文内容"
+    }
+    """
+    data = request.get_json() or {}
+    
+    required_fields = ['url', 'title', 'content']
+    for field in required_fields:
+        if field not in data or not str(data[field]).strip():
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+    
+    url = data['url'].strip()
+    title = data['title'].strip()
+    author = data.get('author', '通用网页').strip()
+    content = data['content'].strip()
+    
+    Paper, Note, Article = get_models()
+    session = get_session()
+    
+    try:
+        try:
+            from backend.config import BASE_DIR
+            from backend.services.web_parser import UniversalWebParser
+        except ImportError:
+            from config import BASE_DIR
+            from services.web_parser import UniversalWebParser
+        
+        from backend.services.article_deduplicator import check_article_duplicate
+        check_article_duplicate_func = check_article_duplicate
+        
+        existing_article = check_article_duplicate_func(
+            session, Article,
+            title=title,
+            content=content,
+            url=url
+        )
+        if existing_article:
+            return jsonify({
+                'error': 'Article already exists',
+                'duplicate': True,
+                'article_id': existing_article.id,
+                'article': existing_article.to_dict()
+            }), 409
+        
+        import uuid
+        import re
+        import urllib.parse
+        parsed = urllib.parse.urlparse(url)
+        safe_name = re.sub(r'[^\w\-.]', '_', parsed.netloc + parsed.path)
+        if not safe_name.endswith('.html'):
+            safe_name += '.html'
+        unique_id = str(uuid.uuid4())[:8]
+        save_filename = f"{unique_id}_{safe_name}"
+        relative_path = f"data/papers/web/{save_filename}"
+        full_path = BASE_DIR / relative_path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        parser = UniversalWebParser()
+        try:
+            html, _ = parser.fetch_html(url)
+            with open(full_path, 'w', encoding='utf-8') as f:
+                f.write(html)
+        except Exception:
+            pass
+        
+        from datetime import date
+        article = Article(
+            title=title,
+            content=content,
+            author=author,
+            source='web',
+            url=url,
+            published_at=date.today(),
+            file_path=str(full_path)
+        )
+        
+        session.add(article)
+        session.commit()
+        session.refresh(article)
+        
+        return jsonify({
+            'message': 'Web article ingested successfully',
+            'article': article.to_dict()
+        }), 201
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
