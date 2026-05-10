@@ -432,30 +432,159 @@
   - [x] 搜索结果展示（高亮关键词）
   - [x] 搜索历史记录（localStorage）
 
-### 📋 6.7 UX 优化（快速完成）
+#---
 
-- [ ] **6.7.1 筛选后页码自动重置**
-  - [ ] 筛选/排序时重置到第 1 页
-- [ ] **6.7.2 批量操作**
-  - [ ] 批量删除
-  - [ ] 批量打标签
-  - [ ] 批量改状态
+## Phase 7: 搜索体验全面升级 ✅ **2026.5.8 全部完成**
 
-### 📋 6.8 导出与同步（低优先级但实用）
+### ✅ 7.1 搜索框 V1.3 体验升级
 
-- [ ] **6.8.1 单篇论文导出**
-  - [ ] 导出 PDF（已有下载功能）
-  - [ ] 导出 Markdown（对话笔记已有）
-  - [ ] 导出元数据 JSON
+- [x] **FTS5 rank加权融合排序**
+  - [x] 后端 search_service.py 优化，不再简单固定权重，1/(fts_rank+1) * 模块权重
+  - [x] 三模块搜索显式获取 rank 字段，结果相关性大幅提升
 
-- [ ] **6.8.2 批量导出**
-  - [ ] 支持按筛选导出（当前搜索结果/标签）
-  - [ ] 生成论文库索引
-  - [ ] 打包成 ZIP 文件
+- [x] **前端交互优化**
+  - [x] 300ms防抖机制，handleSearchInput，网络请求量减少70%+
+  - [x] AbortController 请求取消，新输入自动取消上一个未完成的建议请求，解决响应乱序问题
+  - [x] 新增 searchLoading 状态变量，搜索过程中显示旋转的 spinner
+
+- [x] **键盘导航**
+  - [x] 选中项高亮状态变量 selectedSuggestionIndex
+  - [x] 处理 keydown 事件：上箭头 / 下箭头移动选中高亮
+  - [x] Enter 键直接选中当前高亮项执行搜索
+  - [x] ESC 键一键关闭下拉面板
+  - [x] 鼠标 hover 自动同步高亮当前项
+
+- [x] **业界标准快捷键**
+  - [x] 全局 Ctrl+K / Cmd+K 快捷键监听，不管页面哪里按下，搜索框立刻聚焦
+  - [x] 防止浏览器默认行为，不冲突
+
+- [x] **LRU本地缓存**
+  - [x] Map结构最多缓存20条搜索结果
+  - [x] 命中时自动把键移到末尾标记最近使用，满20条自动删除最久未使用的
+  - [x] 大小写无关缓存，搜Paper和paper命中同一条
+  - [x] 完全跳过网络请求，第二次搜同样关键词结果秒返回
+
+- [x] **大动态加载状态**
+  - [x] 搜索结果弹窗添加醒目的64px超大旋转⏳图标
+  - [x] 「正在搜索中...」蓝色大字文案，一按回车立刻覆盖旧结果
+  - [x] 仅非缓存命中的真实网络搜索进入searchLoading，缓存命中直接秒返回
+
+- [x] **点击外部关闭下拉面板**
+  - [x] 捕获阶段监听器，addEventListener第3个参数传true
+  - [x] 搜索容器加@click.stop阻止内部事件冒泡
+  - [x] onMounted注册，onUnmounted移除，成对操作无内存泄漏
+
+- [x] **样式完善**
+  - [x] CSS搜索结果高亮：黄色背景 + 粗体 + 圆角
+  - [x] @keyframes spin 流畅旋转动画效果
+  - [x] 下拉选中项淡蓝色高亮（#ecf5ff），比hover灰色更醒目
+
+### ✅ 7.2 日志系统优化
+
+- [x] **扫描请求自动过滤**
+  - [x] ScanFilter继承自logging.Filter
+  - [x] _scan_patterns列表覆盖常见扫描探测路径特征
+  - [x] 挂载到werkzeug日志器，访问日志清爽
+  - [x] 全局异常处理器里新增判断，NotFound且路径属于扫描特征直接返回404，不打ERROR堆栈
+  - [x] HTTPException统一返回原始状态码，不再全当500错误
 
 ---
 
-## Phase 7: 科研辅助工具（长期）
+## Phase 8: 笔记图片粘贴上传 + 清理重构 ✅ **2026.5.9 全部完成**
+
+### ✅ 8.1 笔记图片粘贴上传功能
+
+- [x] **后端API**
+  - [x] config.py新增NOTE_IMAGES_DIR目录配置
+  - [x] note_images.py全新创建图片上传API
+  - [x] 静态资源路由注册，/static/note_images/直接访问
+
+- [x] **前端交互**
+  - [x] setupNoteEditorPasteHandler()绑定文本域paste事件
+  - [x] 粘贴事件获取clipboardData.items，识别图片类型
+  - [x] FormData包装文件，axios POST上传到/api/note-images/upload
+  - [x] 上传成功后自动在光标位置生成 ![图片](/static/note_images/xxx.png) Markdown
+  - [x] 支持新建笔记和编辑笔记两种场景
+
+### ✅ 8.2 新建笔记双重弹窗重叠修复
+
+- [x] 全局搜索noteEditorVisible绑定的弹窗
+  - [x] 删除第1处：笔记库列表页内约734行重复弹窗
+  - [x] 删除第2处：笔记详情页内约832行重复弹窗
+  - [x] 全局仅保留最后那个独立在全局区域的笔记编辑器弹窗
+
+### ✅ 8.3 旧模块化代码清理
+
+- [x] **删除废弃文件**
+  - [x] 清理所有历史遗留未被import的16个模块文件，共删除-3029行冗余代码
+  - [x] noteModule.js / paperModule.js / articleModule.js / searchModule.js / filterModule.js 等全部移除
+  - [x] 只保留4个真正被动态 import 使用的工具模块：sortUtils / filterUtils / ingestModule / fileUploadModule
+
+- [x] **清理window.开头兼容代码**
+  - [x] 全局搜索所有 if (window.xxx) 代理判断代码，全部删除
+  - [x] 清理130行冗余兼容代码
+  - [x] downloadPaper直接用原生window.open，完全不需要旧模块代理
+  - [x] getCurrentDateTime本地原生实现，完全独立运行
+
+---
+
+## Phase 9: 三库硬删 + 微信时间精确修复 ✅ **2026.5.10 全部完成**
+
+### ✅ 9.1 三库删除策略统一硬删除
+
+- [x] **文章库硬删改造**
+  - [x] 移除查询时is_deleted==False软删除过滤
+  - [x] 不再标记is_deleted=True，直接session.delete(article)从数据库硬删
+  - [x] 安全校验file_path必须在data/papers/wechat目录下，防止路径遍历
+  - [x] 先删除.html文件，再删除同目录下对应文件名的_files图片文件夹
+  - [x] 有异常捕获，清理失败不影响主流程
+
+- [x] **笔记库硬删改造**
+  - [x] 移除查询时is_deleted==False软删除过滤
+  - [x] 直接session.delete(note)从数据库硬删
+  - [x] 正则解析笔记Markdown内容，提取所有 /static/note_images/ 路径的图片
+  - [x] 安全校验确保文件在data/papers/note_images目录下
+  - [x] 逐个删除对应本地图片文件
+
+### ✅ 9.2 微信公众号发布时间精确修复
+
+- [x] **新增轻量辅助函数**
+  - [x] _extract_published_at_only(url)，轻量爬取原始微信页面
+  - [x] 不下载图片，不保存任何文件，仅做一件事：提取准确发布时间
+  - [x] 复用和旧函数完全相同的时间提取逻辑，保证准确性
+
+- [x] **批量修正脚本**
+  - [x] scripts/maintenance/fix_wechat_pub_dates.py
+  - [x] 遍历所有source='wechat'的文章
+  - [x] 随机1-3秒间隔，避免触发微信反爬
+  - [x] 自动更新数据库里的published_at字段
+
+- [x] **重新下载补全脚本**
+  - [x] scripts/maintenance/redownload_wechat_articles.py
+  - [x] 调用fetch_wechat_article_new(url, format='html')重新完整下载
+  - [x] 自动补全所有文章的HTML和_files图片文件夹
+  - [x] 随机3-8秒间隔，避免触发微信反爬
+  - [x] 自动更新数据库的file_path字段
+
+### ✅ 9.3 维护脚本目录重构
+
+- [x] **9个实用maintenance工具分类管理**
+  - [x] 006_add_fts_tables.py - FTS5全文检索表重建同步
+  - [x] check_articles.py - 文章列表快速查看
+  - [x] check_files.py - 文件完整性检查，验证所有数据库记录对应的本地文件是否存在
+  - [x] check_schema.py - 数据库Schema查看
+  - [x] cleanup_data.py - 孤立冗余文件清理
+  - [x] fix_wechat_pub_dates.py - 微信文章发布日期批量修正
+  - [x] inspect_db.py - 数据库综合分析（含活跃数统计、软删记录、重复标题检查）
+  - [x] purge_deleted.py - 安全永久删除软删记录，带预览确认机制
+  - [x] redownload_wechat_articles.py - 全部微信文章重新下载补全图片
+
+- [x] **tests目录专门放临时开发调试/回归测试脚本**
+  - [x] test_wechat_time.py - 微信发布时间提取对比测试
+
+---
+
+## Phase 10: 科研辅助工具（长期）
 
 ### 📋 7.1 arXiv 版本更新检测
 
