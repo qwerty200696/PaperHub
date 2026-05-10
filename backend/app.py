@@ -41,6 +41,7 @@ class ScanFilter(logging.Filter):
 def create_app(config_name='default'):
     app = Flask(__name__, static_folder=str(BASE_DIR / 'frontend'))
     app.config.from_object(config[config_name])
+    app.config['JSON_AS_ASCII'] = False
 
     logging.basicConfig(
         level=logging.INFO,
@@ -120,9 +121,9 @@ def create_app(config_name='default'):
 
 def register_routes(app):
     try:
-        from backend.api import papers, ingest, notes, articles, ai, wechat_subscription, search, note_images
+        from backend.api import papers, ingest, notes, articles, ai, wechat_subscription, search, note_images, web_extract
     except ImportError:
-        from api import papers, ingest, notes, articles, ai, wechat_subscription, search, note_images
+        from api import papers, ingest, notes, articles, ai, wechat_subscription, search, note_images, web_extract
 
     app.register_blueprint(papers.bp, url_prefix='/api')
     app.register_blueprint(ingest.bp, url_prefix='/api')
@@ -130,6 +131,7 @@ def register_routes(app):
     app.register_blueprint(search.search_bp, url_prefix='/api')
     app.register_blueprint(ai.bp)
     app.register_blueprint(note_images.bp)
+    app.register_blueprint(web_extract.bp, url_prefix='/api')
     notes.get_note_routes(app)
     articles.get_article_routes(app)
 
