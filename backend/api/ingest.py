@@ -793,7 +793,9 @@ def preview_web_article():
             'title': extract_result.get('title', ''),
             'author': extract_result.get('author', ''),
             'content': extract_result.get('text', ''),
+            'html': extract_result.get('html', ''),
             'text_length': extract_result.get('text_length', 0),
+            'html_length': extract_result.get('html_length', 0),
             'best_method': extract_result.get('best_method', '')
         }), 200
     
@@ -811,20 +813,24 @@ def ingest_web_general():
         "url": "https://example.com/article",
         "title": "编辑后的标题",
         "author": "编辑后的作者",
-        "content": "编辑后的正文内容"
+        "content": "编辑后的纯文本正文内容",
+        "html": "编辑后的HTML正文内容（优先使用）"
     }
     """
     data = request.get_json() or {}
     
-    required_fields = ['url', 'title', 'content']
-    for field in required_fields:
-        if field not in data or not str(data[field]).strip():
-            return jsonify({'error': f'Missing required field: {field}'}), 400
-    
-    url = data['url'].strip()
-    title = data['title'].strip()
+    url = data.get('url', '').strip()
+    title = data.get('title', '').strip()
     author = data.get('author', '通用网页').strip()
-    content = data['content'].strip()
+    content = data.get('content', '').strip()
+    html_content = data.get('html', '').strip()
+    
+    if not url or not title:
+        return jsonify({'error': 'url and title are required'}), 400
+    
+    final_content = html_content if html_content else content
+    if not final_content:
+        return jsonify({'error': 'content or html is required'}), 400
     
     Paper, Note, Article = get_models()
     session = get_session()
@@ -837,13 +843,16 @@ def ingest_web_general():
             from config import BASE_DIR
             from services.web_parser import UniversalWebParser
         
-        from backend.services.article_deduplicator import check_article_duplicate
+        try:
+            from backend.services.article_deduplicator import check_article_duplicate
+        except ImportError:
+            from services.article_deduplicator import check_article_duplicate
         check_article_duplicate_func = check_article_duplicate
         
         existing_article = check_article_duplicate_func(
             session, Article,
             title=title,
-            content=content,
+            content=final_content,
             url=url
         )
         if existing_article:
@@ -856,29 +865,79 @@ def ingest_web_general():
         
         import uuid
         import re
+        import requests
+        from bs4 import BeautifulSoup
         import urllib.parse
         parsed = urllib.parse.urlparse(url)
         safe_name = re.sub(r'[^\w\-.]', '_', parsed.netloc + parsed.path)
-        if not safe_name.endswith('.html'):
-            safe_name += '.html'
-        unique_id = str(uuid.uuid4())[:8]
-        save_filename = f"{unique_id}_{safe_name}"
+        article_id = str(uuid.uuid4())[:8]
+        save_filename = f"{article_id}_{safe_name}"
+        if not save_filename.endswith('.html'):
+            save_filename += '.html'
         relative_path = f"data/papers/web/{save_filename}"
         full_path = BASE_DIR / relative_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
         
+        images_dir = full_path.parent / f'{article_id}_files'
+        images_dir.mkdir(exist_ok=True)
+        
+        local_html_content = final_content
+        downloaded_images_count = 0
+        if html_content:
+            try:
+                soup = BeautifulSoup(html_content, 'lxml')
+                USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                
+                for i, img in enumerate(soup.find_all('img')):
+                    img_url = img.get('src', '') or img.get('data-src', '')
+                    local_file = None
+                    
+                    if img_url:
+                        if not img_url.startswith('http'):
+                            img_url = urllib.parse.urljoin(url, img_url)
+                        
+                        if img_url.startswith('http'):
+                            try:
+                                headers = {'User-Agent': USER_AGENT, 'Referer': url}
+                                img_resp = requests.get(img_url, headers=headers, timeout=10)
+                                if img_resp.status_code == 200:
+                                    ext = '.png'
+                                    lower_url = img_url.lower()
+                                    if '.gif' in lower_url:
+                                        ext = '.gif'
+                                    elif '.jpg' in lower_url or '.jpeg' in lower_url:
+                                        ext = '.jpg'
+                                    elif '.webp' in lower_url:
+                                        ext = '.webp'
+                                    local_file = f'{i}{ext}'
+                                    with open(images_dir / local_file, 'wb') as f:
+                                        f.write(img_resp.content)
+                                    downloaded_images_count += 1
+                            except Exception as e:
+                                pass
+                    
+                    if local_file:
+                        img['src'] = f'/static/web/{article_id}_files/{local_file}'
+                    else:
+                        if img.parent:
+                            img.decompose()
+                
+                local_html_content = str(soup)
+            except Exception as e:
+                pass
+        
         parser = UniversalWebParser()
         try:
-            html, _ = parser.fetch_html(url)
+            raw_html, _ = parser.fetch_html(url)
             with open(full_path, 'w', encoding='utf-8') as f:
-                f.write(html)
+                f.write(raw_html)
         except Exception:
             pass
         
         from datetime import date
         article = Article(
             title=title,
-            content=content,
+            content=local_html_content if html_content else final_content,
             author=author,
             source='web',
             url=url,
@@ -892,7 +951,9 @@ def ingest_web_general():
         
         return jsonify({
             'message': 'Web article ingested successfully',
-            'article': article.to_dict()
+            'article': article.to_dict(),
+            'used_html': bool(html_content),
+            'downloaded_images': downloaded_images_count
         }), 201
     
     except Exception as e:

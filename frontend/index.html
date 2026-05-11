@@ -1293,54 +1293,6 @@
                                 </div>
                             </el-card>
                         </el-tab-pane>
-
-                        <!-- 微信公众号 -->
-                        <el-tab-pane label="🌐 通用网页" name="web">
-                            <el-card>
-                                <template #header>
-                                    <div style="font-weight: 600;">输入任意网页URL，一键提取正文并保存</div>
-                                </template>
-                                <el-input
-                                    v-model="webUrl"
-                                    placeholder="输入任意网页链接，例如：https://example.com/article"
-                                    style="margin-bottom: 16px;"
-                                    @keyup.enter="previewWebArticle"
-                                >
-                                    <template #append>
-                                        <el-button type="primary" @click="previewWebArticle" :loading="webPreviewLoading">🔍 预览提取</el-button>
-                                    </template>
-                                </el-input>
-                                <p style="color: #909399; margin: 0;">支持任意公开网页，自动用多算法融合提取正文</p>
-                                
-                                <div v-if="webPreviewData" style="margin-top: 20px; border-top: 1px solid #ebeef5; padding-top: 20px;">
-                                    <h3 style="font-size: 16px; margin-bottom: 12px;">✅ 提取预览（可手动编辑修改）</h3>
-                                    
-                                    <el-form label-position="top">
-                                        <el-form-item label="📌 标题">
-                                            <el-input v-model="webPreviewData.title" placeholder="文章标题"></el-input>
-                                        </el-form-item>
-                                        
-                                        <el-form-item label="✍️ 作者">
-                                            <el-input v-model="webPreviewData.author" placeholder="作者名称"></el-input>
-                                        </el-form-item>
-                                        
-                                        <el-form-item label="📝 正文内容">
-                                            <el-input v-model="webPreviewData.content" type="textarea" :rows="15" placeholder="提取到的正文内容"></el-input>
-                                        </el-form-item>
-                                    </el-form>
-                                    
-                                    <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
-                                        <el-tag v-if="webPreviewData.best_method" type="info">提取算法: {{ webPreviewData.best_method }}</el-tag>
-                                        <el-tag v-if="webPreviewData.text_length" type="success">正文长度: {{ webPreviewData.text_length }} 字符</el-tag>
-                                    </div>
-                                    
-                                    <div style="margin-top: 20px; display: flex; gap: 12px;">
-                                        <el-button type="success" @click="confirmIngestWebArticle" :loading="webIngesting">✅ 确认入库</el-button>
-                                        <el-button @click="webPreviewData = null">清空预览</el-button>
-                                    </div>
-                                </div>
-                            </el-card>
-                        </el-tab-pane>
                         
                         <el-tab-pane label="微信公众号" name="wechat">
                             <!-- 单篇文章导入 -->
@@ -1693,6 +1645,54 @@
                                     <el-button @click="clearZhihuForm">清空</el-button>
                                 </el-form-item>
                             </el-form>
+                        </el-tab-pane>
+
+                        <!-- 通用网页 -->
+                        <el-tab-pane label="🌐 通用网页" name="web">
+                            <el-card>
+                                <template #header>
+                                    <div style="font-weight: 600;">输入任意网页URL，一键提取正文并保存</div>
+                                </template>
+                                <el-input
+                                    v-model="webUrl"
+                                    placeholder="输入任意网页链接，例如：https://example.com/article"
+                                    style="margin-bottom: 16px;"
+                                    @keyup.enter="previewWebArticle"
+                                >
+                                    <template #append>
+                                        <el-button type="primary" @click="previewWebArticle" :loading="webPreviewLoading">🔍 预览提取</el-button>
+                                    </template>
+                                </el-input>
+                                <p style="color: #909399; margin: 0;">支持任意公开网页，自动用多算法融合提取正文</p>
+                                
+                                <div v-if="webPreviewData" style="margin-top: 20px; border-top: 1px solid #ebeef5; padding-top: 20px;">
+                                    <h3 style="font-size: 16px; margin-bottom: 12px;">✅ 提取预览（可手动编辑修改）</h3>
+                                    
+                                    <el-form label-position="top">
+                                        <el-form-item label="📌 标题">
+                                            <el-input v-model="webPreviewData.title" placeholder="文章标题"></el-input>
+                                        </el-form-item>
+                                        
+                                        <el-form-item label="✍️ 作者">
+                                            <el-input v-model="webPreviewData.author" placeholder="作者名称"></el-input>
+                                        </el-form-item>
+                                        
+                                        <el-form-item label="📝 正文内容">
+                                            <el-input v-model="webPreviewData.content" type="textarea" :rows="15" placeholder="提取到的正文内容"></el-input>
+                                        </el-form-item>
+                                    </el-form>
+                                    
+                                    <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
+                                        <el-tag v-if="webPreviewData.best_method" type="info">提取算法: {{ webPreviewData.best_method }}</el-tag>
+                                        <el-tag v-if="webPreviewData.text_length" type="success">正文长度: {{ webPreviewData.text_length }} 字符</el-tag>
+                                    </div>
+                                    
+                                    <div style="margin-top: 20px; display: flex; gap: 12px;">
+                                        <el-button type="success" @click="confirmIngestWebArticle" :loading="webIngesting">✅ 确认入库</el-button>
+                                        <el-button @click="webPreviewData = null">清空预览</el-button>
+                                    </div>
+                                </div>
+                            </el-card>
                         </el-tab-pane>
 
                         <!-- 批量上传 -->
@@ -2286,7 +2286,7 @@
                     webPreviewLoading.value = true;
                     webPreviewData.value = null;
                     try {
-                        const res = await axios.post('/api/web/preview', {
+                        const res = await axios.post('/api/ingest/web/preview', {
                             url: webUrl.value.trim()
                         });
                         webPreviewData.value = res.data;
@@ -4896,6 +4896,7 @@
                     // ============ 入库 =============
                     ingestTab, uploadRef, uploadFiles, uploading, pdfSourceUrl,
                     wechatUrl, wechatIngesting, wechatContent, wechatExtractOnly,
+                    webUrl, webPreviewLoading, webIngesting, webPreviewData, previewWebArticle, confirmIngestWebArticle,
                     noteForm, noteIngesting, noteSources, customSource, addCustomSource, ingestNote, clearNoteForm,
                     zhihuMode, zhihuForm, zhihuUrlForm, zhihuIngesting, ingestZhihuManual, ingestZhihuUrl, clearZhihuForm, clearZhihuUrlForm,
                     showIngest, ingestArxiv,
