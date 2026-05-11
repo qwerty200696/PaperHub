@@ -73,3 +73,7 @@ global_config:
     config_type: str
     default_value: INFO
     description: 全局日志级别，可选值DEBUG/INFO/WARNING/ERROR/CRITICAL
+  - config_key: BACKUPS_DIR
+    config_type: str
+    default_value: data/backups
+    description: 数据备份文件存储目录，备份/恢复功能生成的ZIP文件存放于此

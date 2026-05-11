@@ -1237,7 +1237,7 @@
                 <!-- 入库页面 -->
                 <div v-if="activeMenu === 'ingest'">
                     <h2 style="margin-bottom: 20px;">论文入库</h2>
-                    <el-tabs v-model="ingestTab" type="border-card">
+                    <el-tabs v-model="ingestTab" type="border-card" @tab-change="handleIngestTabChange">
                         <!-- arXiv 入库 -->
                         <el-tab-pane label="arXiv 入库" name="arxiv">
                             <!-- 方法一：ID输入 -->
@@ -1879,6 +1879,70 @@
                             <p style="color: #909399; font-size: 12px;">✓ 支持完整 Markdown 格式渲染</p>
                             <p style="color: #909399; font-size: 12px;">✓ 同时保存 .md 源文件和 .html 渲染文件</p>
                         </el-tab-pane>
+
+                        <!-- 💾 备份/恢复 -->
+                        <el-tab-pane label="💾 备份/恢复" name="backup">
+                            <div v-if="backupLoading" style="text-align: center; padding: 40px;">
+                                <el-spinner />
+                                <p style="margin-top: 12px; color: #909399;">{{ backupLoadingText }}</p>
+                            </div>
+                            <div v-else>
+                                <el-alert
+                                    title="备份包含 SQLite 数据库和所有论文/文章/笔记文件"
+                                    type="info"
+                                    :closable="false"
+                                    style="margin-bottom: 16px;"
+                                />
+                                <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                                    <el-input v-model="backupName" placeholder="备份名称（可选）" size="small" style="flex: 1;"></el-input>
+                                    <el-button type="primary" size="small" @click="exportBackup" :loading="backupExporting">
+                                        📦 立即备份
+                                    </el-button>
+                                </div>
+                                <el-divider content-position="left">历史备份</el-divider>
+                                <div v-if="backupList.length === 0" style="text-align: center; padding: 20px; color: #909399;">
+                                    暂无备份文件
+                                </div>
+                                <div v-else>
+                                    <div v-for="backup in backupList" :key="backup.filename"
+                                         style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid #ebeef5; border-radius: 6px; margin-bottom: 8px;">
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ backup.filename }}</div>
+                                            <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ backup.size }} · {{ backup.created_at }}</div>
+                                        </div>
+                                        <div style="display: flex; gap: 6px; margin-left: 8px;">
+                                            <el-button size="small" type="primary" plain @click="downloadBackup(backup.filename)">下载</el-button>
+                                            <el-button size="small" type="danger" plain @click="deleteBackup(backup.filename)">删除</el-button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <el-divider content-position="left">从文件恢复</el-divider>
+                                <el-upload
+                                    action="#"
+                                    :auto-upload="false"
+                                    :on-change="handleBackupFileChange"
+                                    :limit="1"
+                                    accept=".zip"
+                                    drag
+                                    style="width: 100%;"
+                                >
+                                    <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                                    <div class="el-upload__text">
+                                        拖拽备份文件到此处或 <em>点击上传</em>
+                                    </div>
+                                    <template #tip>
+                                        <div class="el-upload__tip" style="text-align: center;">
+                                            仅支持 .zip 格式的 PaperHub 备份文件，恢复会覆盖现有数据
+                                        </div>
+                                    </template>
+                                </el-upload>
+                                <div v-if="selectedBackupFile" style="margin-top: 12px; text-align: center;">
+                                    <el-button type="danger" @click="importBackup" :loading="backupImporting">
+                                        ⚠️ 确认恢复
+                                    </el-button>
+                                </div>
+                            </div>
+                        </el-tab-pane>
                     </el-tabs>
                 </div>
             </div>
@@ -2160,6 +2224,15 @@
                 const aiSummaryLoading = ref(false);
                 const aiSummaryError = ref('');
                 const aiConfigDialogVisible = ref(false);
+
+                // ============ 备份/恢复状态 ============
+                const backupName = ref('');
+                const backupList = ref([]);
+                const backupLoading = ref(false);
+                const backupLoadingText = ref('');
+                const backupExporting = ref(false);
+                const backupImporting = ref(false);
+                const selectedBackupFile = ref(null);
 
                 // ============ 论文编辑状态 ============
                 const editPaperModalVisible = ref(false);
@@ -2513,19 +2586,16 @@
                     viewingNote.value = null;
                     viewingArticle.value = null;
                     if (index === 'library') {
-                        ElementPlus.ElMessage.success('已切换到论文库');
+                        //ElementPlus.ElMessage.success('已切换到论文库');
                         loadPapers();
                     }
                     if (index === 'notes') {
-                        ElementPlus.ElMessage.success('已切换到笔记库');
+                        //ElementPlus.ElMessage.success('已切换到笔记库');
                         loadAllNotes();
                     }
                     if (index === 'articles') {
-                        ElementPlus.ElMessage.success('已切换到文章库');
+                        //ElementPlus.ElMessage.success('已切换到文章库');
                         loadAllArticles();
-                    }
-                    if (index === 'ingest') {
-                        ElementPlus.ElMessage.success('已切换到入库页面');
                     }
                 }
 
@@ -2825,6 +2895,132 @@
 
                 function closeAIConfig() {
                     aiConfigDialogVisible.value = false;
+                }
+
+                // ============ 备份/恢复函数 ============
+                function handleIngestTabChange(tabName) {
+                    if (tabName === 'backup') {
+                        backupName.value = '';
+                        selectedBackupFile.value = null;
+                        loadBackupList();
+                    }
+                }
+
+                async function loadBackupList() {
+                    try {
+                        const res = await axios.get('/api/backup/list');
+                        backupList.value = res.data.backups || [];
+                    } catch (e) {
+                        console.error('加载备份列表失败:', e);
+                        backupList.value = [];
+                    }
+                }
+
+                async function exportBackup() {
+                    backupExporting.value = true;
+                    try {
+                        const res = await axios.post('/api/backup/export', {
+                            filename: backupName.value
+                        }, { responseType: 'blob' });
+
+                        const blob = new Blob([res.data], { type: 'application/zip' });
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+
+                        const contentDisposition = res.headers['content-disposition'];
+                        let filename = 'paperhub_backup.zip';
+                        if (contentDisposition) {
+                            const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                            if (match) filename = match[1].replace(/['"]/g, '');
+                        }
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+
+                        ElementPlus.ElMessage.success('备份文件已下载');
+                        backupName.value = '';
+                        loadBackupList();
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('备份失败: ' + (e.response?.data?.error || e.message));
+                    } finally {
+                        backupExporting.value = false;
+                    }
+                }
+
+                function handleBackupFileChange(uploadFile) {
+                    selectedBackupFile.value = uploadFile.raw;
+                }
+
+                async function importBackup() {
+                    if (!selectedBackupFile.value) {
+                        ElementPlus.ElMessage.warning('请先选择备份文件');
+                        return;
+                    }
+
+                    try {
+                        await ElementPlus.ElMessageBox.confirm(
+                            '恢复操作会覆盖现有数据，是否继续？',
+                            '确认恢复',
+                            { confirmButtonText: '确认恢复', cancelButtonText: '取消', type: 'warning' }
+                        );
+                    } catch {
+                        return;
+                    }
+
+                    backupImporting.value = true;
+                    backupLoadingText.value = '正在恢复数据，请稍候...';
+                    backupLoading.value = true;
+
+                    try {
+                        const formData = new FormData();
+                        formData.append('backup_file', selectedBackupFile.value);
+
+                        const res = await axios.post('/api/backup/import', formData, {
+                            headers: { 'Content-Type': 'multipart/form-data' }
+                        });
+
+                        ElementPlus.ElMessage.success(`恢复成功：共恢复 ${res.data.restored_files} 个项目`);
+                        selectedBackupFile.value = null;
+                        loadBackupList();
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('恢复失败: ' + (e.response?.data?.error || e.message));
+                    } finally {
+                        backupImporting.value = false;
+                        backupLoading.value = false;
+                    }
+                }
+
+                async function downloadBackup(filename) {
+                    try {
+                        const res = await axios.post('/api/backup/export', { filename: filename.replace(/\.zip$/, '') }, { responseType: 'blob' });
+                        const blob = new Blob([res.data], { type: 'application/zip' });
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('下载失败: ' + (e.response?.data?.error || e.message));
+                    }
+                }
+
+                async function deleteBackup(filename) {
+                    try {
+                        await ElementPlus.ElMessageBox.confirm('确定删除该备份文件？', '确认删除', { type: 'warning' });
+                        await axios.post('/api/backup/delete', { filename });
+                        ElementPlus.ElMessage.success('备份已删除');
+                        loadBackupList();
+                    } catch (e) {
+                        if (e !== 'cancel') {
+                            ElementPlus.ElMessage.error('删除失败: ' + (e.response?.data?.error || e.message));
+                        }
+                    }
                 }
 
                 // ============ 论文编辑函数 ============
@@ -5164,6 +5360,12 @@
                     aiConfigDialogVisible, aiProvider, aiConfigs,
                     editApiKey, editBaseUrl, editModelId, editTemperature,
                     loadAISummaryAndNote, saveAIConfig, loadAIConfig, openAIConfig, closeAIConfig,
+
+                    // ============ 备份/恢复 =============
+                    backupName, backupList, backupLoading, backupLoadingText,
+                    backupExporting, backupImporting, selectedBackupFile,
+                    handleIngestTabChange, loadBackupList, exportBackup, handleBackupFileChange,
+                    importBackup, downloadBackup, deleteBackup,
 
                     // ============ 论文编辑 =============
                     editPaperModalVisible, editPaperForm,

@@ -1,0 +1,91 @@
+module: backup
+description: 数据备份与恢复接口
+timeout_ms: 30000
+apis:
+  - api: /api/backup/export
+    method: POST
+    desc: 导出数据备份（下载 ZIP 压缩包）
+    input:
+      filename:
+        type: string
+        default_value: null
+        optional: true
+        desc: 自定义备份文件名（不含扩展名和时间戳）
+    output:
+      code: 0
+      data: binary
+      msg: success
+    errors:
+      - code: 50000
+        desc: 服务器内部错误
+    rules:
+      - 备份内容包含 SQLite 数据库 + data/papers/ 下所有文件
+      - 自动附加时间戳命名，格式 {name}_{YYYYMMDD_HHMMSS}.zip
+
+  - api: /api/backup/import
+    method: POST
+    desc: 从 ZIP 备份文件恢复数据（覆盖现有数据）
+    input:
+      backup_file:
+        type: file
+        default_value: required
+        optional: false
+        desc: 备份 ZIP 文件（multipart/form-data）
+    output:
+      code: 0
+      data:
+        message: string
+        restored_files: integer
+        db_restored: boolean
+      msg: success
+    errors:
+      - code: 40002
+        desc: 缺少备份文件
+      - code: 40003
+        desc: 文件格式错误（仅支持 .zip）
+      - code: 50000
+        desc: 服务器内部错误
+    rules:
+      - 恢复前自动备份当前数据库到 data/backups/auto_backup_before_import_{timestamp}.db
+      - 覆盖式恢复，现有数据将被替换
+
+  - api: /api/backup/list
+    method: GET
+    desc: 获取服务器端备份文件列表
+    output:
+      code: 0
+      data:
+        backups: array
+      msg: success
+    errors:
+      - code: 50000
+        desc: 服务器内部错误
+    rules:
+      - 仅列出 data/backups/ 目录下的 .zip 文件
+      - 按创建时间倒序排列
+
+  - api: /api/backup/delete
+    method: POST
+    desc: 删除指定备份文件
+    input:
+      filename:
+        type: string
+        default_value: required
+        optional: false
+        desc: 备份文件名（不含路径）
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success
+    errors:
+      - code: 40002
+        desc: 缺少文件名参数
+      - code: 40003
+        desc: 非法文件名（包含路径遍历字符）
+      - code: 40001
+        desc: 备份文件不存在
+      - code: 50000
+        desc: 服务器内部错误
+    rules:
+      - 禁止路径遍历（文件名中不得包含 .. / \ 等字符）

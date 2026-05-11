@@ -27,7 +27,7 @@ PaperHub/
   - 只做请求参数校验、调用 services、返回统一格式响应
   - 禁止直接写业务逻辑
   - 所有 Blueprint 在此注册
-- 示例：papers.py, notes.py, ingest.py
+- 示例：papers.py, notes.py, ingest.py, backup.py
 
 ### 2. backend/services/
 - 职责：存放核心业务逻辑层
