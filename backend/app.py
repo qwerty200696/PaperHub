@@ -108,6 +108,10 @@ def create_app(config_name='default'):
     def note_images_static(filename):
         return send_from_directory(str(BASE_DIR / 'data/papers/note_images'), filename)
 
+    @app.route('/static/web/<path:filename>')
+    def web_static(filename):
+        return send_from_directory(str(BASE_DIR / 'data/papers/web'), filename)
+
     @app.route('/src/<path:filename>')
     def frontend_src(filename):
         return send_from_directory(str(BASE_DIR / 'frontend/src'), filename)
