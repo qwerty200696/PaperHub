@@ -913,8 +913,7 @@ def save_article_content(article_id, html_content):
 
 
 def fetch_wechat_article_new(url, format='html'):
-    """使用新的第三方API抓取微信公众号文章内容
-
+    """使用新的第三方API抓取微信公众号文章内容（自动降级：第三方失败自动切本地原生爬取）
     此接口不需要API密钥
 
     Args:
@@ -935,27 +934,25 @@ def fetch_wechat_article_new(url, format='html'):
             'file_path': str
         }
     """
+    # 第一优先级：尝试第三方API
     api_url = 'https://down.mptext.top/api/public/v1/download'
-
     encoded_url = quote(url, safe='')
-
     params = {
         'url': encoded_url,
         'format': format
     }
-
     headers = {
         'User-Agent': USER_AGENT,
         'Accept': '*/*'
     }
 
     try:
-        response = requests.get(api_url, params=params, headers=headers, timeout=30)
+        print("🔍 尝试通过第三方API获取文章...")
+        response = requests.get(api_url, params=params, headers=headers, timeout=20)
         response.encoding = 'utf-8'
 
         if response.status_code == 200:
             article_id = extract_wechat_id(url) or str(abs(hash(url)))[:8]
-
             from config import BASE_DIR
             save_path = BASE_DIR / f'data/papers/wechat/{article_id}.html'
             save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1011,6 +1008,98 @@ def fetch_wechat_article_new(url, format='html'):
                 except Exception as e:
                     print(f"处理图片出错: {e}")
                 
+                # 代码块修复：在<pre>内多个<code>标签之间插入换行符
+                try:
+                    for pre in soup.find_all('pre'):
+                        code_tags = pre.find_all('code')
+                        if len(code_tags) > 1:
+                            for i in range(len(code_tags) - 1):
+                                code_tags[i].insert_after('\n')
+                    print(f"ℹ️  代码块换行修复完成")
+                except Exception as e:
+                    print(f"代码块修复出错: {e}")
+                
+                # 表格修复：为所有table添加响应式table-container容器
+                try:
+                    for table in soup.find_all('table'):
+                        if not table.parent or not table.parent.has_attr('class') or 'table-container' not in str(table.parent.get('class', '')):
+                            container = soup.new_tag('div')
+                            container['class'] = 'table-container'
+                            table.wrap(container)
+                    print(f"ℹ️  表格响应式容器修复完成")
+                except Exception as e:
+                    print(f"表格修复出错: {e}")
+                
+                # 清理空的 <li> 和空 <ul>/<ol> 标签
+                try:
+                    for li in soup.find_all('li'):
+                        if not li.get_text(strip=True) and len(li.find_all()) == 0:
+                            li.decompose()
+                    for ul in soup.find_all(['ul', 'ol']):
+                        if len(ul.find_all('li')) == 0:
+                            ul.decompose()
+                    print(f"ℹ️  空列表项清理完成")
+                except Exception as e:
+                    print(f"清理空列表出错: {e}")
+                
+                # 清理所有微信原始HTML残留的 Cloudflare 反爬脚本和无用外部资源
+                try:
+                    for script in soup.find_all('script'):
+                        src = script.get('src', '')
+                        if 'cdn-cgi' in src or 'cloudflare' in src or 'challenge-platform' in src:
+                            script.decompose()
+                        if not src:
+                            script.decompose()
+                    
+                    for link in soup.find_all('link'):
+                        href = link.get('href', '')
+                        if 'cdn-cgi' in href or 'cloudflare' in href:
+                            link.decompose()
+                    
+                    for a in soup.find_all('a'):
+                        href = a.get('href', '')
+                        if 'cdn-cgi' in href:
+                            a.decompose()
+                    
+                    print(f"ℹ️  Cloudflare/无用脚本清理完成")
+                except Exception as e:
+                    print(f"清理 Cloudflare 脚本出错: {e}")
+                
+                # 注入完整的文章美化样式（代码块、表格、列表等全部美化）
+                try:
+                    style_tag = soup.new_tag('style')
+                    style_tag.string = '''
+body { max-width: 677px; margin: 0 auto; padding: 20px 16px; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; line-height: 1.75; color: #333; background-color: #f4f5f6; }
+.article-container { background: white; padding: 32px; border-radius: 12px; }
+img { max-width: 100%; height: auto; display: block; margin: 20px auto; }
+h1 { font-size: 22px; font-weight: 700; line-height: 1.4; margin-bottom: 14px; color: #222; }
+.meta-info { font-size: 14px; color: #888; margin-bottom: 32px; display: flex; align-items: center; }
+.meta-info .account { color: #576b95; font-weight: 500; margin-right: 14px; }
+.meta-info .date { color: #b2b2b2; margin-right: 14px; }
+.meta-info .location { color: #969696; }
+.content { font-size: 16px; color: #333; line-height: 1.75; }
+.content p { margin-bottom: 20px; }
+.content h2, .content h3, .content h4 { margin-top: 30px; margin-bottom: 16px; font-weight: 600; color: #222; }
+pre { background: #f6f8fa; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 20px 0; font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; }
+code { background: #f1f3f4; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace; font-size: 14px; }
+pre code { background: transparent; padding: 0; border-radius: 0; display: block; }
+.table-container { overflow-x: auto; margin: 20px 0; }
+table { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 14px; }
+th, td { border: 1px solid #e0e0e0; padding: 12px 16px; text-align: left; white-space: nowrap; }
+th { background: #fafafa; font-weight: 600; color: #333; }
+tr:nth-child(even) { background: #fafafa; }
+ul, ol { padding-left: 24px; margin: 16px 0; }
+li { margin-bottom: 8px; }
+blockquote { border-left: 4px solid #409eff; padding-left: 16px; margin: 16px 0; color: #666; }
+'''
+                    if not soup.head:
+                        soup.insert(0, soup.new_tag('html'))
+                        soup.html.insert(0, soup.new_tag('head'))
+                    soup.head.append(style_tag)
+                    print(f"ℹ️  完整美化样式注入完成")
+                except Exception as e:
+                    print(f"注入样式出错: {e}")
+                
                 # 提取标题和账号信息
                 try:
                     title_elem = soup.find(id='activity-name') or soup.find(class_='rich_media_title') or soup.find('title')
@@ -1045,6 +1134,7 @@ def fetch_wechat_article_new(url, format='html'):
                 except Exception as e:
                     print(f"保存HTML出错: {e}")
 
+                print(f"✅ 第三方API获取成功！")
                 return {
                     'title': title,
                     'author': '',
@@ -1075,7 +1165,7 @@ def fetch_wechat_article_new(url, format='html'):
                     except Exception as e:
                         print(f"轻量请求获取时间出错: {e}")
                         published_at = datetime.now()
-
+                    print(f"✅ 第三方API获取成功！")
                     return {
                         'title': title or '未命名公众号文章',
                         'author': author,
@@ -1095,5 +1185,10 @@ def fetch_wechat_article_new(url, format='html'):
             raise Exception(f"HTTP错误: {response.status_code}")
 
     except Exception as e:
-        print(f"使用新API获取文章失败: {e}")
-        return None
+        print(f"⚠️ 第三方API失败: {e}，自动切换到本地原生爬取...")
+        # 第二优先级：自动降级到本地原生爬取，完全不依赖任何第三方！
+        try:
+            return fetch_wechat_article(url, extract_content_only=(format != 'html'))
+        except Exception as e2:
+            print(f"❌ 本地原生爬取也失败: {e2}")
+            return None
