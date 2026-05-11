@@ -4263,12 +4263,41 @@
                     }
                 }
 
-                async function ingestWechat() {
-                    if (!_initIngestModule()) {
-                        ElementPlus.ElMessage.warning('模块加载中，请稍候...');
-                        return;
+                async function ingestArxiv() {
+                    if (!arxivInput.value.trim()) return;
+                    ingesting.value = true;
+                    try {
+                        await axios.post('/api/ingest/arxiv', { input: arxivInput.value });
+                        ElementPlus.ElMessage.success('入库成功！');
+                        arxivInput.value = '';
+                        activeMenu.value = 'library';
+                        loadPapers();
+                    } catch (e) {
+                        const msg = e.response?.data?.error || '入库失败';
+                        ElementPlus.ElMessage.error(msg);
+                    } finally {
+                        ingesting.value = false;
                     }
-                    await IngestModule.value.ingestWechat();
+                }
+
+                async function ingestWechat() {
+                    if (!wechatUrl.value.trim()) return;
+                    wechatIngesting.value = true;
+                    try {
+                        await axios.post('/api/ingest/wechat', {
+                            url: wechatUrl.value,
+                            extract_content_only: wechatExtractOnly.value
+                        });
+                        ElementPlus.ElMessage.success('公众号文章入库成功！');
+                        wechatUrl.value = '';
+                        activeMenu.value = 'articles';
+                        loadAllArticles();
+                    } catch (e) {
+                        const msg = e.response?.data?.error || '入库失败';
+                        ElementPlus.ElMessage.error(msg);
+                    } finally {
+                        wechatIngesting.value = false;
+                    }
                 }
 
                 // ============ 公众号订阅功能 ============
