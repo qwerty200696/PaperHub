@@ -352,4 +352,130 @@ def get_article_routes(app):
         finally:
             session.close()
 
+    @bp.route('/batch', methods=['POST'])
+    def batch_update_articles():
+        """
+        批量更新文章状态/标签/标星/删除
+        
+        请求体:
+        {
+            "article_ids": [1, 2, 3],
+            "action": "update_status" | "add_tags" | "remove_tags" | "toggle_star" | "set_star" | "delete",
+            "status": "pending" | "reading" | "done" | "mastered",
+            "tag_names": ["LLM", "RAG"],
+            "starred": true | false
+        }
+        """
+        try:
+            from backend.config import PAPERS_DIR
+        except ImportError:
+            from config import PAPERS_DIR
+
+        session = get_session()
+        try:
+            from backend.models import Article, Tag
+        except ImportError:
+            from models import Article, Tag
+
+        try:
+            data = request.get_json()
+            article_ids = data.get('article_ids', [])
+            action = data.get('action')
+            
+            if not article_ids:
+                return jsonify({'error': 'article_ids is required'}), 400
+            
+            if not action:
+                return jsonify({'error': 'action is required'}), 400
+            
+            results = {'success': [], 'failed': []}
+            
+            articles = session.query(Article).filter(
+                Article.id.in_(article_ids),
+                Article.is_deleted == False
+            ).all()
+            article_map = {a.id: a for a in articles}
+            
+            for article_id in article_ids:
+                article = article_map.get(article_id)
+                if not article:
+                    results['failed'].append({'id': article_id, 'error': 'Article not found'})
+                    continue
+                
+                try:
+                    if action == 'update_status':
+                        status = data.get('status')
+                        if status in ['pending', 'reading', 'done', 'mastered']:
+                            article.status = status
+                        else:
+                            results['failed'].append({'id': article_id, 'error': 'Invalid status'})
+                            continue
+                    
+                    elif action == 'add_tags':
+                        tag_names = data.get('tag_names', [])
+                        for tag_name in tag_names:
+                            tag = session.query(Tag).filter(Tag.name == tag_name).first()
+                            if not tag:
+                                tag = Tag(name=tag_name, type='custom')
+                                session.add(tag)
+                                session.flush()
+                            if tag not in article.tags:
+                                article.tags.append(tag)
+                    
+                    elif action == 'remove_tags':
+                        tag_names = data.get('tag_names', [])
+                        for tag_name in tag_names:
+                            tag = session.query(Tag).filter(Tag.name == tag_name).first()
+                            if tag and tag in article.tags:
+                                article.tags.remove(tag)
+                    
+                    elif action == 'toggle_star':
+                        article.starred = not article.starred
+                    
+                    elif action == 'set_star':
+                        article.starred = data.get('starred', False)
+                    
+                    elif action == 'delete':
+                        # 清理本地文件
+                        if article.file_path and article.source == 'wechat':
+                            wechat_dir = PAPERS_DIR / 'wechat'
+                            try:
+                                file_path = os.path.abspath(article.file_path)
+                                if wechat_dir in Path(file_path).parents or Path(file_path).parent == wechat_dir:
+                                    if os.path.exists(file_path):
+                                        os.remove(file_path)
+                                    file_path_obj = Path(file_path)
+                                    files_dir = file_path_obj.parent / f"{file_path_obj.stem}_files"
+                                    if os.path.exists(files_dir) and os.path.isdir(files_dir):
+                                        shutil.rmtree(files_dir)
+                            except Exception as e:
+                                print(f"清理文章本地文件失败: {e}")
+                        
+                        session.delete(article)
+                    
+                    else:
+                        results['failed'].append({'id': article_id, 'error': f'Unknown action: {action}'})
+                        continue
+                    
+                    results['success'].append(article_id)
+                
+                except Exception as e:
+                    results['failed'].append({'id': article_id, 'error': str(e)})
+            
+            session.commit()
+            
+            return jsonify({
+                'message': f'Batch operation completed: {len(results["success"])} success, {len(results["failed"])} failed',
+                'action': action,
+                'success_count': len(results['success']),
+                'failed_count': len(results['failed']),
+                'results': results
+            })
+        
+        except Exception as e:
+            session.rollback()
+            return jsonify({'error': str(e)}), 500
+        finally:
+            session.close()
+
     app.register_blueprint(bp)
