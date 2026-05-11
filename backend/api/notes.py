@@ -464,5 +464,131 @@ def get_note_routes(app):
         finally:
             session.close()
 
+    # ============================================================
+    # 批量操作
+    # ============================================================
+
+    @notes_bp.route('/batch', methods=['POST'])
+    def batch_update_notes():
+        """
+        批量更新笔记状态/标签/标星/置顶/删除
+        
+        请求体:
+        {
+            "note_ids": [1, 2, 3],
+            "action": "update_status" | "add_tags" | "remove_tags" | "toggle_star" | "set_star" | "toggle_pinned" | "delete",
+            "status": "pending" | "reading" | "done" | "mastered",
+            "tag_names": ["LLM", "RAG"],
+            "starred": true | false
+        }
+        """
+        try:
+            from backend.config import PAPERS_DIR
+        except ImportError:
+            from config import PAPERS_DIR
+
+        session = get_session()
+        try:
+            data = request.get_json()
+            note_ids = data.get('note_ids', [])
+            action = data.get('action')
+            
+            if not note_ids:
+                return jsonify({'error': 'note_ids is required'}), 400
+            
+            if not action:
+                return jsonify({'error': 'action is required'}), 400
+            
+            results = {'success': [], 'failed': []}
+            
+            notes = session.query(Note).filter(
+                Note.id.in_(note_ids),
+                Note.is_deleted == False
+            ).all()
+            note_map = {n.id: n for n in notes}
+            
+            for note_id in note_ids:
+                note = note_map.get(note_id)
+                if not note:
+                    results['failed'].append({'id': note_id, 'error': 'Note not found'})
+                    continue
+                
+                try:
+                    if action == 'update_status':
+                        status = data.get('status')
+                        if status in ['pending', 'reading', 'done', 'mastered']:
+                            note.status = status
+                        else:
+                            results['failed'].append({'id': note_id, 'error': 'Invalid status'})
+                            continue
+                    
+                    elif action == 'add_tags':
+                        tag_names = data.get('tag_names', [])
+                        for tag_name in tag_names:
+                            tag = session.query(Tag).filter(Tag.name == tag_name).first()
+                            if not tag:
+                                tag = Tag(name=tag_name, type='custom')
+                                session.add(tag)
+                                session.flush()
+                            if tag not in note.tags:
+                                note.tags.append(tag)
+                    
+                    elif action == 'remove_tags':
+                        tag_names = data.get('tag_names', [])
+                        for tag_name in tag_names:
+                            tag = session.query(Tag).filter(Tag.name == tag_name).first()
+                            if tag and tag in note.tags:
+                                note.tags.remove(tag)
+                    
+                    elif action == 'toggle_star':
+                        note.starred = not note.starred
+                    
+                    elif action == 'set_star':
+                        note.starred = data.get('starred', False)
+                    
+                    elif action == 'toggle_pinned':
+                        note.pinned = not note.pinned
+                    
+                    elif action == 'delete':
+                        # 清理笔记图片
+                        note_images_dir = PAPERS_DIR / 'note_images'
+                        if note.content:
+                            image_paths = re.findall(r'/static/note_images/([^\)\s]+)', note.content)
+                            for img_name in image_paths:
+                                try:
+                                    img_path = note_images_dir / img_name
+                                    img_path_abs = os.path.abspath(str(img_path))
+                                    if str(note_images_dir) in img_path_abs and os.path.exists(img_path_abs):
+                                        os.remove(img_path_abs)
+                                except Exception as e:
+                                    print(f"清理笔记图片失败: {e}")
+                        
+                        session.delete(note)
+                    
+                    else:
+                        results['failed'].append({'id': note_id, 'error': f'Unknown action: {action}'})
+                        continue
+                    
+                    results['success'].append(note_id)
+                
+                except Exception as e:
+                    results['failed'].append({'id': note_id, 'error': str(e)})
+            
+            session.commit()
+            
+            return jsonify({
+                'message': f'Batch operation completed: {len(results["success"])} success, {len(results["failed"])} failed',
+                'action': action,
+                'success_count': len(results['success']),
+                'failed_count': len(results['failed']),
+                'results': results
+            })
+        
+        except Exception as e:
+            session.rollback()
+            return jsonify({'error': str(e)}), 500
+        finally:
+            session.close()
+
     # 注册蓝图
     app.register_blueprint(notes_bp)

@@ -694,3 +694,128 @@ def import_arxiv_papers():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/papers/batch', methods=['POST'])
+def batch_update_papers():
+    """
+    批量更新论文状态/标签/标星
+    
+    请求体:
+    {
+        "paper_ids": [1, 2, 3],
+        "action": "update_status" | "add_tags" | "remove_tags" | "toggle_star" | "delete",
+        "status": "pending" | "reading" | "done" | "mastered",
+        "tag_names": ["LLM", "RAG"],
+        "starred": true | false
+    }
+    """
+    try:
+        from backend.config import BASE_DIR
+    except ImportError:
+        from config import BASE_DIR
+    
+    import shutil
+    Paper, Tag, _, _ = get_models()
+    session = get_session()
+    
+    try:
+        data = request.get_json()
+        paper_ids = data.get('paper_ids', [])
+        action = data.get('action')
+        
+        if not paper_ids:
+            return jsonify({'error': 'paper_ids is required'}), 400
+        
+        if not action:
+            return jsonify({'error': 'action is required'}), 400
+        
+        results = {'success': [], 'failed': []}
+        
+        papers = session.query(Paper).filter(Paper.id.in_(paper_ids)).all()
+        paper_map = {p.id: p for p in papers}
+        
+        for paper_id in paper_ids:
+            paper = paper_map.get(paper_id)
+            if not paper:
+                results['failed'].append({'id': paper_id, 'error': 'Paper not found'})
+                continue
+            
+            try:
+                if action == 'update_status':
+                    status = data.get('status')
+                    if status in ['pending', 'reading', 'done', 'mastered']:
+                        paper.status = status
+                    else:
+                        results['failed'].append({'id': paper_id, 'error': 'Invalid status'})
+                        continue
+                
+                elif action == 'add_tags':
+                    tag_names = data.get('tag_names', [])
+                    for tag_name in tag_names:
+                        tag = session.query(Tag).filter(Tag.name == tag_name).first()
+                        if not tag:
+                            tag = Tag(name=tag_name, type='custom')
+                            session.add(tag)
+                            session.flush()
+                        if tag not in paper.tags:
+                            paper.tags.append(tag)
+                
+                elif action == 'remove_tags':
+                    tag_names = data.get('tag_names', [])
+                    for tag_name in tag_names:
+                        tag = session.query(Tag).filter(Tag.name == tag_name).first()
+                        if tag and tag in paper.tags:
+                            paper.tags.remove(tag)
+                
+                elif action == 'toggle_star':
+                    paper.starred = not paper.starred
+                
+                elif action == 'set_star':
+                    paper.starred = data.get('starred', False)
+                
+                elif action == 'delete':
+                    # 硬删除 + 清理文件
+                    file_path = None
+                    if paper.file_path:
+                        file_path = Path(paper.file_path)
+                        if not file_path.is_absolute():
+                            file_path = BASE_DIR / file_path
+                    
+                    session.delete(paper)
+                    
+                    if file_path and file_path.exists():
+                        try:
+                            if file_path.is_file():
+                                file_path.unlink()
+                            if paper.source == 'wechat':
+                                images_dir = file_path.parent / f"{file_path.stem}_files"
+                                if images_dir.exists() and images_dir.is_dir():
+                                    shutil.rmtree(images_dir)
+                        except Exception as e:
+                            print(f"Warning: Could not delete file: {e}")
+                
+                else:
+                    results['failed'].append({'id': paper_id, 'error': f'Unknown action: {action}'})
+                    continue
+                
+                results['success'].append(paper_id)
+            
+            except Exception as e:
+                results['failed'].append({'id': paper_id, 'error': str(e)})
+        
+        session.commit()
+        
+        return jsonify({
+            'message': f'Batch operation completed: {len(results["success"])} success, {len(results["failed"])} failed',
+            'action': action,
+            'success_count': len(results['success']),
+            'failed_count': len(results['failed']),
+            'results': results
+        })
+    
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()

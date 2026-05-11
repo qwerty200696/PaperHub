@@ -411,7 +411,31 @@
                 <!-- 论文库列表 -->
                 <div v-if="activeMenu === 'library' && !selectedPaper">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h2 style="margin: 0; font-size: 18px;">📚 论文库 ({{ getFilteredPapers.length }})</h2>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <h2 style="margin: 0; font-size: 18px;">📚 论文库 ({{ getFilteredPapers.length }})</h2>
+                            <!-- 批量操作工具栏 -->
+                            <div v-if="selectedPapersForBatch.length > 0" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #f0f9eb; border-radius: 4px;">
+                                <span style="color: #67c23a; font-size: 13px;">已选 {{ selectedPapersForBatch.length }} 篇</span>
+                                <el-select v-model="batchAction" size="small" style="width: 100px;" placeholder="操作">
+                                    <el-option label="改状态" value="update_status"></el-option>
+                                    <el-option label="加标签" value="add_tags"></el-option>
+                                    <el-option label="删标签" value="remove_tags"></el-option>
+                                    <el-option label="标星" value="set_star"></el-option>
+                                    <el-option label="批量删除" value="delete"></el-option>
+                                </el-select>
+                                <!-- 状态选择 -->
+                                <el-select v-if="batchAction === 'update_status'" v-model="batchStatus" size="small" style="width: 80px;">
+                                    <el-option label="待读" value="pending"></el-option>
+                                    <el-option label="在读" value="reading"></el-option>
+                                    <el-option label="已读" value="done"></el-option>
+                                    <el-option label="精读" value="mastered"></el-option>
+                                </el-select>
+                                <!-- 标签输入 -->
+                                <el-input v-if="batchAction === 'add_tags' || batchAction === 'remove_tags'" v-model="batchTagName" size="small" style="width: 100px;" :placeholder="batchAction === 'add_tags' ? '加标签名' : '删标签名'"></el-input>
+                                <el-button size="small" type="primary" @click="executeBatchAction">执行</el-button>
+                                <el-button size="small" @click="clearBatchSelection">取消</el-button>
+                            </div>
+                        </div>
                         <el-select v-model="sortBy" size="small" style="width: 140px;">
                             <el-option label="🕒 按添加时间" value="created_at"></el-option>
                             <el-option label="⭐ 收藏优先" value="starred"></el-option>
@@ -440,6 +464,14 @@
                         }"
                     >
                         <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="display: flex; align-items: start; gap: 8px;">
+                                <!-- 多选框 -->
+                                <el-checkbox
+                                    :model-value="selectedPapersForBatch.includes(paper.id)"
+                                    @change="togglePaperBatchSelection(paper.id)"
+                                    style="margin-top: 4px;"
+                                ></el-checkbox>
+                            </div>
                             <div @click="viewPaper(paper)" style="flex: 1;">
                                 <h3 style="font-size: 17px; margin: 0 0 4px 0; line-height: 1.5;">
                                     <el-tag v-if="paper.status === 'pending'" size="small" type="danger" style="margin-right: 6px; transform: translateY(-2px); display: inline-block;">新</el-tag>
@@ -669,7 +701,30 @@
                 <!-- ========================================== -->
                 <div v-if="activeMenu === 'notes' && !viewingNote">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h2 style="margin: 0; font-size: 18px;">📝 笔记库 ({{ getFilteredNotes.length }})</h2>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <h2 style="margin: 0; font-size: 18px;">📝 笔记库 ({{ getFilteredNotes.length }})</h2>
+                            <!-- 批量操作工具栏 -->
+                            <div v-if="selectedNotesForBatch.length > 0" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #f0f9eb; border-radius: 4px;">
+                                <span style="color: #67c23a; font-size: 13px;">已选 {{ selectedNotesForBatch.length }} 篇</span>
+                                <el-select v-model="batchNoteAction" size="small" style="width: 100px;" placeholder="操作">
+                                    <el-option label="改状态" value="update_status"></el-option>
+                                    <el-option label="加标签" value="add_tags"></el-option>
+                                    <el-option label="删标签" value="remove_tags"></el-option>
+                                    <el-option label="标星" value="set_star"></el-option>
+                                    <el-option label="置顶" value="toggle_pinned"></el-option>
+                                    <el-option label="批量删除" value="delete"></el-option>
+                                </el-select>
+                                <el-select v-if="batchNoteAction === 'update_status'" v-model="batchNoteStatus" size="small" style="width: 80px;">
+                                    <el-option label="待读" value="pending"></el-option>
+                                    <el-option label="在读" value="reading"></el-option>
+                                    <el-option label="已读" value="done"></el-option>
+                                    <el-option label="精读" value="mastered"></el-option>
+                                </el-select>
+                                <el-input v-if="batchNoteAction === 'add_tags' || batchNoteAction === 'remove_tags'" v-model="batchNoteTagName" size="small" style="width: 100px;" :placeholder="batchNoteAction === 'add_tags' ? '加标签名' : '删标签名'"></el-input>
+                                <el-button size="small" type="primary" @click="executeBatchNoteAction">执行</el-button>
+                                <el-button size="small" @click="clearBatchNoteSelection">取消</el-button>
+                            </div>
+                        </div>
                         <div style="display: flex; gap: 8px;">
                             <el-select v-model="noteSortBy" size="small" style="width: 140px;">
                                 <el-option label="🕒 按添加时间" value="created_at"></el-option>
@@ -695,36 +750,46 @@
                     </div>
                     <el-card v-for="note in getFilteredNotes" :key="note.id" class="note-card" :class="[note.starred ? 'note-starred' : '', 'note-' + (note.status || 'pending')]" style="margin-bottom: 12px; cursor: pointer;" @click="viewNoteDetail(note)">
                         <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <div style="flex: 1;">
-                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                    <el-tag v-if="note.status === 'pending'" size="small" type="success" style="font-weight: 600;">新</el-tag>
-                                    <span v-if="note.starred" style="color: #9093ff; font-size: 18px; font-weight: bold;">★</span>
-                                    <span style="font-size: 17px; font-weight: 600;">{{ note.title || '无标题笔记' }}</span>
-                                    <el-tag size="small" type="info">{{ noteSourceText(note.source) }}</el-tag>
-                                </div>
-                                <div style="color: #909399; font-size: 12px; margin-bottom: 8px;">
-                                    {{ formatDateTime(note.created_at) }}
-                                    <span v-if="note.papers && note.papers.length > 0" style="margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;">
-                                        📚 关联 
-                                        <span v-for="paper in note.papers" :key="paper.id" @click="goToPaper(paper.id, $event)" style="cursor: pointer; color: #409eff; text-decoration: underline;">
-                                            {{ paper.title.length > 15 ? paper.title.substring(0,15) + '...' : paper.title }}
+                            <!-- 多选框 + 标题 -->
+                            <div style="display: flex; align-items: start; gap: 8px;">
+                                <el-checkbox
+                                    :model-value="selectedNotesForBatch.includes(note.id)"
+                                    @change="toggleNoteBatchSelection(note.id)"
+                                    style="margin-top: 4px;"
+                                    @click.stop
+                                ></el-checkbox>
+                                <div style="flex: 1;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                        <el-tag v-if="note.status === 'pending'" size="small" type="success" style="font-weight: 600;">新</el-tag>
+                                        <span v-if="note.starred" style="color: #9093ff; font-size: 18px; font-weight: bold;">★</span>
+                                        <span style="font-size: 17px; font-weight: 600;">{{ note.title || '无标题笔记' }}</span>
+                                        <el-tag size="small" type="info">{{ noteSourceText(note.source) }}</el-tag>
+                                    </div>
+                                    <!-- 时间、关联信息单独一行 -->
+                                    <div style="color: #909399; font-size: 12px; margin-bottom: 8px;">
+                                        {{ formatDateTime(note.created_at) }}
+                                        <span v-if="note.papers && note.papers.length > 0" style="margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;">
+                                            📚 关联
+                                            <span v-for="paper in note.papers" :key="paper.id" @click="goToPaper(paper.id, $event)" style="cursor: pointer; color: #409eff; text-decoration: underline;">
+                                                {{ paper.title.length > 15 ? paper.title.substring(0,15) + '...' : paper.title }}
+                                            </span>
                                         </span>
-                                    </span>
-                                    <span v-if="note.articles && note.articles.length > 0" style="margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;">
-                                        📰 关联 
-                                        <span v-for="article in note.articles" :key="article.id" @click="goToArticle(article.id, $event)" style="cursor: pointer; color: #409eff; text-decoration: underline;">
-                                            {{ article.title.length > 15 ? article.title.substring(0,15) + '...' : article.title }}
+                                        <span v-if="note.articles && note.articles.length > 0" style="margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;">
+                                            📰 关联
+                                            <span v-for="article in note.articles" :key="article.id" @click="goToArticle(article.id, $event)" style="cursor: pointer; color: #409eff; text-decoration: underline;">
+                                                {{ article.title.length > 15 ? article.title.substring(0,15) + '...' : article.title }}
+                                            </span>
                                         </span>
-                                    </span>
-                                    <span v-if="(!note.papers || note.papers.length === 0) && (!note.articles || note.articles.length === 0)" style="margin-left: 8px; color: #c0c4cc;">
-                                        📭 自由笔记
-                                    </span>
+                                        <span v-if="(!note.papers || note.papers.length === 0) && (!note.articles || note.articles.length === 0)" style="margin-left: 8px; color: #c0c4cc;">📭 自由笔记</span>
+                                    </div>
+                                    <div v-if="note.content" style="color: #606266; line-height: 1.6; font-size: 14px; white-space: pre-wrap; word-break: break-word;" :style="{ maxHeight: '60px', overflow: 'hidden' }">{{ note.content.substring(0, 150) }}{{ note.content.length > 150 ? '...' : '' }}</div>
+                                    <div v-if="note.tags && note.tags.length > 0" style="margin-top: 8px;">
+                                        <el-tag v-for="tag in note.tags" :key="tag.id" size="small" style="margin-right: 4px;">{{ tag.name }}</el-tag>
+                                    </div>
                                 </div>
-                                <div v-if="note.content" style="color: #606266; line-height: 1.6; font-size: 14px; white-space: pre-wrap; word-break: break-word;" :style="{ maxHeight: '60px', overflow: 'hidden' }">{{ note.content.substring(0, 150) }}{{ note.content.length > 150 ? '...' : '' }}</div>
-                                <div v-if="note.tags && note.tags.length > 0" style="margin-top: 8px;">
-                                    <el-tag v-for="tag in note.tags" :key="tag.id" size="small" style="margin-right: 4px;">{{ tag.name }}</el-tag>
-                                </div>
+                                
                             </div>
+                            
                             <div style="display: flex; flex-direction: column; gap: 4px; margin-left: 12px;">
                                 <el-select size="small" v-model="note.status" @change="updateNoteStatus(note)" style="width: 100px;" @click.stop>
                                     <el-option label="待读" value="pending"></el-option>
@@ -863,7 +928,29 @@
                 <!-- ========================================== -->
                 <div v-if="activeMenu === 'articles' && !viewingArticle">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h2 style="margin: 0; font-size: 18px;">📰 文章库 ({{ getFilteredArticles.length }})</h2>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <h2 style="margin: 0; font-size: 18px;">📰 文章库 ({{ getFilteredArticles.length }})</h2>
+                            <!-- 批量操作工具栏 -->
+                            <div v-if="selectedArticlesForBatch.length > 0" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #f0f9eb; border-radius: 4px;">
+                                <span style="color: #67c23a; font-size: 13px;">已选 {{ selectedArticlesForBatch.length }} 篇</span>
+                                <el-select v-model="batchArticleAction" size="small" style="width: 100px;" placeholder="操作">
+                                    <el-option label="改状态" value="update_status"></el-option>
+                                    <el-option label="加标签" value="add_tags"></el-option>
+                                    <el-option label="删标签" value="remove_tags"></el-option>
+                                    <el-option label="标星" value="set_star"></el-option>
+                                    <el-option label="批量删除" value="delete"></el-option>
+                                </el-select>
+                                <el-select v-if="batchArticleAction === 'update_status'" v-model="batchArticleStatus" size="small" style="width: 80px;">
+                                    <el-option label="待读" value="pending"></el-option>
+                                    <el-option label="在读" value="reading"></el-option>
+                                    <el-option label="已读" value="done"></el-option>
+                                    <el-option label="精读" value="mastered"></el-option>
+                                </el-select>
+                                <el-input v-if="batchArticleAction === 'add_tags' || batchArticleAction === 'remove_tags'" v-model="batchArticleTagName" size="small" style="width: 100px;" :placeholder="batchArticleAction === 'add_tags' ? '加标签名' : '删标签名'"></el-input>
+                                <el-button size="small" type="primary" @click="executeBatchArticleAction">执行</el-button>
+                                <el-button size="small" @click="clearBatchArticleSelection">取消</el-button>
+                            </div>
+                        </div>
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <el-select v-model="articleSortBy" size="small" style="width: 140px;">
                                 <el-option label="🕒 按添加时间" value="created_at"></el-option>
@@ -895,28 +982,37 @@
                                 'article-' + (article.status || 'pending')
                             ]">
                         <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <div @click="viewArticleDetail(article)" style="flex: 1; cursor: pointer;">
-                                <h3 style="font-size: 17px; margin: 0 0 4px 0; line-height: 1.5;">
-                                    <el-tag v-if="article.status === 'pending'" size="small" type="danger" style="margin-right: 6px; transform: translateY(-2px); display: inline-block;">新</el-tag>
-                                    <span v-if="article.starred" style="color: #9093ff; margin-right: 6px; font-size: 18px;">★</span>
-                                    {{ article.title }}
-                                </h3>
-                                <div style="color: #909399; font-size: 13px; margin-bottom: 8px;">
-                                    {{ formatAuthor(article.author) }}
-                                    <span v-if="article.published_at" style="margin-left: 8px;">{{ article.published_at }}</span>
-                                    <span v-if="article.papers && article.papers.length > 0" style="margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;">
-                                        📚 关联
-                                        <span v-for="paper in article.papers" :key="paper.id" @click="goToPaper(paper.id, $event)" style="cursor: pointer; color: #409eff; text-decoration: underline;">
-                                            {{ paper.title.length > 15 ? paper.title.substring(0,15) + '...' : paper.title }}
+                            <!-- 多选框 + 标题 -->
+                            <div style="display: flex; align-items: start; gap: 8px;">
+                                <el-checkbox
+                                    :model-value="selectedArticlesForBatch.includes(article.id)"
+                                    @change="toggleArticleBatchSelection(article.id)"
+                                    style="margin-top: 4px;"
+                                ></el-checkbox>
+                                <div @click="viewArticleDetail(article)" style="flex: 1; cursor: pointer;">
+                                    <h3 style="font-size: 17px; margin: 0 0 4px 0; line-height: 1.5;">
+                                        <el-tag v-if="article.status === 'pending'" size="small" type="danger" style="margin-right: 6px; transform: translateY(-2px); display: inline-block;">新</el-tag>
+                                        <span v-if="article.starred" style="color: #9093ff; margin-right: 6px; font-size: 18px;">★</span>
+                                        {{ article.title }}
+                                    </h3>
+                                    <!-- 作者、时间、关联信息单独一行 -->
+                                    <div style="color: #909399; font-size: 13px; margin-bottom: 8px;">
+                                        {{ formatAuthor(article.author) }}
+                                        <span v-if="article.published_at" style="margin-left: 8px;">{{ article.published_at }}</span>
+                                        <span v-if="article.papers && article.papers.length > 0" style="margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;">
+                                            📚 关联
+                                            <span v-for="paper in article.papers" :key="paper.id" @click="goToPaper(paper.id, $event)" style="cursor: pointer; color: #409eff; text-decoration: underline;">
+                                                {{ paper.title.length > 15 ? paper.title.substring(0,15) + '...' : paper.title }}
+                                            </span>
                                         </span>
-                                    </span>
-                                    <span v-if="article.notes && article.notes.length > 0" style="margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;">
-                                        📝 关联
-                                        <span v-for="note in article.notes" :key="note.id" @click="goToNote(note.id, $event)" style="cursor: pointer; color: #409eff; text-decoration: underline;">
-                                            {{ note.title.length > 15 ? note.title.substring(0,15) + '...' : (note.title || '无标题笔记') }}
+                                        <span v-if="article.notes && article.notes.length > 0" style="margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;">
+                                            📝 关联
+                                            <span v-for="note in article.notes" :key="note.id" @click="goToNote(note.id, $event)" style="cursor: pointer; color: #409eff; text-decoration: underline;">
+                                                {{ note.title.length > 15 ? note.title.substring(0,15) + '...' : (note.title || '无标题笔记') }}
+                                            </span>
                                         </span>
-                                    </span>
-                                    <span v-if="(!article.papers || article.papers.length === 0) && (!article.notes || article.notes.length === 0)" style="margin-left: 8px; color: #c0c4cc;">📭 暂无关联</span>
+                                        <span v-if="(!article.papers || article.papers.length === 0) && (!article.notes || article.notes.length === 0)" style="margin-left: 8px; color: #c0c4cc;">📭 暂无关联</span>
+                                    </div>
                                 </div>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px;">
@@ -2003,6 +2099,24 @@
                 const arxivInput = ref('');
                 const ingesting = ref(false);
                 const newTagName = ref('');
+
+                // ============ 批量操作状态 ============
+                const selectedPapersForBatch = ref([]);
+                const batchAction = ref('');
+                const batchStatus = ref('pending');
+                const batchTagName = ref('');
+
+                // ============ 文章库批量操作状态 ============
+                const selectedArticlesForBatch = ref([]);
+                const batchArticleAction = ref('');
+                const batchArticleStatus = ref('pending');
+                const batchArticleTagName = ref('');
+
+                // ============ 笔记库批量操作状态 ============
+                const selectedNotesForBatch = ref([]);
+                const batchNoteAction = ref('');
+                const batchNoteStatus = ref('pending');
+                const batchNoteTagName = ref('');
 
                 // ============ arXiv 关键词搜索状态 ============
                 const arxivKeywords = ref('');
@@ -3592,6 +3706,199 @@
                     }
                 }
 
+                // ============ 批量操作 ============
+                function togglePaperBatchSelection(paperId) {
+                    const index = selectedPapersForBatch.value.indexOf(paperId);
+                    if (index > -1) {
+                        selectedPapersForBatch.value.splice(index, 1);
+                    } else {
+                        selectedPapersForBatch.value.push(paperId);
+                    }
+                }
+
+                function clearBatchSelection() {
+                    selectedPapersForBatch.value = [];
+                    batchAction.value = '';
+                    batchTagName.value = '';
+                }
+
+                async function executeBatchAction() {
+                    if (selectedPapersForBatch.value.length === 0) {
+                        ElementPlus.ElMessage.warning('请先选择要操作的论文');
+                        return;
+                    }
+
+                    const action = batchAction.value;
+                    if (!action) {
+                        ElementPlus.ElMessage.warning('请选择操作类型');
+                        return;
+                    }
+
+                    // 删除操作需要确认
+                    if (action === 'delete') {
+                        try {
+                            await ElementPlus.ElMessageBox.confirm(
+                                `确定要删除选中的 ${selectedPapersForBatch.value.length} 篇论文吗？`,
+                                '警告', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+                            );
+                        } catch (e) {
+                            return;
+                        }
+                    }
+
+                    const payload = {
+                        paper_ids: selectedPapersForBatch.value,
+                        action: action
+                    };
+
+                    if (action === 'update_status') {
+                        payload.status = batchStatus.value;
+                    } else if (action === 'add_tags' || action === 'remove_tags') {
+                        if (!batchTagName.value.trim()) {
+                            ElementPlus.ElMessage.warning('请输入标签名');
+                            return;
+                        }
+                        payload.tag_names = [batchTagName.value.trim()];
+                    }
+
+                    try {
+                        const res = await axios.post('/api/papers/batch', payload);
+                        ElementPlus.ElMessage.success(res.data.message);
+                        clearBatchSelection();
+                        loadPapers();
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('批量操作失败: ' + (e.response?.data?.error || e.message));
+                    }
+                }
+
+                // ============ 文章库批量操作 ============
+                function toggleArticleBatchSelection(articleId) {
+                    const index = selectedArticlesForBatch.value.indexOf(articleId);
+                    if (index > -1) {
+                        selectedArticlesForBatch.value.splice(index, 1);
+                    } else {
+                        selectedArticlesForBatch.value.push(articleId);
+                    }
+                }
+
+                function clearBatchArticleSelection() {
+                    selectedArticlesForBatch.value = [];
+                    batchArticleAction.value = '';
+                    batchArticleTagName.value = '';
+                }
+
+                async function executeBatchArticleAction() {
+                    if (selectedArticlesForBatch.value.length === 0) {
+                        ElementPlus.ElMessage.warning('请先选择要操作的文章');
+                        return;
+                    }
+
+                    const action = batchArticleAction.value;
+                    if (!action) {
+                        ElementPlus.ElMessage.warning('请选择操作类型');
+                        return;
+                    }
+
+                    if (action === 'delete') {
+                        try {
+                            await ElementPlus.ElMessageBox.confirm(
+                                `确定要删除选中的 ${selectedArticlesForBatch.value.length} 篇文章吗？`,
+                                '警告', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+                            );
+                        } catch (e) {
+                            return;
+                        }
+                    }
+
+                    const payload = {
+                        article_ids: selectedArticlesForBatch.value,
+                        action: action
+                    };
+
+                    if (action === 'update_status') {
+                        payload.status = batchArticleStatus.value;
+                    } else if (action === 'add_tags' || action === 'remove_tags') {
+                        if (!batchArticleTagName.value.trim()) {
+                            ElementPlus.ElMessage.warning('请输入标签名');
+                            return;
+                        }
+                        payload.tag_names = [batchArticleTagName.value.trim()];
+                    }
+
+                    try {
+                        const res = await axios.post('/api/articles/batch', payload);
+                        ElementPlus.ElMessage.success(res.data.message);
+                        clearBatchArticleSelection();
+                        loadAllArticles();
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('批量操作失败: ' + (e.response?.data?.error || e.message));
+                    }
+                }
+
+                // ============ 笔记库批量操作 ============
+                function toggleNoteBatchSelection(noteId) {
+                    const index = selectedNotesForBatch.value.indexOf(noteId);
+                    if (index > -1) {
+                        selectedNotesForBatch.value.splice(index, 1);
+                    } else {
+                        selectedNotesForBatch.value.push(noteId);
+                    }
+                }
+
+                function clearBatchNoteSelection() {
+                    selectedNotesForBatch.value = [];
+                    batchNoteAction.value = '';
+                    batchNoteTagName.value = '';
+                }
+
+                async function executeBatchNoteAction() {
+                    if (selectedNotesForBatch.value.length === 0) {
+                        ElementPlus.ElMessage.warning('请先选择要操作的笔记');
+                        return;
+                    }
+
+                    const action = batchNoteAction.value;
+                    if (!action) {
+                        ElementPlus.ElMessage.warning('请选择操作类型');
+                        return;
+                    }
+
+                    if (action === 'delete') {
+                        try {
+                            await ElementPlus.ElMessageBox.confirm(
+                                `确定要删除选中的 ${selectedNotesForBatch.value.length} 篇笔记吗？`,
+                                '警告', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+                            );
+                        } catch (e) {
+                            return;
+                        }
+                    }
+
+                    const payload = {
+                        note_ids: selectedNotesForBatch.value,
+                        action: action
+                    };
+
+                    if (action === 'update_status') {
+                        payload.status = batchNoteStatus.value;
+                    } else if (action === 'add_tags' || action === 'remove_tags') {
+                        if (!batchNoteTagName.value.trim()) {
+                            ElementPlus.ElMessage.warning('请输入标签名');
+                            return;
+                        }
+                        payload.tag_names = [batchNoteTagName.value.trim()];
+                    }
+
+                    try {
+                        const res = await axios.post('/api/notes/batch', payload);
+                        ElementPlus.ElMessage.success(res.data.message);
+                        clearBatchNoteSelection();
+                        loadAllNotes();
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('批量操作失败: ' + (e.response?.data?.error || e.message));
+                    }
+                }
+
                 async function toggleStar(paper) {
                     paper.starred = !paper.starred;
                     try {
@@ -4878,6 +5185,14 @@
                     toggleTagFilter, getTagCount, clearAllFilters,
                     toggleStar, downloadPaper, updatePaperStatus, deletePaper, updateSaveLocal,
                     loadTags, addTagToPaper, removeTagFromPaper, addTagInList,
+
+                    // ============ 批量操作 =============
+                    selectedPapersForBatch, batchAction, batchStatus, batchTagName,
+                    togglePaperBatchSelection, clearBatchSelection, executeBatchAction,
+                    selectedArticlesForBatch, batchArticleAction, batchArticleStatus, batchArticleTagName,
+                    toggleArticleBatchSelection, clearBatchArticleSelection, executeBatchArticleAction,
+                    selectedNotesForBatch, batchNoteAction, batchNoteStatus, batchNoteTagName,
+                    toggleNoteBatchSelection, clearBatchNoteSelection, executeBatchNoteAction,
 
                     // ============ 笔记 =============
                     paperNotes,
