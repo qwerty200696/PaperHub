@@ -1,0 +1,17 @@
+service: prompt_engine
+description: AI提示词模板引擎服务
+input:
+  - name: template_name
+    type: string
+    desc: 提示词模板标识
+  - name: variables
+    type: dict
+    desc: 模板变量参数字典
+output:
+  - 渲染完成的最终提示词文本
+rules:
+  - 支持摘要生成、智能标签推荐、相关性分析等预设模板
+  - 自动转义特殊字符，保证prompt安全性
+  - 长内容自动截断，避免超出模型输入长度限制
+errors:
+  - 模板变量缺失：返回包含占位符的提示词，保证能正常调用

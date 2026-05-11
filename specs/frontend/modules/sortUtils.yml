@@ -1,0 +1,90 @@
+module: sortUtils
+description: 通用列表排序工具模块
+functions:
+  - name: sortByStarred
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 待排序的对象数组
+      - name: statusField
+        type: string
+        default_value: status
+        optional: true
+        desc: 状态字段名
+    output:
+      - 排序后的新数组，保持原数组不变（返回新副本）
+    rule:
+      - 标星 starred=true 的条目排在最前面
+      - 然后按阅读状态顺序排序：pending(0) -&gt; reading(1) -&gt; done(2) -&gt; mastered(3)
+      - 状态相同按创建时间倒序，最新在前
+  - name: sortByStatus
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 待排序的对象数组
+      - name: statusField
+        type: string
+        default_value: status
+        optional: true
+        desc: 状态字段名
+    output:
+      - 排序后的新数组
+    rule:
+      - 优先按阅读状态顺序：pending -&gt; reading -&gt; done -&gt; mastered
+      - 状态相同标星在前
+      - 最后按创建时间倒序
+  - name: sortByTitle
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 待排序的对象数组
+    output:
+      - 按标题localeCompare字典序升序排列的数组
+    rule:
+      - 标题为空字符串不报错，返回空字符串排在最前
+  - name: sortByDate
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 待排序的对象数组
+      - name: dateField
+        type: string
+        default_value: created_at
+        optional: true
+        desc: 日期字段名
+    output:
+      - 排序后的新数组
+    rule:
+      - 按日期倒序，最新在前
+      - 日期字段为空的项排在最后
+  - name: sortList
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 待排序的对象数组
+      - name: sortBy
+        type: string
+        optional: false
+        desc: 排序类型，支持 starred/status/title/published_at/created_at
+      - name: statusField
+        type: string
+        default_value: status
+        optional: true
+        desc: 状态字段名
+      - name: dateField
+        type: string
+        default_value: created_at
+        optional: true
+        desc: 默认日期字段名
+    output:
+      - 根据sortBy参数分发调用对应排序函数的结果
+    rule:
+      - sortBy不匹配时默认使用sortByDate按created_at排序
+constraints:
+  - 所有排序函数不修改原输入数组，返回新副本
+  - 阅读状态权重固定：pending(0) &lt; reading(1) &lt; done(2) &lt; mastered(3)

@@ -1,0 +1,47 @@
+page: ai_interpret
+description: AI大模型解读配置与生成页面
+elements:
+  - name: ai_config_form
+    desc: AI服务商配置表单（provider、api_key、base_url、model_id）
+  - name: ai_summary_panel
+    desc: AI解读生成进度面板
+  - name: ai_recommend_tags_panel
+    desc: 智能标签推荐结果面板
+  - name: ai_related_content_panel
+    desc: 相关性推荐结果面板
+  - name: ai_usage_stats
+    desc: Token用量与估算成本统计卡片
+events:
+  - name: config_save
+    desc: 保存AI配置，验证API Key有效性
+  - name: generate_summary_click
+    desc: 触发AI生成解读摘要，显示loading状态
+  - name: summary_streaming_render
+    desc: 实时逐字流渲染返回的AI结果
+  - name: save_summary_as_note
+    desc: 将生成的解读结果直接保存为笔记
+  - name: generate_recommend_tags
+    desc: 调用AI智能分析内容推荐标签
+  - name: generate_related_recommend
+    desc: AI分析相关性，推荐已有的关联内容
+  - name: clear_cache_click
+    desc: 清空AI调用缓存
+ui_rules:
+  - 所有HTML标签采用全闭合标签规范
+  - 统一样式引用 src/css/style.css
+  - 生成中显示动态loading动画和「AI思考中...」提示
+  - Token用量数字高亮显示，成本金额醒目展示
+  - 推荐标签点击即可选中添加到内容上
+api_deps:
+  - GET /api/ai/config
+  - POST /api/ai/config
+  - GET /api/ai/stats
+  - POST /api/ai/summary
+  - POST /api/ai/recommend-tags
+  - POST /api/ai/related
+  - POST /api/ai/clear-cache
+boundary:
+  - API Key未配置：提示用户先填写配置
+  - AI调用超时：自动重试2次，失败后提示稍后再试
+  - 生成内容被截断：提示内容超长，已保存部分结果
+  - 缓存命中：不重复调用API，直接展示缓存结果

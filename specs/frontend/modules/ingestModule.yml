@@ -1,0 +1,33 @@
+module: ingestModule
+description: 入库操作封装模块
+functions:
+  - name: ingestArxiv
+    input: []
+    output:
+      - Promise异步操作，无显式返回值
+    rule:
+      - 检查arxivInput非空trim，空则直接返回不执行
+      - 执行期间设置ingesting状态为true，显示loading
+      - 调用IngestAPI.ingestArxiv提交输入
+      - 成功后ElMessage.success提示，清空arxivInput
+      - 自动切换activeMenu到library论文库tab
+      - 调用loadPapers刷新论文列表
+      - 捕获异常显示错误提示
+      - finally块将ingesting重置为false
+  - name: ingestWechat
+    input: []
+    output:
+      - Promise异步操作，无显式返回值
+    rule:
+      - 检查wechatUrl非空trim，空则直接返回不执行
+      - 执行期间设置wechatIngesting状态为true
+      - 调用IngestAPI.ingestWechat提交链接和wechatExtractOnly选项
+      - 成功后ElMessage.success提示，清空wechatUrl
+      - 自动切换activeMenu到articles文章库tab
+      - 调用loadAllArticles刷新文章列表
+      - 捕获异常显示错误提示
+      - finally块将wechatIngesting重置为false
+constraints:
+  - 模块通过工厂函数createIngestModule注入Vue、ElementPlus、IngestAPI和refs依赖
+  - 所有UI状态（ingesting、wechatIngesting）完全由外部refs管理，模块内部不自行声明响应式变量
+  - 成功后自动跳转tab并刷新数据，保证入库后用户直接看到新内容

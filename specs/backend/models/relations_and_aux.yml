@@ -1,0 +1,262 @@
+module: relations_and_aux
+description: 多对多关联中间表与辅助数据模型
+tables:
+  - name: paper_tags
+    table_name: paper_tags
+    type: many_to_many
+    desc: 论文与标签的多对多关联表
+    fields:
+      - name: paper_id
+        type: Integer
+        primary_key: true
+        foreign_key: papers.id
+        nullable: false
+        comment: 论文外键ID
+      - name: tag_id
+        type: Integer
+        primary_key: true
+        foreign_key: tags.id
+        nullable: false
+        comment: 标签外键ID
+      - name: created_at
+        type: DateTime
+        nullable: false
+        comment: 关联创建时间
+    indexes:
+      - name: pk_paper_tags
+        fields: [paper_id, tag_id]
+        unique: true
+
+  - name: note_tags
+    table_name: note_tags
+    type: many_to_many
+    desc: 笔记与标签的多对多关联表
+    fields:
+      - name: note_id
+        type: Integer
+        primary_key: true
+        foreign_key: notes.id
+        nullable: false
+        comment: 笔记外键ID
+      - name: tag_id
+        type: Integer
+        primary_key: true
+        foreign_key: tags.id
+        nullable: false
+        comment: 标签外键ID
+      - name: created_at
+        type: DateTime
+        nullable: false
+        comment: 关联创建时间
+    indexes:
+      - name: pk_note_tags
+        fields: [note_id, tag_id]
+        unique: true
+
+  - name: article_tags
+    table_name: article_tags
+    type: many_to_many
+    desc: 文章与标签的多对多关联表
+    fields:
+      - name: article_id
+        type: Integer
+        primary_key: true
+        foreign_key: articles.id
+        nullable: false
+        comment: 文章外键ID
+      - name: tag_id
+        type: Integer
+        primary_key: true
+        foreign_key: tags.id
+        nullable: false
+        comment: 标签外键ID
+      - name: created_at
+        type: DateTime
+        nullable: false
+        comment: 关联创建时间
+    indexes:
+      - name: pk_article_tags
+        fields: [article_id, tag_id]
+        unique: true
+
+  - name: note_papers
+    table_name: note_papers
+    type: many_to_many
+    desc: 笔记与论文的多对多关联表
+    fields:
+      - name: note_id
+        type: Integer
+        primary_key: true
+        foreign_key: notes.id
+        nullable: false
+        comment: 笔记外键ID
+      - name: paper_id
+        type: Integer
+        primary_key: true
+        foreign_key: papers.id
+        nullable: false
+        comment: 论文外键ID
+      - name: created_at
+        type: DateTime
+        nullable: false
+        comment: 关联创建时间
+    indexes:
+      - name: pk_note_papers
+        fields: [note_id, paper_id]
+        unique: true
+
+  - name: note_articles
+    table_name: note_articles
+    type: many_to_many
+    desc: 笔记与文章的多对多关联表
+    fields:
+      - name: note_id
+        type: Integer
+        primary_key: true
+        foreign_key: notes.id
+        nullable: false
+        comment: 笔记外键ID
+      - name: article_id
+        type: Integer
+        primary_key: true
+        foreign_key: articles.id
+        nullable: false
+        comment: 文章外键ID
+      - name: created_at
+        type: DateTime
+        nullable: false
+        comment: 关联创建时间
+    indexes:
+      - name: pk_note_articles
+        fields: [note_id, article_id]
+        unique: true
+
+  - name: article_papers
+    table_name: article_papers
+    type: many_to_many
+    desc: 文章与论文的多对多关联表
+    fields:
+      - name: article_id
+        type: Integer
+        primary_key: true
+        foreign_key: articles.id
+        nullable: false
+        comment: 文章外键ID
+      - name: paper_id
+        type: Integer
+        primary_key: true
+        foreign_key: papers.id
+        nullable: false
+        comment: 论文外键ID
+      - name: created_at
+        type: DateTime
+        nullable: false
+        comment: 关联创建时间
+    indexes:
+      - name: pk_article_papers
+        fields: [article_id, paper_id]
+        unique: true
+
+  - name: PaperVersion
+    table_name: paper_versions
+    type: auxiliary
+    desc: 论文历史版本管理表
+    fields:
+      - name: id
+        type: Integer
+        primary_key: true
+        unique: true
+        nullable: false
+        comment: 主键ID
+      - name: paper_id
+        type: Integer
+        foreign_key: papers.id
+        nullable: false
+        comment: 关联论文ID
+      - name: version
+        type: String
+        max_length: 32
+        nullable: false
+        comment: 版本号(v1, v2...)
+      - name: file_path
+        type: String
+        max_length: 512
+        nullable: false
+        comment: 该版本PDF文件路径
+      - name: diff_summary
+        type: Text
+        nullable: true
+        comment: 版本差异摘要
+      - name: created_at
+        type: DateTime
+        nullable: false
+        comment: 创建时间
+    indexes:
+      - name: idx_paper_versions_paper
+        fields: [paper_id]
+
+  - name: WechatSubscription
+    table_name: wechat_subscriptions
+    type: auxiliary
+    desc: 微信公众号订阅记录表
+    fields:
+      - name: id
+        type: Integer
+        primary_key: true
+        unique: true
+        nullable: false
+        comment: 主键ID
+      - name: account_name
+        type: String
+        max_length: 200
+        nullable: false
+        comment: 公众号名称
+      - name: account_id
+        type: String
+        max_length: 100
+        nullable: true
+        comment: 公众号ID
+      - name: last_checked_at
+        type: DateTime
+        nullable: true
+        comment: 最后检查时间
+      - name: last_post_time
+        type: DateTime
+        nullable: true
+        comment: 最后文章发布时间
+      - name: created_at
+        type: DateTime
+        nullable: false
+        comment: 创建时间
+      - name: updated_at
+        type: DateTime
+        nullable: false
+        comment: 更新时间（自动更新）
+    indexes:
+      - name: idx_wechat_subscriptions_name
+        fields: [account_name]
+
+  - name: WechatConfig
+    table_name: wechat_config
+    type: auxiliary
+    desc: 微信配置存储表
+    fields:
+      - name: id
+        type: Integer
+        primary_key: true
+        unique: true
+        nullable: false
+        comment: 主键ID
+      - name: api_key
+        type: String
+        max_length: 100
+        nullable: true
+        comment: 微信API密钥
+      - name: created_at
+        type: DateTime
+        nullable: false
+        comment: 创建时间
+      - name: updated_at
+        type: DateTime
+        nullable: false
+        comment: 更新时间（自动更新）

@@ -1,0 +1,75 @@
+spec_name: 全局配置标准规约
+description: PaperHub系统全局配置项定义，与backend/config.py保持完全一致
+global_config:
+  - config_key: SECRET_KEY
+    config_type: str
+    default_value: dev-secret-key-change-in-production
+    description: Flask应用密钥，用于Session等安全相关场景，生产环境必须修改为强随机字符串
+  - config_key: DEBUG
+    config_type: bool
+    default_value: true
+    description: 调试模式开关，开发环境开启，生产环境必须关闭
+  - config_key: SQLALCHEMY_DATABASE_URI
+    config_type: str
+    default_value: sqlite:///data/db/paperhub.db
+    description: SQLAlchemy数据库连接URI
+  - config_key: SQLALCHEMY_TRACK_MODIFICATIONS
+    config_type: bool
+    default_value: false
+    description: SQLAlchemy对象修改追踪开关，关闭以提升性能
+  - config_key: SQLALCHEMY_ECHO
+    config_type: bool
+    default_value: false
+    description: SQLAlchemy SQL语句回显开关，用于调试时打印SQL
+  - config_key: CORS_ORIGINS
+    config_type: list[str]
+    default_value: ["http://localhost:5000", "http://127.0.0.1:5000", "http://localhost:5799", "http://127.0.0.1:5799"]
+    description: 允许跨域访问的源地址列表
+  - config_key: MAX_CONTENT_LENGTH
+    config_type: int
+    default_value: 52428800
+    description: 请求体最大大小，单位字节，默认50MB（50*1024*1024）
+  - config_key: UPLOAD_FOLDER
+    config_type: str
+    default_value: data/papers
+    description: 文件上传根目录，用于存储PDF、图片等资源
+  - config_key: CHROMA_PERSIST_DIR
+    config_type: str
+    default_value: data/vectors/chroma
+    description: ChromaDB向量数据库持久化存储目录
+  - config_key: CHROMA_COLLECTION_NAME
+    config_type: str
+    default_value: papers
+    description: ChromaDB向量集合名称
+  - config_key: SQLALCHEMY_POOL_SIZE
+    config_type: int
+    default_value: 5
+    description: SQLAlchemy数据库连接池大小
+  - config_key: SQLALCHEMY_MAX_OVERFLOW
+    config_type: int
+    default_value: 10
+    description: 连接池最大溢出连接数
+  - config_key: SQLALCHEMY_POOL_TIMEOUT
+    config_type: int
+    default_value: 30
+    description: 获取数据库连接超时时间，单位秒
+  - config_key: SQLALCHEMY_POOL_RECYCLE
+    config_type: int
+    default_value: 3600
+    description: 连接回收时间，单位秒，避免SQLite锁问题
+  - config_key: SESSION_COOKIE_HTTPONLY
+    config_type: bool
+    default_value: true
+    description: Session Cookie HttpOnly标记，防止XSS窃取
+  - config_key: PER_PAGE_DEFAULT
+    config_type: int
+    default_value: 20
+    description: API分页默认每页返回数量
+  - config_key: PER_PAGE_MAX
+    config_type: int
+    default_value: 100
+    description: API分页允许的最大每页返回数量
+  - config_key: LOG_LEVEL
+    config_type: str
+    default_value: INFO
+    description: 全局日志级别，可选值DEBUG/INFO/WARNING/ERROR/CRITICAL

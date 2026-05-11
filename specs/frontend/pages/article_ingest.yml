@@ -1,0 +1,53 @@
+page: article_ingest
+description: 多源内容统一入库页面
+elements:
+  - name: ingest_tab_group
+    desc: 入库方式选项卡（arXiv搜索、PDF上传、微信链接、知乎、通用网页）
+  - name: arxiv_search_form
+    desc: arXiv搜索表单（关键词、分类、日期范围）
+  - name: arxiv_search_result
+    desc: 搜索结果列表，带复选框批量选择
+  - name: pdf_upload_area
+    desc: PDF拖拽上传区域，支持多文件上传
+  - name: wechat_url_input
+    desc: 微信文章URL输入框，带抓取按钮
+  - name: zhihu_input_group
+    desc: 知乎链接或手动粘贴区域
+  - name: web_preview_panel
+    desc: 通用网页正文提取预览面板
+events:
+  - name: tab_switch
+    desc: 切换不同入库模式选项卡
+  - name: arxiv_search_click
+    desc: 点击搜索按钮，调用远程API获取论文列表
+  - name: select_all_results
+    desc: 全选/取消全选搜索结果复选框
+  - name: batch_import_click
+    desc: 批量导入选中的arXiv论文，实时显示进度条
+  - name: pdf_drop_upload
+    desc: 拖拽PDF文件到上传区域，自动开始处理
+  - name: wechat_fetch_click
+    desc: 点击抓取微信按钮，下载文章图片并解析
+  - name: web_preview_fetch
+    desc: 通用网页URL提交，获取正文预览结果
+  - name: web_confirm_save
+    desc: 用户确认预览结果，最终执行入库
+ui_rules:
+  - 所有HTML标签采用全闭合标签规范
+  - 统一样式引用 src/css/style.css
+  - 拖拽上传区域有虚线边框高亮效果
+  - 批量导入进度条实时更新，显示已处理/总数
+  - 支持多文件同时上传，每个文件独立显示状态
+api_deps:
+  - GET /api/papers/search
+  - POST /api/papers/search/import
+  - POST /api/ingest/pdf
+  - POST /api/ingest/wechat
+  - POST /api/ingest/zhihu
+  - POST /api/ingest/web/preview
+  - POST /api/ingest/web
+boundary:
+  - 搜索无结果：提示无匹配论文，建议调整关键词
+  - PDF上传失败：显示具体错误文件，跳过错误文件继续处理其他
+  - 微信抓取失败：降级提示用户使用浏览器复制内容手动粘贴
+  - 导入中途中断：已成功导入的条目保留，不回滚

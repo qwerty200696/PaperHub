@@ -1,0 +1,39 @@
+service: llm_client
+description: 大模型多提供商统一封装服务
+input:
+  - name: provider
+    type: string
+    desc: AI提供商名称(doubao/openai/anthropic/qwen/teg)
+  - name: api_key
+    type: string
+    desc: 服务商API密钥
+  - name: base_url
+    type: string
+    desc: 自定义API基础URL
+  - name: model_id
+    type: string
+    desc: 模型标识ID
+  - name: messages
+    type: list
+    desc: 对话消息列表，role/content结构
+  - name: temperature
+    type: float
+    desc: 采样温度，0-2之间
+  - name: max_tokens
+    type: integer
+    desc: 最大输出token数
+output:
+  - 结果字典包含content文本、provider标识、model名称、token用量统计
+  - 累计token用量与估算成本统计
+  - 调用缓存结果
+rules:
+  - 支持环境变量与.env文件双重配置读取
+  - 单例模式全局复用LLM客户端实例
+  - 调用结果默认开启MD5缓存，相同prompt不重复调用
+  - 内置token用量统计与各提供商阶梯成本估算
+  - 失败时最多重试3次，每次间隔20秒
+  - 支持多模态图片输入，兼容TEG特殊调用格式
+errors:
+  - API Key未配置：返回错误标识，content为空字符串
+  - 外部服务网络超时：返回包含error字段的结果字典
+  - 未知提供商名称：抛出ValueError异常

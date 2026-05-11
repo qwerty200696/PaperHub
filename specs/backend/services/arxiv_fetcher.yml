@@ -1,0 +1,47 @@
+service: arxiv_fetcher
+description: arXiv论文抓取服务，支持搜索、元数据获取、PDF下载
+input:
+  - name: input_str
+    type: string
+    desc: arXiv输入内容，支持纯ID、URL、arXiv:前缀格式
+  - name: keywords
+    type: list
+    desc: 搜索关键词列表
+  - name: categories
+    type: list
+    desc: arXiv分类代码列表
+  - name: max_results
+    type: integer
+    desc: 最大返回论文数
+  - name: start_date
+    type: date
+    desc: 搜索开始日期
+  - name: end_date
+    type: date
+    desc: 搜索结束日期
+  - name: sort_by
+    type: string
+    desc: 排序方式(submittedDate/updatedDate/relevance)
+  - name: paper_id
+    type: string
+    desc: 论文ID
+  - name: pdf_url
+    type: string
+    desc: PDF远程下载链接
+output:
+  - 解析后arxiv_id字符串
+  - 单篇论文元数据字典(title, authors, abstract, published_at, pdf_url, categories, doi, arxiv_id)
+  - 论文搜索结果列表
+  - PDF保存后的相对文件路径
+rules:
+  - 支持多种输入格式解析：arxiv.org/abs/id、arxiv:id、纯id
+  - 多关键词使用AND逻辑连接
+  - 多分类使用OR逻辑连接
+  - 分类代码自动拆分category_l1和category_l2
+  - PDF下载到data/papers/arxiv/目录
+  - 文件已存在时直接返回已存在路径，不重复下载
+  - 时间范围过滤在客户端执行，避免接口返回过多不必要数据
+errors:
+  - 输入格式不匹配：抛出ValueError提示无法解析
+  - 远程API请求失败：抛出异常向上传递
+  - PDF下载失败：抛出网络异常

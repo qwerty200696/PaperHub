@@ -1,0 +1,57 @@
+page: paper_list
+description: 论文库列表与详情单页视图
+elements:
+  - name: paper_list_header
+    desc: 论文列表顶部标题栏，带排序下拉选择器
+  - name: paper_sidebar_filter
+    desc: 侧边栏筛选器（阅读状态、内容分类、标签、日期范围）
+  - name: paper_card_list
+    desc: 论文卡片列表渲染容器
+  - name: paper_detail_view
+    desc: 单篇论文详情整合视图
+  - name: paper_empty_state
+    desc: 论文库为空时的空状态提示
+events:
+  - name: sort_change
+    desc: 用户选择排序选项触发，重排论文列表
+  - name: status_filter_click
+    desc: 点击阅读状态标签触发筛选切换
+  - name: source_filter_click
+    desc: 点击内容分类标签触发筛选切换
+  - name: tag_filter_click
+    desc: 点击标签触发筛选切换
+  - name: date_filter_change
+    desc: 日期选择器值变更触发日期范围筛选
+  - name: paper_card_click
+    desc: 点击论文卡片进入详情视图
+  - name: status_select_change
+    desc: 卡片内阅读状态下拉变更，立即调用API保存
+  - name: star_button_click
+    desc: 标星按钮点击切换starred状态
+  - name: add_tag_enter
+    desc: 输入框按回车，为论文添加新标签
+  - name: remove_tag_click
+    desc: 点击标签的关闭按钮，从论文移除标签
+  - name: delete_paper_confirm
+    desc: 删除按钮点击，二次确认后删除论文
+ui_rules:
+  - 所有HTML标签采用全闭合标签规范
+  - 统一样式引用 src/css/style.css
+  - 不同阅读状态卡片有对应背景色区分（pending/reading/done/mastered）
+  - 标星按钮激活态使用紫蓝渐变背景色
+  - 筛选器选中标签使用 dark 暗黑效果，未选中使用 plain
+  - 论文卡片内标题截断显示不超过指定行数
+api_deps:
+  - GET /api/papers
+  - PUT /api/papers/{paper_id}
+  - DELETE /api/papers/{paper_id}
+  - GET /api/tags
+  - POST /api/papers/{paper_id}/tags
+  - DELETE /api/papers/{paper_id}/tags/{tag_id}
+  - GET /api/papers/{paper_id}/notes
+  - GET /api/papers/{paper_id}
+boundary:
+  - 无数据：显示el-empty组件，提示「暂无论文，点击右上角入库」
+  - 加载失败：顶部弹出el-message错误提示，保留当前筛选条件
+  - 网络超时：显示重试按钮，用户点击后重新加载列表
+  - 删除确认：二次确认弹窗，防止误操作

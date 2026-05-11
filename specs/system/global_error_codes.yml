@@ -1,0 +1,69 @@
+spec_name: 全局错误码标准规约
+description: PaperHub全项目统一错误码定义，覆盖所有核心HTTP状态码
+error_codes:
+  - status_code: 0
+    meaning: 操作成功
+    scenario: 所有接口调用成功场景
+    message_template: success
+  - status_code: 40000
+    meaning: 通用请求错误
+    scenario: 参数格式不对、缺少必填字段等通用请求校验失败
+    message_template: 请求参数不合法
+  - status_code: 40001
+    meaning: 资源不存在
+    scenario: 访问不存在的论文ID、笔记ID、文章ID等资源
+    message_template: {resource_name}不存在
+  - status_code: 40002
+    meaning: 参数缺失
+    scenario: 缺少必填的请求参数
+    message_template: 缺少必填参数{param_name}
+  - status_code: 40003
+    meaning: 参数非法
+    scenario: 参数值超出合法范围、格式不符合要求
+    message_template: 参数{param_name}值非法
+  - status_code: 40100
+    meaning: 未授权
+    scenario: 用户未登录、登录凭证无效或已过期
+    message_template: 请先登录
+  - status_code: 40300
+    meaning: 禁止访问
+    scenario: 用户无权限访问该资源或执行该操作
+    message_template: 无权限访问该资源
+  - status_code: 40400
+    meaning: 资源未找到
+    scenario: 访问不存在的API路径或资源
+    message_template: 请求的资源不存在
+  - status_code: 40900
+    meaning: 资源冲突
+    scenario: 重复入库、标题重复、URL重复等唯一性约束冲突
+    message_template: 资源已存在，请勿重复操作
+  - status_code: 50000
+    meaning: 服务器内部错误
+    scenario: 未预期的代码异常、空指针等运行时错误
+    message_template: 服务器内部错误，请稍后重试
+  - status_code: 50001
+    meaning: 数据库操作失败
+    scenario: SQL执行失败、事务回滚、连接异常
+    message_template: 数据库操作失败
+  - status_code: 50002
+    meaning: 外部服务调用失败
+    scenario: arXiv API、LLM服务、微信远程请求等第三方接口调用异常
+    message_template: 外部服务暂时不可用，请稍后重试
+  - status_code: 50300
+    meaning: 服务不可用
+    scenario: 系统维护中、依赖服务暂时不可用导致整体服务降级
+    message_template: 服务暂时不可用，请稍后重试
+http_status_mapping:
+  0: 200
+  40000: 400
+  40001: 404
+  40002: 400
+  40003: 400
+  40100: 401
+  40300: 403
+  40400: 404
+  40900: 409
+  50000: 500
+  50001: 500
+  50002: 503
+  50300: 503

@@ -1,0 +1,28 @@
+service: wechat_parser
+description: 微信公众号文章解析与本地持久化服务
+input:
+  - name: url
+    type: string
+    desc: 微信公众号文章URL
+  - name: extract_content_only
+    type: boolean
+    desc: 是否仅提取干净正文生成新HTML
+  - name: html_path
+    type: string
+    desc: 本地微信HTML文件路径
+output:
+  - 文章结果字典(title, author, account_name, content, html_content, published_at, source_url, file_path, wechat_id)
+rules:
+  - 自动识别mp.weixin.qq.com域名链接
+  - 自动提取微信文章标题、公众号名称、发布日期、IP属地
+  - 发布日期识别失败时从HTML时间戳中估算
+  - 远程图片全部下载到article_id_files本地目录
+  - 替换所有图片src为本地相对路径，下载失败的图片直接从DOM移除
+  - 清理所有冗余script、iframe、广告标签、底部关注/点赞/分享栏
+  - 保留微信特色装饰方块和颜色标题样式，布局优化为垂直对齐
+  - 处理完成后生成自包含的干净HTML文件，自带响应式阅读样式
+  - 自动生成唯一wechat_id避免重复入库
+errors:
+  - 页面网络请求超时：抛出异常提示抓取失败
+  - 页面内容为空：返回降级数据，标题设为未命名公众号文章
+  - 部分图片下载失败：不中断主流程，跳过失败图片

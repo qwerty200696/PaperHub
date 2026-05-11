@@ -1,0 +1,29 @@
+module: note_images
+description: 笔记图片上传接口
+timeout_ms: 300
+apis:
+  - api: /api/note-images/upload
+    method: POST
+    desc: 上传笔记中粘贴的截图图片
+    input:
+      image:
+        type: file
+        default_value: required
+        optional: false
+        desc: 图片文件，支持png/jpg/jpeg/gif/webp/bmp
+    output:
+      code: 0
+      data:
+        success: boolean
+        url: string
+        filename: string
+      msg: success
+    errors:
+      - code: 40002
+        desc: 未找到图片文件或文件为空
+      - code: 50000
+        desc: 服务器内部错误
+    rules:
+      - 文件大小上限10MB
+      - 用UUID生成唯一文件名
+      - 返回可直接用于Markdown的 /static/note_images/xxx 路径

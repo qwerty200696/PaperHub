@@ -1,0 +1,28 @@
+service: pdf_processor
+description: PDF文件处理服务，文本提取与元数据自动解析
+input:
+  - name: file_path
+    type: string
+    desc: PDF文件的本地路径
+  - name: filename
+    type: string
+    desc: 可选的原始文件名
+  - name: max_pages
+    type: integer
+    desc: 最大处理页数，默认50
+output:
+  - 提取的完整纯文本
+  - 元数据字典(title, authors, abstract)
+  - 完整处理结果字典(title, authors, abstract, content, filename, source)
+rules:
+  - 限制最大读取页数不超过200页
+  - 扫描件/加密PDF提取失败时返回空文本，不抛出异常
+  - 从文件名自动清理：去除版本号、日期、arxiv_id前缀、下划线转空格
+  - 从文本前15行提取标题，跳过abstract/introduction/keywords等关键字
+  - 从标题之后最多10行内提取作者，支持按逗号/and/分号分割，最多保留10位作者
+  - 找到abstract关键字后最多40行提取摘要，遇到introduction/related work/conclusion等章节标题停止
+  - 标题超长截断到200字符，摘要超长截断到600字符
+  - 元数据标题为空时使用文件名提取的标题兜底
+errors:
+  - PDF文件损坏/加密：静默返回空文本和基础空元数据
+  - 依赖库未安装：返回空文本，不中断流程

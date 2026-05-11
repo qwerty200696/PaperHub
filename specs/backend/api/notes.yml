@@ -1,0 +1,377 @@
+module: notes
+description: 笔记库管理接口
+timeout_ms: 300
+apis:
+  - api: /api/notes
+    method: GET
+    desc: 获取笔记列表，支持分页和关键词搜索
+    input:
+      q:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 搜索关键词
+      source:
+        type: string
+        default_value: null
+        optional: true
+        desc: 笔记来源
+      sort:
+        type: string
+        default_value: created_at
+        optional: true
+        desc: 排序字段
+      page:
+        type: integer
+        default_value: 1
+        optional: true
+        desc: 页码
+      per_page:
+        type: integer
+        default_value: 50
+        optional: true
+        desc: 每页数量
+    output:
+      code: 0
+      data:
+        notes: array
+        total: integer
+        page: integer
+        per_page: integer
+      msg: success
+    errors:
+      - code: 50000
+        desc: 服务器内部错误
+  - api: /api/notes
+    method: POST
+    desc: 创建笔记
+    input:
+      title:
+        type: string
+        default_value: null
+        optional: true
+        desc: 笔记标题
+      content:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 笔记内容
+      source:
+        type: string
+        default_value: manual
+        optional: true
+        desc: 笔记来源
+      url:
+        type: string
+        default_value: null
+        optional: true
+        desc: 来源链接
+      paper_ids:
+        type: array
+        default_value: []
+        optional: true
+        desc: 关联论文ID数组
+      paper_id:
+        type: integer
+        default_value: null
+        optional: true
+        desc: 单个关联论文ID
+      article_ids:
+        type: array
+        default_value: []
+        optional: true
+        desc: 关联文章ID数组
+      article_id:
+        type: integer
+        default_value: null
+        optional: true
+        desc: 单个关联文章ID
+      tag_ids:
+        type: array
+        default_value: []
+        optional: true
+        desc: 关联标签ID数组
+    output:
+      code: 0
+      data:
+        success: boolean
+        note: object
+        id: integer
+      msg: success
+    errors:
+      - code: 409
+        desc: 笔记已存在（重复检测）
+  - api: /api/notes/{note_id}
+    method: GET
+    desc: 获取单个笔记详情
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+    output:
+      code: 0
+      data:
+        note: object
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记不存在
+  - api: /api/notes/{note_id}
+    method: PUT
+    desc: 更新笔记
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+      title:
+        type: string
+        default_value: null
+        optional: true
+        desc: 标题
+      content:
+        type: string
+        default_value: null
+        optional: true
+        desc: 内容
+      source:
+        type: string
+        default_value: null
+        optional: true
+        desc: 来源
+      status:
+        type: string
+        default_value: null
+        optional: true
+        desc: 状态
+      starred:
+        type: boolean
+        default_value: null
+        optional: true
+        desc: 是否标星
+      pinned:
+        type: boolean
+        default_value: null
+        optional: true
+        desc: 是否置顶
+    output:
+      code: 0
+      data:
+        note: object
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记不存在
+  - api: /api/notes/{note_id}
+    method: DELETE
+    desc: 删除笔记
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记不存在
+    rules:
+      - 硬删除笔记记录
+      - 清理笔记内容中引用的note_images目录下的图片
+  - api: /api/notes/{note_id}/papers
+    method: GET
+    desc: 获取某笔记关联的所有论文
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+    output:
+      code: 0
+      data:
+        papers: array
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记不存在
+  - api: /api/notes/{note_id}/papers
+    method: POST
+    desc: 关联笔记到论文
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+      paper_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 论文ID
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记或论文不存在
+  - api: /api/notes/{note_id}/papers/{paper_id}
+    method: DELETE
+    desc: 取消笔记-论文关联
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+      paper_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 论文ID
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记不存在
+  - api: /api/notes/{note_id}/tags
+    method: GET
+    desc: 获取笔记的所有标签
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+    output:
+      code: 0
+      data:
+        tags: array
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记不存在
+  - api: /api/notes/{note_id}/tags
+    method: POST
+    desc: 给笔记添加标签
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+      tag_id:
+        type: integer
+        default_value: null
+        optional: true
+        desc: 标签ID
+      name:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 标签名称
+    output:
+      code: 0
+      data:
+        tags: array
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记不存在
+    rules:
+      - 标签名称不存在则自动创建
+  - api: /api/notes/{note_id}/tags/{tag_id}
+    method: DELETE
+    desc: 移除笔记的标签
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+      tag_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 标签ID
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记或标签不存在
+  - api: /api/notes/{note_id}/articles
+    method: GET
+    desc: 获取某笔记关联的所有文章
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+    output:
+      code: 0
+      data:
+        articles: array
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记不存在
+  - api: /api/notes/{note_id}/articles
+    method: POST
+    desc: 关联笔记到文章
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+      article_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 文章ID
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记或文章不存在
+  - api: /api/notes/{note_id}/articles/{article_id}
+    method: DELETE
+    desc: 取消笔记-文章关联
+    input:
+      note_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 笔记ID
+      article_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 文章ID
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 笔记或文章不存在

@@ -1,0 +1,163 @@
+name: Paper
+table_name: papers
+fields:
+  - name: id
+    type: Integer
+    primary_key: true
+    unique: true
+    nullable: false
+    comment: 主键ID
+  - name: title
+    type: String
+    max_length: 512
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 论文标题
+  - name: authors
+    type: Text
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 作者列表（JSON数组或逗号分隔）
+  - name: abstract
+    type: Text
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 摘要
+  - name: content
+    type: Text
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 全文提取内容
+  - name: url
+    type: String
+    max_length: 255
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 原文链接
+  - name: source
+    type: String
+    max_length: 50
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 来源(arxiv/pdf/等)
+  - name: doi
+    type: String
+    max_length: 255
+    primary_key: false
+    unique: true
+    nullable: true
+    comment: DOI编号（唯一约束用于去重）
+  - name: arxiv_id
+    type: String
+    max_length: 64
+    primary_key: false
+    unique: true
+    nullable: true
+    comment: arXiv ID（如2310.06825，唯一约束用于去重）
+  - name: published_at
+    type: Date
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 发表日期
+  - name: category_l1
+    type: String
+    max_length: 64
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 一级分类
+  - name: category_l2
+    type: String
+    max_length: 64
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 二级分类
+  - name: file_path
+    type: String
+    max_length: 512
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 本地PDF文件路径
+  - name: save_local
+    type: Boolean
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: true
+    comment: 是否保存本地文件
+  - name: status
+    type: String
+    max_length: 32
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: pending
+    comment: 阅读状态(pending/reading/done/mastered)
+  - name: starred
+    type: Boolean
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: false
+    comment: 是否标星
+  - name: extra
+    type: Text
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 扩展JSON字段
+  - name: created_at
+    type: DateTime
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 创建时间
+  - name: updated_at
+    type: DateTime
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 更新时间（自动更新）
+relations:
+  - name: tags
+    type: many_to_many
+    through_table: paper_tags
+    target_model: Tag
+    comment: 论文关联的标签
+  - name: notes
+    type: many_to_many
+    through_table: note_papers
+    target_model: Note
+    comment: 论文关联的笔记
+  - name: articles
+    type: many_to_many
+    through_table: article_papers
+    target_model: Article
+    comment: 论文关联的文章
+  - name: versions
+    type: one_to_many
+    target_model: PaperVersion
+    foreign_key: paper_id
+    comment: 论文历史版本
+indexes:
+  - name: idx_papers_title
+    fields: [title]
+  - name: idx_papers_category
+    fields: [category_l1, category_l2]
+  - name: idx_papers_status
+    fields: [status]
+  - name: idx_papers_starred
+    fields: [starred]
+  - name: idx_papers_published
+    fields: [published_at]
+  - name: idx_papers_arxiv_id
+    fields: [arxiv_id]
