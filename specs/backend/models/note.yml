@@ -1,0 +1,114 @@
+name: Note
+table_name: notes
+fields:
+  - name: id
+    type: Integer
+    primary_key: true
+    unique: true
+    nullable: false
+    comment: 主键ID
+  - name: title
+    type: String
+    max_length: 512
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 笔记标题
+  - name: content
+    type: Text
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 笔记Markdown正文内容
+  - name: source
+    type: String
+    max_length: 50
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: manual
+    comment: 笔记来源(manual/ChatGPT/Claude)
+  - name: url
+    type: String
+    max_length: 255
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 来源链接
+  - name: file_path
+    type: String
+    max_length: 512
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 关联本地文件路径
+  - name: published_at
+    type: Date
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 发布日期
+  - name: is_deleted
+    type: Boolean
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: false
+    comment: 软删除标记
+  - name: status
+    type: String
+    max_length: 32
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: pending
+    comment: 状态
+  - name: starred
+    type: Boolean
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: false
+    comment: 是否标星
+  - name: pinned
+    type: Boolean
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: false
+    comment: 是否置顶
+  - name: created_at
+    type: DateTime
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 创建时间
+  - name: updated_at
+    type: DateTime
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 更新时间（自动更新）
+relations:
+  - name: tags
+    type: many_to_many
+    through_table: note_tags
+    target_model: Tag
+    comment: 笔记关联的标签
+  - name: papers
+    type: many_to_many
+    through_table: note_papers
+    target_model: Paper
+    comment: 笔记关联的论文
+  - name: articles
+    type: many_to_many
+    through_table: note_articles
+    target_model: Article
+    comment: 笔记关联的文章
+indexes:
+  - name: idx_notes_title
+    fields: [title]
+  - name: idx_notes_is_deleted
+    fields: [is_deleted]
+  - name: idx_notes_pinned
+    fields: [pinned]

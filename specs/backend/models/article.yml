@@ -1,0 +1,113 @@
+name: Article
+table_name: articles
+fields:
+  - name: id
+    type: Integer
+    primary_key: true
+    unique: true
+    nullable: false
+    comment: 主键ID
+  - name: title
+    type: String
+    max_length: 512
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 文章标题
+  - name: content
+    type: Text
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 正文内容
+  - name: author
+    type: String
+    max_length: 200
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 作者/公众号名称
+  - name: source
+    type: String
+    max_length: 50
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 来源(wechat/zhihu/web)
+  - name: url
+    type: String
+    max_length: 255
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 原文链接
+  - name: file_path
+    type: String
+    max_length: 512
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 本地HTML文件路径
+  - name: published_at
+    type: Date
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 发布日期
+  - name: is_deleted
+    type: Boolean
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: false
+    comment: 软删除标记
+  - name: status
+    type: String
+    max_length: 32
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: pending
+    comment: 阅读状态
+  - name: starred
+    type: Boolean
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: false
+    comment: 是否标星
+  - name: created_at
+    type: DateTime
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 创建时间
+  - name: updated_at
+    type: DateTime
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 更新时间（自动更新）
+relations:
+  - name: tags
+    type: many_to_many
+    through_table: article_tags
+    target_model: Tag
+    comment: 文章关联的标签
+  - name: papers
+    type: many_to_many
+    through_table: article_papers
+    target_model: Paper
+    comment: 文章关联的论文
+  - name: notes
+    type: many_to_many
+    through_table: note_articles
+    target_model: Note
+    comment: 文章关联的笔记
+indexes:
+  - name: idx_articles_title
+    fields: [title]
+  - name: idx_articles_source
+    fields: [source]
+  - name: idx_articles_is_deleted
+    fields: [is_deleted]

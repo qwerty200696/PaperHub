@@ -1,0 +1,403 @@
+module: papers
+description: 论文库管理接口
+timeout_ms: 300
+apis:
+  - api: /api/papers
+    method: GET
+    desc: 获取论文列表，支持分页和多维度筛选
+    input:
+      page:
+        type: integer
+        default_value: 1
+        optional: true
+        desc: 页码
+      per_page:
+        type: integer
+        default_value: 20
+        optional: true
+        desc: 每页数量
+      category_l1:
+        type: string
+        default_value: null
+        optional: true
+        desc: 一级分类
+      status:
+        type: string
+        default_value: null
+        optional: true
+        desc: 阅读状态(pending/reading/done/mastered)
+      starred:
+        type: boolean
+        default_value: null
+        optional: true
+        desc: 是否标星
+      source:
+        type: string
+        default_value: null
+        optional: true
+        desc: 来源(arxiv/wechat/blog/conference/pdf)
+      tag_ids:
+        type: string
+        default_value: null
+        optional: true
+        desc: 标签ID列表，逗号分隔
+      published_date:
+        type: string
+        default_value: null
+        optional: true
+        desc: 发表日期(YYYY-MM-DD)
+      start_date:
+        type: string
+        default_value: null
+        optional: true
+        desc: 开始日期(YYYY-MM-DD)
+      end_date:
+        type: string
+        default_value: null
+        optional: true
+        desc: 结束日期(YYYY-MM-DD)
+      year:
+        type: integer
+        default_value: null
+        optional: true
+        desc: 年份
+      month:
+        type: string
+        default_value: null
+        optional: true
+        desc: 年月(YYYY-MM)
+      start_year:
+        type: integer
+        default_value: null
+        optional: true
+        desc: 开始年份
+      end_year:
+        type: integer
+        default_value: null
+        optional: true
+        desc: 结束年份
+      start_month:
+        type: string
+        default_value: null
+        optional: true
+        desc: 开始年月
+      end_month:
+        type: string
+        default_value: null
+        optional: true
+        desc: 结束年月
+    output:
+      code: 0
+      data:
+        papers: array
+        total: integer
+        page: integer
+        per_page: integer
+        pages: integer
+      msg: success
+    errors:
+      - code: 50000
+        desc: 服务器内部错误
+    rules:
+      - 按创建时间倒序排列
+      - 关联标签预加载
+  - api: /api/papers/{paper_id}
+    method: GET
+    desc: 获取单个论文详情
+    input:
+      paper_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 论文ID
+    output:
+      code: 0
+      data:
+        id: integer
+        title: string
+        authors: string
+        abstract: string
+        content: string
+        category_l1: string
+        category_l2: string
+        status: string
+        starred: boolean
+        file_path: string
+        file_size: string
+        tags: array
+        articles: array
+        notes: array
+        created_at: string
+        updated_at: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 论文不存在
+  - api: /api/papers/{paper_id}
+    method: PUT
+    desc: 更新论文信息
+    input:
+      paper_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 论文ID
+      title:
+        type: string
+        default_value: null
+        optional: true
+        desc: 标题
+      authors:
+        type: string
+        default_value: null
+        optional: true
+        desc: 作者
+      abstract:
+        type: string
+        default_value: null
+        optional: true
+        desc: 摘要
+      content:
+        type: string
+        default_value: null
+        optional: true
+        desc: 全文内容
+      category_l1:
+        type: string
+        default_value: null
+        optional: true
+        desc: 一级分类
+      category_l2:
+        type: string
+        default_value: null
+        optional: true
+        desc: 二级分类
+      status:
+        type: string
+        default_value: null
+        optional: true
+        desc: 阅读状态
+      starred:
+        type: boolean
+        default_value: null
+        optional: true
+        desc: 是否标星
+      arxiv_id:
+        type: string
+        default_value: null
+        optional: true
+        desc: arXiv ID
+      save_local:
+        type: boolean
+        default_value: null
+        optional: true
+        desc: 是否保存本地文件
+      url:
+        type: string
+        default_value: null
+        optional: true
+        desc: 原文链接
+      source:
+        type: string
+        default_value: null
+        optional: true
+        desc: 来源
+    output:
+      code: 0
+      data: object
+      msg: success
+    errors:
+      - code: 40001
+        desc: 论文不存在
+  - api: /api/papers/{paper_id}
+    method: DELETE
+    desc: 删除论文
+    input:
+      paper_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 论文ID
+    output:
+      code: 0
+      data:
+        message: string
+        paper_id: integer
+      msg: success
+    errors:
+      - code: 40001
+        desc: 论文不存在
+    rules:
+      - 删除关联本地PDF文件
+      - 删除微信文章的_images目录
+  - api: /api/papers/{paper_id}/notes
+    method: GET
+    desc: 获取某论文关联的所有笔记
+    input:
+      paper_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 论文ID
+    output:
+      code: 0
+      data:
+        notes: array
+        total: integer
+      msg: success
+    errors:
+      - code: 40001
+        desc: 论文不存在
+    rules:
+      - 置顶笔记优先
+      - AI解读笔记次优先
+  - api: /api/tags
+    method: GET
+    desc: 获取所有标签（带计数）
+    output:
+      code: 0
+      data:
+        tags: array
+      msg: success
+    rules:
+      - 按关联论文数倒序排列
+      - 数量相同按名称排序
+  - api: /api/papers/{paper_id}/tags
+    method: POST
+    desc: 给论文添加标签
+    input:
+      paper_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 论文ID
+      name:
+        type: string
+        default_value: required
+        optional: false
+        desc: 标签名称
+    output:
+      code: 0
+      data: object
+      msg: success
+    errors:
+      - code: 40001
+        desc: 论文不存在
+    rules:
+      - 标签不存在则自动创建
+  - api: /api/papers/{paper_id}/tags/{tag_id}
+    method: DELETE
+    desc: 从论文移除标签
+    input:
+      paper_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 论文ID
+      tag_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 标签ID
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 论文不存在或标签不存在
+  - api: /api/tags/{tag_id}
+    method: DELETE
+    desc: 删除标签
+    input:
+      tag_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 标签ID
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 标签不存在
+  - api: /api/papers/search
+    method: GET
+    desc: 搜索 arXiv 远程论文
+    timeout_ms: 2000
+    input:
+      keywords:
+        type: string
+        default_value: null
+        optional: true
+        desc: 关键词，逗号分隔
+      categories:
+        type: string
+        default_value: null
+        optional: true
+        desc: arXiv分类，逗号分隔
+      max_results:
+        type: integer
+        default_value: 20
+        optional: true
+        desc: 最大结果数，最大100
+      start_date:
+        type: string
+        default_value: null
+        optional: true
+        desc: 开始日期 YYYY-MM-DD
+      end_date:
+        type: string
+        default_value: null
+        optional: true
+        desc: 结束日期 YYYY-MM-DD
+      sort_by:
+        type: string
+        default_value: submittedDate
+        optional: true
+        desc: 排序方式
+      sort_order:
+        type: string
+        default_value: descending
+        optional: true
+        desc: 排序顺序
+    output:
+      code: 0
+      data:
+        results: array
+        total: integer
+        keywords: string
+        categories: string
+      msg: success
+    rules:
+      - max_results 强制上限100
+  - api: /api/papers/search/import
+    method: POST
+    desc: 批量导入搜索到的arXiv论文
+    timeout_ms: 2000
+    input:
+      papers:
+        type: array
+        default_value: []
+        optional: false
+        desc: 论文数据数组
+      save_pdf:
+        type: boolean
+        default_value: false
+        optional: true
+        desc: 是否下载PDF
+    output:
+      code: 0
+      data:
+        imported: integer
+        skipped: integer
+        errors: array
+      msg: success
+    errors:
+      - code: 50000
+        desc: 服务器内部错误
+    rules:
+      - 按arxiv_id去重，已存在的跳过

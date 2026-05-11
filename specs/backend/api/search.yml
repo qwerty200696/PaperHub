@@ -1,0 +1,69 @@
+module: search
+description: 全文搜索接口
+timeout_ms: 300
+apis:
+  - api: /api/search
+    method: GET
+    desc: 全文跨模块搜索（论文/文章/笔记）
+    input:
+      q:
+        type: string
+        default_value: ''
+        optional: false
+        desc: 搜索关键词
+      module:
+        type: string
+        default_value: all
+        optional: true
+        desc: 搜索范围(all/papers/articles/notes)
+      page:
+        type: integer
+        default_value: 1
+        optional: true
+        desc: 页码
+      size:
+        type: integer
+        default_value: 20
+        optional: true
+        desc: 每页数量
+      highlight:
+        type: boolean
+        default_value: true
+        optional: true
+        desc: 是否开启关键词高亮
+    output:
+      code: 0
+      data:
+        success: boolean
+        total: integer
+        page: integer
+        size: integer
+        results: array
+        breakdown: object
+      msg: success
+    errors:
+      - code: 40002
+        desc: 搜索关键词不能为空
+  - api: /api/search/suggest
+    method: GET
+    desc: 搜索建议联想
+    input:
+      q:
+        type: string
+        default_value: ''
+        optional: false
+        desc: 输入前缀
+      limit:
+        type: integer
+        default_value: 5
+        optional: true
+        desc: 返回建议数量
+    output:
+      code: 0
+      data:
+        success: boolean
+        suggestions: array
+      msg: success
+    errors:
+      - code: 50000
+        desc: 服务器内部错误

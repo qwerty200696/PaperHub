@@ -1,0 +1,272 @@
+module: ingest
+description: 统一入库接口，支持多源内容导入
+timeout_ms: 2000
+apis:
+  - api: /api/ingest/arxiv/search
+    method: GET
+    desc: 远程搜索arXiv论文
+    input:
+      keywords:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 关键词，逗号分隔
+      max_results:
+        type: integer
+        default_value: 10
+        optional: true
+        desc: 返回数量
+      categories:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 分类，逗号分隔
+      start_date:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 开始日期 YYYY-MM-DD
+      end_date:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 结束日期 YYYY-MM-DD
+    output:
+      code: 0
+      data: array
+      msg: success
+    errors:
+      - code: 50002
+        desc: 外部服务调用失败
+  - api: /api/ingest/arxiv/batch
+    method: POST
+    desc: 批量导入arXiv论文
+    input:
+      arxiv_ids:
+        type: array
+        default_value: required
+        optional: false
+        desc: arXiv ID数组
+      download_pdf:
+        type: boolean
+        default_value: true
+        optional: true
+        desc: 是否下载PDF
+    output:
+      code: 0
+      data:
+        message: string
+        count: integer
+        failed: integer
+        errors: array
+      msg: success
+    rules:
+      - 按arxiv_id去重，已存在的跳过
+  - api: /api/ingest/arxiv
+    method: POST
+    desc: 单个导入arXiv论文
+    input:
+      input:
+        type: string
+        default_value: required
+        optional: false
+        desc: 支持URL或纯ID
+    output:
+      code: 0
+      data:
+        message: string
+        paper: object
+      msg: success
+    errors:
+      - code: 409
+        desc: 论文已存在
+  - api: /api/ingest/note
+    method: POST
+    desc: 导入对话笔记到笔记库
+    input:
+      title:
+        type: string
+        default_value: required
+        optional: false
+        desc: 笔记标题
+      source:
+        type: string
+        default_value: required
+        optional: false
+        desc: 来源(ChatGPT/Claude对话)
+      content:
+        type: string
+        default_value: required
+        optional: false
+        desc: Markdown内容
+      created_at:
+        type: string
+        default_value: null
+        optional: true
+        desc: ISO格式时间
+    output:
+      code: 0
+      data:
+        message: string
+        note: object
+      msg: success
+    errors:
+      - code: 409
+        desc: 笔记已存在
+  - api: /api/ingest/zhihu
+    method: POST
+    desc: 导入知乎专栏文章
+    input:
+      url:
+        type: string
+        default_value: null
+        optional: true
+        desc: 知乎文章链接
+      cookie:
+        type: string
+        default_value: null
+        optional: true
+        desc: 浏览器Cookie
+      title:
+        type: string
+        default_value: null
+        optional: true
+        desc: 手动粘贴标题
+      author:
+        type: string
+        default_value: null
+        optional: true
+        desc: 手动粘贴作者
+      content:
+        type: string
+        default_value: null
+        optional: true
+        desc: 手动粘贴内容
+      created_at:
+        type: string
+        default_value: null
+        optional: true
+        desc: ISO格式时间
+    output:
+      code: 0
+      data:
+        message: string
+        article: object
+      msg: success
+    errors:
+      - code: 409
+        desc: 文章已存在
+    rules:
+      - 支持URL自动抓取和手动粘贴两种模式
+  - api: /api/ingest/pdf
+    method: POST
+    desc: 批量上传本地PDF/HTML文件入库
+    input:
+      file:
+        type: file
+        default_value: required
+        optional: false
+        desc: 上传文件（支持多文件）
+      pdf_url:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 原文链接
+    output:
+      code: 0
+      data:
+        message: string
+        success: integer
+        total: integer
+        results: array
+      msg: success
+    rules:
+      - 支持PDF入库论文库，HTML入库文章库
+      - 自动UUID命名防冲突
+  - api: /api/ingest/wechat
+    method: POST
+    desc: 抓取并入库微信公众号文章
+    input:
+      url:
+        type: string
+        default_value: required
+        optional: false
+        desc: 微信文章链接
+      extract_content_only:
+        type: boolean
+        default_value: false
+        optional: true
+        desc: 是否仅提取内容
+    output:
+      code: 0
+      data:
+        message: string
+        article: object
+      msg: success
+    errors:
+      - code: 409
+        desc: 文章已存在
+  - api: /api/ingest/web/preview
+    method: POST
+    desc: 通用网页正文提取预览（不入库）
+    input:
+      url:
+        type: string
+        default_value: required
+        optional: false
+        desc: 网页链接
+    output:
+      code: 0
+      data:
+        message: string
+        url: string
+        title: string
+        author: string
+        content: string
+        html: string
+        text_length: integer
+        html_length: integer
+        best_method: string
+      msg: success
+  - api: /api/ingest/web
+    method: POST
+    desc: 入库经过确认的通用网页内容
+    input:
+      url:
+        type: string
+        default_value: required
+        optional: false
+        desc: 网页链接
+      title:
+        type: string
+        default_value: required
+        optional: false
+        desc: 编辑后的标题
+      author:
+        type: string
+        default_value: '通用网页'
+        optional: true
+        desc: 编辑后的作者
+      content:
+        type: string
+        default_value: null
+        optional: true
+        desc: 纯文本正文
+      html:
+        type: string
+        default_value: null
+        optional: true
+        desc: HTML正文
+    output:
+      code: 0
+      data:
+        message: string
+        article: object
+        used_html: boolean
+        downloaded_images: integer
+      msg: success
+    errors:
+      - code: 409
+        desc: 文章已存在
+    rules:
+      - 自动下载远程图片到本地并替换src路径

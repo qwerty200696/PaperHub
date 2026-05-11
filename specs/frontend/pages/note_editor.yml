@@ -1,0 +1,58 @@
+page: note_editor
+description: Markdown笔记编辑与预览双栏编辑器
+elements:
+  - name: note_title_input
+    desc: 笔记标题输入框
+  - name: note_textarea
+    desc: Markdown正文编辑区文本域
+  - name: markdown_preview
+    desc: Marked.js渲染后的预览面板
+  - name: note_image_upload
+    desc: 截图图片上传按钮与进度条
+  - name: relate_paper_selector
+    desc: 关联论文多选弹窗
+  - name: relate_article_selector
+    desc: 关联文章多选弹窗
+  - name: tag_input
+    desc: 笔记标签输入组件
+events:
+  - name: editor_input
+    desc: 编辑区内容输入触发，实时本地自动保存草稿
+  - name: preview_scroll_sync
+    desc: 编辑区滚动同步预览区滚动位置
+  - name: image_paste
+    desc: 在编辑区粘贴截图，自动调用上传接口
+  - name: upload_success
+    desc: 图片上传成功，自动在光标位置插入Markdown图片语法
+  - name: relate_paper_select
+    desc: 勾选关联论文，建立笔记-论文多对多关联
+  - name: save_click
+    desc: 保存按钮点击，提交完整笔记数据
+  - name: cancel_click
+    desc: 取消按钮点击，放弃编辑关闭弹窗
+ui_rules:
+  - 所有HTML标签采用全闭合标签规范
+  - 统一样式引用 src/css/style.css
+  - 双栏布局左侧编辑，右侧预览，宽度比例1:1
+  - 编辑区与预览区等高等高度
+  - Markdown渲染样式统一，代码块高亮
+  - 图片上传成功后显示绿色成功提示
+api_deps:
+  - GET /api/notes
+  - GET /api/notes/{note_id}
+  - POST /api/notes
+  - PUT /api/notes/{note_id}
+  - DELETE /api/notes/{note_id}
+  - POST /api/note-images/upload
+  - GET /api/notes/{note_id}/papers
+  - POST /api/notes/{note_id}/papers
+  - DELETE /api/notes/{note_id}/papers/{paper_id}
+  - GET /api/notes/{note_id}/articles
+  - POST /api/notes/{note_id}/articles
+  - DELETE /api/notes/{note_id}/articles/{article_id}
+  - POST /api/notes/{note_id}/tags
+boundary:
+  - 无数据：新建笔记时标题为空显示为无标题笔记
+  - 自动保存失败：提示本地草稿已保存，下次打开自动恢复
+  - 图片上传失败：提示用户重试，保留已写的内容不丢失
+  - 页面刷新：beforeunload钩子提示用户确认是否离开

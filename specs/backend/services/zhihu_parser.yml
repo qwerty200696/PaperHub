@@ -1,0 +1,26 @@
+service: zhihu_parser
+description: 知乎专栏文章解析服务
+input:
+  - name: url
+    type: string
+    desc: 知乎文章链接
+  - name: cookie
+    type: string
+    desc: 可选浏览器Cookie
+  - name: manual_title
+    type: string
+    desc: 手动粘贴标题
+  - name: manual_author
+    type: string
+    desc: 手动粘贴作者
+  - name: manual_content
+    type: string
+    desc: 手动粘贴正文
+output:
+  - 结构化文章结果字典
+rules:
+  - 支持URL自动抓取模式和手动粘贴双模式
+  - 自动提取知乎文章标题、作者、发布时间、内容
+  - 去重判断依据URL唯一性
+errors:
+  - 需要登录场景：降级提示用户使用手动粘贴模式

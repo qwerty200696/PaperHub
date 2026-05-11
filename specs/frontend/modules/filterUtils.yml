@@ -1,0 +1,214 @@
+module: filterUtils
+description: 通用列表筛选工具模块
+functions:
+  - name: getStatusCount
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 目标数据列表
+      - name: status
+        type: string
+        optional: false
+        desc: 要计数的状态值，null表示全部
+    output:
+      - 对应状态的条目数量整数
+    rule:
+      - status为null时直接返回列表总长度
+  - name: toggleStatusFilter
+    input:
+      - name: currentValue
+        type: string
+        optional: false
+        desc: 当前选中的状态值
+      - name: targetValue
+        type: string
+        optional: false
+        desc: 目标切换状态值
+    output:
+      - 切换后的新状态值
+    rule:
+      - 当前等于目标值时返回null（清除筛选），否则返回目标值
+  - name: filterByStatus
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 待筛选列表
+      - name: selectedStatus
+        type: string
+        optional: false
+        desc: 选中状态值，null表示不筛选
+    output:
+      - 过滤后的列表子集
+    rule:
+      - selectedStatus为falsy时原样返回整个列表
+  - name: filterByKeyword
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 待筛选列表
+      - name: keyword
+        type: string
+        optional: false
+        desc: 搜索关键词
+      - name: fields
+        type: array
+        default_value: ['title', 'author', 'content']
+        optional: true
+        desc: 要搜索的字段名列表
+    output:
+      - 匹配关键词的列表子集
+    rule:
+      - 关键词先trim转全小写，空关键词直接返回原列表
+      - 任意一个搜索字段包含子串就算匹配
+  - name: filterByTags
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 待筛选列表
+      - name: selectedTagIds
+        type: array
+        optional: false
+        desc: 选中的标签ID数组
+    output:
+      - 同时包含所有选中标签的列表子集
+    rule:
+      - selectedTagIds为空数组时原样返回原列表
+      - 逻辑为「全部包含」，不是「任意包含」
+  - name: toggleTagFilter
+    input:
+      - name: selectedIds
+        type: array
+        optional: false
+        desc: 当前已选中标签ID数组
+      - name: tagId
+        type: integer
+        optional: false
+        desc: 要切换的标签ID
+    output:
+      - 切换后的新标签ID数组副本
+    rule:
+      - 存在则移除，不存在则追加，不修改原数组
+  - name: applyAllFilters
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 待筛选原始列表
+      - name: options
+        type: object
+        optional: false
+        desc: 筛选配置对象（keyword/selectedStatus/selectedTagIds）
+    output:
+      - 经过三层筛选后的最终结果列表
+    rule:
+      - 执行顺序：关键词筛选 -&gt; 状态筛选 -&gt; 标签筛选
+  - name: getSourceCount
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 目标数据列表
+      - name: source
+        type: string
+        optional: false
+        desc: 来源值，null表示全部
+      - name: sourceField
+        type: string
+        default_value: source
+        optional: true
+        desc: 来源字段名
+    output:
+      - 对应来源的条目数量整数
+    rule:
+      - source为null时返回全部数量
+  - name: toggleSourceFilter
+    input:
+      - name: currentValue
+        type: string
+        optional: false
+        desc: 当前选中来源值
+      - name: targetValue
+        type: string
+        optional: false
+        desc: 目标切换来源值
+    output:
+      - 切换后的新来源状态值
+    rule:
+      - 同toggleStatusFilter逻辑
+  - name: filterBySource
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 待筛选列表
+      - name: selectedSource
+        type: string
+        optional: false
+        desc: 选中的来源值
+      - name: sourceField
+        type: string
+        default_value: source
+        optional: true
+        desc: 来源字段名
+    output:
+      - 过滤后的列表子集
+    rule:
+      - selectedSource为falsy时原样返回整个列表
+  - name: getNoteTypeCount
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 笔记数据列表
+      - name: type
+        type: string
+        optional: false
+        desc: 笔记类型值(all/paper/free)
+    output:
+      - 对应类型的笔记数量
+    rule:
+      - paper类型统计关联过论文的笔记
+      - free类型统计未关联任何论文的笔记
+  - name: filterByNoteType
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 待筛选笔记列表
+      - name: type
+        type: string
+        optional: false
+        desc: 笔记类型(all/paper/free)
+    output:
+      - 过滤后的笔记子集
+  - name: getTagCount
+    input:
+      - name: list
+        type: array
+        optional: false
+        desc: 目标数据列表
+      - name: tagId
+        type: integer
+        optional: false
+        desc: 标签ID
+    output:
+      - 包含该标签的条目数量
+  - name: filterTagsForList
+    input:
+      - name: allTags
+        type: array
+        optional: false
+        desc: 系统全部标签数组
+      - name: list
+        type: array
+        optional: false
+        desc: 当前筛选后的数据列表
+    output:
+      - 当前列表中至少被一个条目引用过的有效标签数组
+constraints:
+  - 所有筛选函数不修改原输入数组，返回新副本
+  - 所有字段空值兼容，不抛异常

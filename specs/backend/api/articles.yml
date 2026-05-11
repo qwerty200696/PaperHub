@@ -1,0 +1,265 @@
+module: articles
+description: 网络文章库管理接口
+timeout_ms: 300
+apis:
+  - api: /api/articles
+    method: GET
+    desc: 获取文章列表
+    input:
+      source:
+        type: string
+        default_value: null
+        optional: true
+        desc: 来源筛选(wechat/zhihu/web)
+      search:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 搜索关键词
+    output:
+      code: 0
+      data:
+        articles: array
+        total: integer
+      msg: success
+    errors:
+      - code: 50000
+        desc: 服务器内部错误
+  - api: /api/articles/{article_id}
+    method: GET
+    desc: 获取单个文章详情
+    input:
+      article_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 文章ID
+    output:
+      code: 0
+      data:
+        article: object
+      msg: success
+    errors:
+      - code: 40001
+        desc: 文章不存在
+  - api: /api/articles
+    method: POST
+    desc: 创建文章
+    input:
+      title:
+        type: string
+        default_value: required
+        optional: false
+        desc: 文章标题
+      content:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 文章内容
+      author:
+        type: string
+        default_value: null
+        optional: true
+        desc: 作者
+      source:
+        type: string
+        default_value: required
+        optional: false
+        desc: 来源
+      url:
+        type: string
+        default_value: null
+        optional: true
+        desc: 原文链接
+      file_path:
+        type: string
+        default_value: null
+        optional: true
+        desc: 本地文件路径
+      published_at:
+        type: string
+        default_value: null
+        optional: true
+        desc: 发表日期
+    output:
+      code: 0
+      data:
+        message: string
+        article: object
+      msg: success
+    errors:
+      - code: 40000
+        desc: 缺少必填字段
+      - code: 409
+        desc: 文章已存在
+  - api: /api/articles/{article_id}
+    method: PUT
+    desc: 更新文章
+    input:
+      article_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 文章ID
+      title:
+        type: string
+        default_value: null
+        optional: true
+        desc: 标题
+      content:
+        type: string
+        default_value: null
+        optional: true
+        desc: 内容
+      author:
+        type: string
+        default_value: null
+        optional: true
+        desc: 作者
+      url:
+        type: string
+        default_value: null
+        optional: true
+        desc: 链接
+      file_path:
+        type: string
+        default_value: null
+        optional: true
+        desc: 文件路径
+      published_at:
+        type: string
+        default_value: null
+        optional: true
+        desc: 发表日期
+      status:
+        type: string
+        default_value: null
+        optional: true
+        desc: 状态
+      starred:
+        type: boolean
+        default_value: null
+        optional: true
+        desc: 是否标星
+    output:
+      code: 0
+      data:
+        message: string
+        article: object
+      msg: success
+    errors:
+      - code: 40001
+        desc: 文章不存在
+  - api: /api/articles/{article_id}
+    method: DELETE
+    desc: 删除文章
+    input:
+      article_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 文章ID
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 文章不存在
+    rules:
+      - 硬删除文章记录
+      - 删除关联微信文章的本地HTML和_images目录
+  - api: /api/articles/{article_id}/papers
+    method: POST
+    desc: 关联文章到论文
+    input:
+      article_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 文章ID
+      paper_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 论文ID
+    output:
+      code: 0
+      data:
+        message: string
+        article: object
+      msg: success
+    errors:
+      - code: 40001
+        desc: 文章或论文不存在
+  - api: /api/articles/{article_id}/papers/{paper_id}
+    method: DELETE
+    desc: 取消文章关联的论文
+    input:
+      article_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 文章ID
+      paper_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 论文ID
+    output:
+      code: 0
+      data:
+        message: string
+        article: object
+      msg: success
+    errors:
+      - code: 40001
+        desc: 文章或论文不存在
+  - api: /api/articles/{article_id}/tags
+    method: POST
+    desc: 给文章添加标签
+    input:
+      article_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 文章ID
+      name:
+        type: string
+        default_value: required
+        optional: false
+        desc: 标签名称
+    output:
+      code: 0
+      data:
+        message: string
+        article: object
+      msg: success
+    errors:
+      - code: 40001
+        desc: 文章不存在
+    rules:
+      - 标签不存在则自动创建
+  - api: /api/articles/{article_id}/tags/{tag_id}
+    method: DELETE
+    desc: 移除文章的标签
+    input:
+      article_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 文章ID
+      tag_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 标签ID
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 文章或标签不存在

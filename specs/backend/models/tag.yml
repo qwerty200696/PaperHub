@@ -1,0 +1,67 @@
+name: Tag
+table_name: tags
+fields:
+  - name: id
+    type: Integer
+    primary_key: true
+    unique: true
+    nullable: false
+    comment: 主键ID
+  - name: name
+    type: String
+    max_length: 128
+    primary_key: false
+    unique: true
+    nullable: false
+    comment: 标签名称（唯一约束去重）
+  - name: type
+    type: String
+    max_length: 32
+    primary_key: false
+    unique: false
+    nullable: false
+    default_value: custom
+    comment: 标签类型(tech/conference/custom)
+  - name: color
+    type: String
+    max_length: 16
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 标签颜色（十六进制，如 #409EFF）
+  - name: parent_id
+    type: Integer
+    primary_key: false
+    unique: false
+    nullable: true
+    comment: 父标签ID（自引用支持层级）
+  - name: created_at
+    type: DateTime
+    primary_key: false
+    unique: false
+    nullable: false
+    comment: 创建时间
+relations:
+  - name: papers
+    type: many_to_many
+    through_table: paper_tags
+    target_model: Paper
+    comment: 标签关联的论文
+  - name: notes
+    type: many_to_many
+    through_table: note_tags
+    target_model: Note
+    comment: 标签关联的笔记
+  - name: articles
+    type: many_to_many
+    through_table: article_tags
+    target_model: Article
+    comment: 标签关联的文章
+indexes:
+  - name: idx_tags_name
+    fields: [name]
+    unique: true
+  - name: idx_tags_type
+    fields: [type]
+  - name: idx_tags_parent
+    fields: [parent_id]

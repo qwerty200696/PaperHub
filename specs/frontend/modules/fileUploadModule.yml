@@ -1,0 +1,87 @@
+module: fileUploadModule
+description: 文件上传封装模块
+functions:
+  - name: handleFileChange
+    input:
+      - name: file
+        type: object
+        optional: false
+        desc: Element Plus文件对象
+      - name: fileList
+        type: array
+        optional: false
+        desc: 文件列表数组
+    output: []
+    rule:
+      - 将传入的fileList赋值给uploadFiles.value
+  - name: handleFileRemove
+    input:
+      - name: file
+        type: object
+        optional: false
+        desc: Element Plus文件对象
+      - name: fileList
+        type: array
+        optional: false
+        desc: 文件列表数组
+    output: []
+    rule:
+      - 将传入的fileList赋值给uploadFiles.value
+  - name: handleUploadSuccess
+    input:
+      - name: response
+        type: object
+        optional: false
+        desc: 后端接口返回的响应数据对象
+    output: []
+    rule:
+      - 设置uploading.value为false
+      - 清空uploadFiles.value为空数组
+      - 如果uploadRef存在调用clearFiles()清空上传组件内部状态
+      - ElMessage.success展示response.message成功提示
+      - 根据响应结果中导入类型智能判断跳转tab：
+          hasArticles有文章且其他没有 -&gt; 切换到articles调用loadAllArticles
+          hasNotes有笔记且其他没有 -&gt; 切换到notes调用loadAllNotes
+          hasPapers有论文且其他没有 -&gt; 切换到library调用loadPapers
+          混合情况 -&gt; 默认library，同时调用三个loadAll刷新所有数据
+  - name: handleUploadError
+    input:
+      - name: error
+        type: object
+        optional: false
+        desc: 错误对象
+    output: []
+    rule:
+      - 设置uploading.value为false
+      - ElMessage.error展示上传失败信息
+  - name: startUpload
+    input: []
+    output:
+      - Promise异步操作
+    rule:
+      - 检查uploadFiles为空则直接返回不执行
+      - 设置uploading.value为true
+      - 检测pdfSourceUrl是否存在值
+      - 如果pdfSourceUrl不为空则手动构造FormData，遍历所有uploadFiles追加file，追加pdf_url字段
+      - 用axios.post直接提交到/api/ingest/pdf，设置multipart/form-data头
+      - 成功调用handleUploadSuccess
+      - 异常调用handleUploadError
+      - 如果没有pdfSourceUrl则调用uploadRef.value.submit()触发Element Plus原生上传
+  - name: clearUpload
+    input: []
+    output: []
+    rule:
+      - 清空uploadFiles.value为空数组
+      - 清空pdfSourceUrl.value为空字符串
+      - 如果uploadRef存在调用clearFiles()清空上传组件状态
+  - name: getCurrentDateTime
+    input: []
+    output:
+      - ISO 8601格式字符串，截取到分钟级（YYYY-MM-DDTHH:mm）
+    rule:
+      - new Date().toISOString().slice(0, 16)
+constraints:
+  - 模块通过工厂函数createFileUploadModule注入Vue、ElementPlus、axios和refs依赖
+  - 所有状态变量完全由外部refs传入管理，模块内部不自行声明响应式变量
+  - 支持FormData手动上传和Element Plus原生上传双模式
+  - 上传成功后根据返回内容自动智能跳转，用户体验流畅

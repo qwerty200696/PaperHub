@@ -1,0 +1,16 @@
+service: web_parser
+description: 通用网页正文提取服务
+input:
+  - name: url
+    type: string
+    desc: 目标网页URL
+output:
+  - 预览结果字典(title, author, content, html, text_length, best_method)
+rules:
+  - 支持多种正文提取算法，自动选择最佳结果
+  - 保留HTML结构完整性，同时输出纯文本版本
+  - 自动下载远程图片替换为本地路径
+  - 清理页面广告与导航冗余元素
+errors:
+  - 网页请求失败：返回错误信息，不抛出异常中断
+  - 正文提取失败：返回页面原始内容兜底

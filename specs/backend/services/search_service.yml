@@ -1,0 +1,27 @@
+service: search_service
+description: 跨模块全文搜索服务
+input:
+  - name: q
+    type: string
+    desc: 搜索关键词
+  - name: module
+    type: string
+    desc: 指定搜索范围(all/papers/articles/notes)
+  - name: page
+    type: integer
+    desc: 页码
+  - name: size
+    type: integer
+    desc: 每页数量
+  - name: highlight
+    type: boolean
+    desc: 是否开启关键词高亮
+output:
+  - 搜索结果字典包含results数组、总数量、分页信息、分类统计
+rules:
+  - 跨论文、文章、笔记三个模块统一检索
+  - 支持关键词高亮，用HTML标签包裹命中部分
+  - 按匹配度综合排序
+  - 返回各模块命中数量的breakdown统计
+errors:
+  - 搜索关键词为空：返回空结果，提示输入关键词

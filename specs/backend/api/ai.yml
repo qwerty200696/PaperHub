@@ -1,0 +1,189 @@
+module: ai
+description: AI大模型相关接口
+timeout_ms: 2000
+apis:
+  - api: /api/ai/config
+    method: POST
+    desc: 配置AI服务商参数
+    input:
+      provider:
+        type: string
+        default_value: doubao
+        optional: true
+        desc: AI服务商(doubao/openai等)
+      api_key:
+        type: string
+        default_value: required
+        optional: false
+        desc: API密钥
+      base_url:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 自定义Base URL
+      model_id:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 模型ID
+      temperature:
+        type: float
+        default_value: 0
+        optional: true
+        desc: 采样温度
+    output:
+      code: 0
+      data:
+        message: string
+        provider: string
+      msg: success
+    errors:
+      - code: 40002
+        desc: API key缺失
+  - api: /api/ai/config
+    method: GET
+    desc: 获取当前AI配置
+    output:
+      code: 0
+      data:
+        provider: string
+        has_api_key: boolean
+        api_key: string
+        base_url: string
+        model_id: string
+        temperature: float
+      msg: success
+  - api: /api/ai/stats
+    method: GET
+    desc: 获取AI调用用量统计
+    output:
+      code: 0
+      data: object
+      msg: success
+  - api: /api/ai/summary
+    method: POST
+    desc: 生成内容摘要解读
+    input:
+      paper_id:
+        type: integer
+        default_value: null
+        optional: true
+        desc: 内容主体ID
+      source:
+        type: string
+        default_value: paper
+        optional: true
+        desc: 内容类型(paper/article/note)
+      title:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 手动输入标题
+      abstract:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 手动输入摘要
+      content:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 手动输入内容
+    output:
+      code: 0
+      data:
+        summary: string
+        model: string
+        provider: string
+      msg: success
+    errors:
+      - code: 40001
+        desc: 内容不存在
+      - code: 50002
+        desc: AI调用失败
+    rules:
+      - 自动截断内容前3000字符
+  - api: /api/ai/recommend-tags
+    method: POST
+    desc: AI智能推荐标签
+    input:
+      paper_id:
+        type: integer
+        default_value: null
+        optional: true
+        desc: 内容ID
+      source:
+        type: string
+        default_value: paper
+        optional: true
+        desc: 内容类型
+      title:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 手动输入标题
+      abstract:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 手动输入摘要
+      content:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 手动输入内容
+      existing_tags:
+        type: array
+        default_value: []
+        optional: true
+        desc: 现有标签列表
+    output:
+      code: 0
+      data:
+        recommended_tags: array
+        new_tags: array
+        reason: string
+      msg: success
+    errors:
+      - code: 50002
+        desc: AI调用失败
+  - api: /api/ai/related
+    method: POST
+    desc: AI分析相关性推荐关联内容
+    input:
+      current_id:
+        type: integer
+        default_value: required
+        optional: false
+        desc: 当前内容ID
+      title:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 当前标题
+      abstract:
+        type: string
+        default_value: ''
+        optional: true
+        desc: 当前摘要
+      candidate_ids:
+        type: array
+        default_value: []
+        optional: true
+        desc: 候选内容ID数组
+    output:
+      code: 0
+      data:
+        related: array
+      msg: success
+    errors:
+      - code: 50002
+        desc: AI调用失败
+  - api: /api/ai/clear-cache
+    method: POST
+    desc: 清空AI缓存
+    output:
+      code: 0
+      data:
+        message: string
+      msg: success

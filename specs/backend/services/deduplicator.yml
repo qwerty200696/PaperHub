@@ -1,0 +1,22 @@
+service: deduplicator
+description: 笔记与文章内容去重服务
+input:
+  - name: title
+    type: string
+    desc: 待检测标题
+  - name: content
+    type: string
+    desc: 待检测内容
+  - name: existing_items
+    type: list
+    desc: 数据库中已有记录列表
+output:
+  - 是否重复布尔值
+  - 匹配到的重复项ID
+rules:
+  - 标题相似度超过85%判定为潜在重复
+  - 内容MD5哈希完全一致直接判定重复
+  - 标题+内容组合特征向量比对，综合得分超过阈值标记重复
+  - 去重结果返回重复状态和已存在项的ID
+errors:
+  - 特征计算异常：降级仅使用简单哈希比较，不中断流程
