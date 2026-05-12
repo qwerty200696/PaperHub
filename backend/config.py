@@ -6,10 +6,10 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-# 项目根目录 - 确保始终指向 PaperHub
+# 项目根目录 - 确保始终指向 PaperHub（兼容大小写）
 def get_base_dir():
     current = Path(__file__).resolve()
-    while current.name != 'PaperHub':
+    while current.name.lower() != 'paperhub':
         current = current.parent
         if current.parent == current:
             raise Exception("找不到 PaperHub 目录")
