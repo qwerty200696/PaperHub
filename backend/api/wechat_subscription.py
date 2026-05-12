@@ -181,15 +181,22 @@ def search_account():
     })
 
 
+def get_wechat_config_model():
+    """获取 WechatConfig 模型"""
+    try:
+        from backend.models import WechatConfig
+    except ImportError:
+        from models import WechatConfig
+    return WechatConfig
+
+
 @bp.route('/wechat/config', methods=['GET'])
 def get_wechat_config():
     """获取微信公众号相关配置"""
-    WechatConfig = get_models()[5] if len(get_models()) > 5 else None
+    WechatConfig = get_wechat_config_model()
     
     session = get_session()
-    config = None
-    if WechatConfig:
-        config = session.query(WechatConfig).first()
+    config = session.query(WechatConfig).first()
     
     api_key = config.api_key if config and config.api_key else DEFAULT_API_KEY
     session.close()
@@ -206,10 +213,7 @@ def save_wechat_config():
     data = request.get_json()
     api_key = data.get('api_key', '').strip()
     
-    WechatConfig = get_models()[5] if len(get_models()) > 5 else None
-    if not WechatConfig:
-        return jsonify({'error': '配置模型不可用'}), 500
-    
+    WechatConfig = get_wechat_config_model()
     session = get_session()
     
     config = session.query(WechatConfig).first()
