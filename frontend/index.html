@@ -517,13 +517,13 @@
                                     style="cursor: pointer; transition: all 0.15s;"
                                     closable
                                     title="点击标签删除"
-                                    @click.native.stop="removeTagFromPaper(paper, tag)"
+                                    @click.stop="removeTagFromPaper(paper, tag)"
                                     @close.stop="removeTagFromPaper(paper, tag)"
                                 >{{ tag.name }}</el-tag>
                             </div>
 
                             <!-- 添加标签输入框 -->
-                            <el-input v-model="paper.newTagInput" size="small" style="width: 100px; margin-left: 4px;" placeholder="加标签" @keyup.enter.stop="addTagInList(paper)" @click.native.stop>
+                            <el-input v-model="paper.newTagInput" size="small" style="width: 100px; margin-left: 4px;" placeholder="加标签" @keyup.enter.stop="addTagInList(paper)" @click.stop>
                                 <template #append>
                                     <el-button @click.stop="addTagInList(paper)" size="small">+</el-button>
                                 </template>
@@ -795,10 +795,10 @@
                                             style="cursor: pointer;"
                                             closable
                                             title="点击标签删除"
-                                            @click.native.stop="removeTagFromNote(note, tag)"
+                                            @click.stop="removeTagFromNote(note, tag)"
                                             @close.stop="removeTagFromNote(note, tag)"
                                         >{{ tag.name }}</el-tag>
-                                        <el-input v-model="note.newTagInput" size="small" style="width: 100px; margin-left: 4px;" placeholder="加标签" @keyup.enter.stop="addNoteTagInList(note)" @click.native.stop>
+                                        <el-input v-model="note.newTagInput" size="small" style="width: 100px; margin-left: 4px;" placeholder="加标签" @keyup.enter.stop="addNoteTagInList(note)" @click.stop>
                                             <template #append>
                                                 <el-button @click.stop="addNoteTagInList(note)" size="small">+</el-button>
                                             </template>
@@ -1078,12 +1078,12 @@
                                     style="cursor: pointer;"
                                     closable
                                     title="点击标签删除"
-                                    @click.native.stop="removeTagFromArticle(article, tag)"
+                                    @click.stop="removeTagFromArticle(article, tag)"
                                     @close.stop="removeTagFromArticle(article, tag)"
                                 >{{ tag.name }}</el-tag>
                             </div>
 
-                            <el-input v-model="article.newTagInput" size="small" style="width: 100px; margin-left: 4px;" placeholder="加标签" @keyup.enter.stop="addArticleTagInList(article)" @click.native.stop>
+                            <el-input v-model="article.newTagInput" size="small" style="width: 100px; margin-left: 4px;" placeholder="加标签" @keyup.enter.stop="addArticleTagInList(article)" @click.stop>
                                 <template #append>
                                     <el-button @click.stop="addArticleTagInList(article)" size="small">+</el-button>
                                 </template>
