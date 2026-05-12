@@ -72,7 +72,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <el-button type="primary" @click="showIngest">入库论文</el-button>
         </div>
 
@@ -488,10 +488,8 @@
                         </div>
                         <div style="display: flex; align-items: center; flex-wrap: wrap;">
                             <!-- 来源标签 -->
-                            <template v-if="paper.source === 'wechat'">
-                                <el-tag v-if="paper.url && paper.url.startsWith('file://')" size="small" type="info" style="margin-right: 8px;">微信本地</el-tag>
-                                <el-tag v-else size="small" type="primary" style="margin-right: 8px;">微信URL</el-tag>
-                            </template>
+                            <el-tag v-if="paper.source === 'wechat' && paper.url && paper.url.startsWith('file://')" size="small" type="info" style="margin-right: 8px;">微信本地</el-tag>
+                            <el-tag v-else-if="paper.source === 'wechat'" size="small" type="primary" style="margin-right: 8px;">微信URL</el-tag>
                             <el-tag v-else-if="paper.source === 'note'" size="small" type="success" style="margin-right: 8px;">对话笔记</el-tag>
                             <el-tag v-else-if="paper.source === 'zhihu'" size="small" type="danger" style="margin-right: 8px;">知乎专栏</el-tag>
                             <el-tag v-else size="small" type="info" style="margin-right: 8px;">{{ paper.source }}</el-tag>
@@ -561,12 +559,10 @@
                                 <h2 style="margin: 0; font-size: 20px;">{{ selectedPaper.title }}</h2>
                                 <div style="display: flex; align-items: center;">
                                     <!-- 来源标签 -->
-                                    <template v-if="selectedPaper.source === 'wechat'">
-                                        <el-tag v-if="selectedPaper.url && selectedPaper.url.startsWith('file://')" size="large" type="info" style="margin-left: 8px;">微信本地</el-tag>
-                                        <el-tag v-else size="large" type="primary" style="margin-left: 8px;">微信URL</el-tag>
-                                    </template>
-                                    <el-tag v-if="selectedPaper.source === 'note'" size="large" type="success" style="margin-left: 8px;">对话笔记</el-tag>
-                                    <el-tag v-if="selectedPaper.source === 'zhihu'" size="large" type="danger" style="margin-left: 8px;">知乎专栏</el-tag>
+                                    <el-tag v-if="selectedPaper.source === 'wechat' && selectedPaper.url && selectedPaper.url.startsWith('file://')" size="large" type="info" style="margin-left: 8px;">微信本地</el-tag>
+                                    <el-tag v-else-if="selectedPaper.source === 'wechat'" size="large" type="primary" style="margin-left: 8px;">微信URL</el-tag>
+                                    <el-tag v-else-if="selectedPaper.source === 'note'" size="large" type="success" style="margin-left: 8px;">对话笔记</el-tag>
+                                    <el-tag v-else-if="selectedPaper.source === 'zhihu'" size="large" type="danger" style="margin-left: 8px;">知乎专栏</el-tag>
                                     <el-tag v-if="(selectedPaper.source === 'wechat' || selectedPaper.source === 'note' || selectedPaper.source === 'zhihu') && selectedPaper.published_at" type="success" size="large" style="margin-left: 8px;">{{ selectedPaper.published_at }}</el-tag>
                                     <el-tag v-if="selectedPaper.arxiv_id" type="warning" size="large" style="margin-left: 8px;">arXiv:{{ selectedPaper.arxiv_id }}</el-tag>
                                 </div>
@@ -1256,630 +1252,795 @@
 
                 <!-- 入库页面 -->
                 <div v-if="activeMenu === 'ingest'">
-                    <h2 style="margin-bottom: 20px;">论文入库</h2>
-                    <el-tabs v-model="ingestTab" type="border-card" @tab-change="handleIngestTabChange">
-                        <!-- arXiv 入库 -->
-                        <el-tab-pane label="arXiv 入库" name="arxiv">
-                            <!-- 方法一：ID输入 -->
-                            <el-card style="margin-bottom: 20px;">
-                                <template #header>
-                                    <div style="font-weight: 600;">方法一：ID输入</div>
-                                </template>
-                                <el-input
-                                    v-model="arxivInput"
-                                    placeholder="输入arXiv ID或链接，例如：2604.08224"
-                                    style="margin-bottom: 16px;"
-                                    @keyup.enter="ingestArxiv"
-                                >
-                                    <template #append>
-                                        <el-button type="primary" @click="ingestArxiv" :loading="ingesting">入库</el-button>
-                                    </template>
-                                </el-input>
-                                <p style="color: #909399; margin: 0;">支持格式：2604.08224 或 https://arxiv.org/abs/2604.08224</p>
-                            </el-card>
+                    <!-- 返回按钮（仅在非首页时显示） -->
+                    <div v-if="activeIngestView !== 'home'" style="margin-bottom: 16px;">
+                        <el-button @click="goBackToIngestHome">
+                            <el-icon><ArrowLeft /></el-icon> 返回入库首页
+                        </el-button>
+                    </div>
 
-                            <!-- 方法二：关键词搜索 -->
-                            <el-card>
-                                <template #header>
-                                    <div style="font-weight: 600;">方法二：关键词搜索</div>
-                                </template>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                                    <div>
-                                        <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">关键词（逗号分隔）</label>
-                                        <el-input v-model="arxivKeywords" placeholder="如：machine learning, deep learning" size="small"></el-input>
-                                        <div v-if="arxivSearchHistory.length > 0" style="margin-top: 8px;">
-                                            <span style="font-size: 12px; color: #909399; margin-right: 8px;">历史:</span>
-                                            <el-tag
-                                                v-for="(keyword, index) in arxivSearchHistory"
-                                                :key="index"
-                                                size="small"
-                                                effect="plain"
-                                                style="cursor: pointer; margin-right: 4px;"
-                                                @click="selectHistoryKeyword(keyword)"
-                                            >
-                                                {{ keyword }}
-                                            </el-tag>
-                                            <el-button
-                                                v-if="arxivSearchHistory.length > 0"
-                                                size="mini"
-                                                text
-                                                @click="clearArxivSearchHistory"
-                                            >
-                                                清空历史
-                                            </el-button>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">返回数量</label>
-                                        <el-select v-model="arxivMaxResults" size="small" style="width: 100%;">
-                                            <el-option :value="10" label="10"></el-option>
-                                            <el-option :value="20" label="20"></el-option>
-                                            <el-option :value="50" label="50"></el-option>
-                                            <el-option :value="100" label="100"></el-option>
-                                        </el-select>
-                                    </div>
-                                </div>
-                                <div style="margin-bottom: 16px;">
-                                    <label style="font-size: 13px; color: #606266; margin-bottom: 8px; display: block;">📂 分类筛选（可选）</label>
-                                    <el-collapse accordion>
-                                        <el-collapse-item v-for="(categories, group) in arxivGroupedCategories" :key="group" :title="group.toUpperCase()">
-                                            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                                                <el-tag
-                                                    v-for="cat in categories"
-                                                    :key="cat.code"
-                                                    :type="arxivCategories.includes(cat.code) ? 'primary' : ''"
-                                                    :effect="arxivCategories.includes(cat.code) ? 'dark' : 'plain'"
-                                                    size="small"
-                                                    style="cursor: pointer;"
-                                                    @click="toggleArxivCategory(cat.code)"
-                                                >
-                                                    {{ cat.code }}
-                                                </el-tag>
-                                            </div>
-                                        </el-collapse-item>
-                                    </el-collapse>
-                                </div>
-                                <div style="display: flex; gap: 16px; margin-bottom: 16px;">
-                                    <div style="flex: 1;">
-                                        <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">开始日期</label>
-                                        <el-date-picker v-model="arxivStartDate" type="date" format="YYYY-MM-DD" value-format="YYYY-MM-DD" size="small" style="width: 100%;"></el-date-picker>
-                                    </div>
-                                    <div style="flex: 1;">
-                                        <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">结束日期</label>
-                                        <el-date-picker v-model="arxivEndDate" type="date" format="YYYY-MM-DD" value-format="YYYY-MM-DD" size="small" style="width: 100%;"></el-date-picker>
-                                    </div>
-                                </div>
-                                <el-button type="primary" size="small" @click="searchArxiv" :loading="arxivSearchLoading">
-                                    <el-icon :icon="Search"></el-icon> 搜索 arXiv
-                                </el-button>
-                                <el-button size="small" @click="clearArxivSearch">重置</el-button>
+                    <h2 style="margin-bottom: 20px;">📥 入库管理</h2>
 
-                                <div v-if="arxivSearchResults.length > 0" style="margin-top: 20px; border-top: 1px solid #ebeef5; padding-top: 20px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                        <span style="color: #606266; font-size: 13px;">找到 {{ arxivSearchResults.length }} 篇论文</span>
-                                        <el-button size="small" text @click="selectAllArxivPapers">
-                                            {{ selectedArxivPapers.length === arxivSearchResults.length ? '取消全选' : '全选' }}
+                    <!-- ============ 入库首页：四宫格布局 ============ -->
+                    <div v-if="activeIngestView === 'home'" class="ingest-home-grid">
+
+                        <!-- 论文入库卡片 -->
+                        <el-card class="ingest-category-card" shadow="hover">
+                            <template #header>
+                                <div class="category-header">
+                                    <span class="category-icon">📚</span>
+                                    <span class="category-title">论文入库</span>
+                                </div>
+                            </template>
+                            <div class="feature-list">
+                                <div class="feature-item" @click="switchIngestView('arxiv')">
+                                    <span class="feature-icon">📄</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">arXiv 入库</div>
+                                        <div class="feature-desc">ID输入 + 关键词搜索</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item" @click="switchIngestView('pdf-upload')">
+                                    <span class="feature-icon">📤</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">PDF 上传</div>
+                                        <div class="feature-desc">拖拽上传 PDF 文件</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item coming-soon" @click="handleComingSoon('DOI/PubMed 导入')">
+                                    <span class="feature-icon">🔗</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">DOI/PubMed 导入</div>
+                                        <div class="feature-desc">通过 DOI 或 PubMed ID 导入（开发中）</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item coming-soon" @click="handleComingSoon('批量 arXiv ID')">
+                                    <span class="feature-icon">📦</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">批量 arXiv ID</div>
+                                        <div class="feature-desc">批量导入 arXiv IDs（开发中）</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </el-card>
+
+                        <!-- 文章入库卡片 -->
+                        <el-card class="ingest-category-card" shadow="hover">
+                            <template #header>
+                                <div class="category-header">
+                                    <span class="category-icon">📰</span>
+                                    <span class="category-title">文章入库</span>
+                                </div>
+                            </template>
+                            <div class="feature-list">
+                                <div class="feature-item" @click="switchIngestView('wechat')">
+                                    <span class="feature-icon">💬</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">微信公众号</div>
+                                        <div class="feature-desc">单篇导入 + 订阅管理</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item" @click="switchIngestView('zhihu')">
+                                    <span class="feature-icon">🔵</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">知乎</div>
+                                        <div class="feature-desc">URL 自动导入 + 手动粘贴</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item" @click="switchIngestView('web')">
+                                    <span class="feature-icon">🌐</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">通用网页</div>
+                                        <div class="feature-desc">任意网页 URL 正文提取</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item coming-soon" @click="handleComingSoon('RSS 订阅')">
+                                    <span class="feature-icon">📡</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">RSS 订阅</div>
+                                        <div class="feature-desc">博客/新闻 RSS 订阅（开发中）</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </el-card>
+
+                        <!-- 笔记入库卡片 -->
+                        <el-card class="ingest-category-card" shadow="hover">
+                            <template #header>
+                                <div class="category-header">
+                                    <span class="category-icon">📝</span>
+                                    <span class="category-title">笔记入库</span>
+                                </div>
+                            </template>
+                            <div class="feature-list">
+                                <div class="feature-item" @click="switchIngestView('note')">
+                                    <span class="feature-icon">💭</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">对话笔记</div>
+                                        <div class="feature-desc">手动创建 Markdown 笔记</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item" @click="switchIngestView('ai-insight')">
+                                    <span class="feature-icon">🤖</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">AI 解读</div>
+                                        <div class="feature-desc">论文/文章/笔记 AI 解读</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item coming-soon" @click="handleComingSoon('文件转笔记')">
+                                    <span class="feature-icon">📝</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">文件转笔记</div>
+                                        <div class="feature-desc">PDF/HTML 转笔记（开发中）</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </el-card>
+
+                        <!-- 系统工具卡片 -->
+                        <el-card class="ingest-category-card" shadow="hover">
+                            <template #header>
+                                <div class="category-header">
+                                    <span class="category-icon">💾</span>
+                                    <span class="category-title">系统工具</span>
+                                </div>
+                            </template>
+                            <div class="feature-list">
+                                <div class="feature-item" @click="switchIngestView('backup')">
+                                    <span class="feature-icon">💾</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">备份/恢复</div>
+                                        <div class="feature-desc">数据库和文件备份导出/导入</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item" @click="switchIngestView('data-export')">
+                                    <span class="feature-icon">📤</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">数据导出</div>
+                                        <div class="feature-desc">导出为 JSON/CSV/Markdown</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item coming-soon" @click="handleComingSoon('重复检测')">
+                                    <span class="feature-icon">🔍</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">重复检测</div>
+                                        <div class="feature-desc">检测并清理重复内容（开发中）</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item coming-soon" @click="handleComingSoon('数据管理')">
+                                    <span class="feature-icon">📊</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">数据管理</div>
+                                        <div class="feature-desc">数据维护工具（开发中）</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </el-card>
+                    </div>
+
+                    <!-- ============ 功能视图 ============ -->
+
+                    <!-- arXiv 入库 -->
+                    <div v-if="activeIngestView === 'arxiv'">
+                        <el-card style="margin-bottom: 20px;">
+                            <template #header>
+                                <div style="font-weight: 600;">方法一：ID输入</div>
+                            </template>
+                            <el-input
+                                v-model="arxivInput"
+                                placeholder="输入arXiv ID或链接，例如：2604.08224"
+                                style="margin-bottom: 16px;"
+                                @keyup.enter="ingestArxiv"
+                            >
+                                <template #append>
+                                    <el-button type="primary" @click="ingestArxiv" :loading="ingesting">入库</el-button>
+                                </template>
+                            </el-input>
+                            <p style="color: #909399; margin: 0;">支持格式：2604.08224 或 https://arxiv.org/abs/2604.08224</p>
+                        </el-card>
+
+                        <!-- 方法二：关键词搜索 -->
+                        <el-card>
+                            <template #header>
+                                <div style="font-weight: 600;">方法二：关键词搜索</div>
+                            </template>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                                <div>
+                                    <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">关键词（逗号分隔）</label>
+                                    <el-input v-model="arxivKeywords" placeholder="如：machine learning, deep learning" size="small"></el-input>
+                                    <div v-if="arxivSearchHistory.length > 0" style="margin-top: 8px;">
+                                        <span style="font-size: 12px; color: #909399; margin-right: 8px;">历史:</span>
+                                        <el-tag
+                                            v-for="(keyword, index) in arxivSearchHistory"
+                                            :key="index"
+                                            size="small"
+                                            effect="plain"
+                                            style="cursor: pointer; margin-right: 4px;"
+                                            @click="selectHistoryKeyword(keyword)"
+                                        >
+                                            {{ keyword }}
+                                        </el-tag>
+                                        <el-button
+                                            v-if="arxivSearchHistory.length > 0"
+                                            size="mini"
+                                            text
+                                            @click="clearArxivSearchHistory"
+                                        >
+                                            清空历史
                                         </el-button>
                                     </div>
-                                    <div style="max-height: 400px; overflow-y: auto;">
-                                        <el-card
-                                            v-for="paper in arxivSearchResults"
-                                            :key="paper.arxiv_id"
-                                            :class="{ 'arxiv-selected': selectedArxivPapers.includes(paper.arxiv_id) }"
-                                            style="margin-bottom: 8px; cursor: pointer;"
-                                            @click="toggleArxivPaperSelection(paper.arxiv_id)"
-                                        >
-                                            <div style="display: flex; align-items: flex-start; gap: 12px;">
-                                                <el-checkbox
-                                                    v-model="selectedArxivPapers"
-                                                    :label="paper.arxiv_id"
-                                                    style="margin-top: 4px;"
-                                                ></el-checkbox>
-                                                <div style="flex: 1;">
-                                                    <h4 style="margin: 0 0 4px 0; font-size: 14px;">{{ paper.title }}</h4>
-                                                    <div style="color: #909399; font-size: 12px; margin-bottom: 4px;">{{ paper.authors.join(', ') }}</div>
-                                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                                        <el-tag size="mini" type="warning">arXiv:{{ paper.arxiv_id }}</el-tag>
-                                                        <el-tag size="mini" v-for="cat in paper.categories" :key="cat">{{ cat }}</el-tag>
-                                                        <el-tag size="mini" v-if="importedArxivIds.has(normalizeArxivId(paper.arxiv_id))" size="mini" type="success">已导入</el-tag>
-                                                        <span style="color: #909399; font-size: 12px;">{{ paper.published_at }}</span>
-                                                    </div>
+                                </div>
+                                <div>
+                                    <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">返回数量</label>
+                                    <el-select v-model="arxivMaxResults" size="small" style="width: 100%;">
+                                        <el-option :value="10" label="10"></el-option>
+                                        <el-option :value="20" label="20"></el-option>
+                                        <el-option :value="50" label="50"></el-option>
+                                        <el-option :value="100" label="100"></el-option>
+                                    </el-select>
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 16px;">
+                                <label style="font-size: 13px; color: #606266; margin-bottom: 8px; display: block;">📂 分类筛选（可选）</label>
+                                <el-collapse accordion>
+                                    <el-collapse-item v-for="(categories, group) in arxivGroupedCategories" :key="group" :title="group.toUpperCase()">
+                                        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                            <el-tag
+                                                v-for="cat in categories"
+                                                :key="cat.code"
+                                                :type="arxivCategories.includes(cat.code) ? 'primary' : ''"
+                                                :effect="arxivCategories.includes(cat.code) ? 'dark' : 'plain'"
+                                                size="small"
+                                                style="cursor: pointer;"
+                                                @click="toggleArxivCategory(cat.code)"
+                                            >
+                                                {{ cat.code }}
+                                            </el-tag>
+                                        </div>
+                                    </el-collapse-item>
+                                </el-collapse>
+                            </div>
+                            <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                                <div style="flex: 1;">
+                                    <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">开始日期</label>
+                                    <el-date-picker v-model="arxivStartDate" type="date" format="YYYY-MM-DD" value-format="YYYY-MM-DD" size="small" style="width: 100%;"></el-date-picker>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label style="font-size: 13px; color: #606266; margin-bottom: 4px; display: block;">结束日期</label>
+                                    <el-date-picker v-model="arxivEndDate" type="date" format="YYYY-MM-DD" value-format="YYYY-MM-DD" size="small" style="width: 100%;"></el-date-picker>
+                                </div>
+                            </div>
+                            <el-button type="primary" size="small" @click="searchArxiv" :loading="arxivSearchLoading">
+                                <el-icon :icon="Search"></el-icon> 搜索 arXiv
+                            </el-button>
+                            <el-button size="small" @click="clearArxivSearch">重置</el-button>
+
+                            <div v-if="arxivSearchResults.length > 0" style="margin-top: 20px; border-top: 1px solid #ebeef5; padding-top: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                    <span style="color: #606266; font-size: 13px;">找到 {{ arxivSearchResults.length }} 篇论文</span>
+                                    <el-button size="small" text @click="selectAllArxivPapers">
+                                        {{ selectedArxivPapers.length === arxivSearchResults.length ? '取消全选' : '全选' }}
+                                    </el-button>
+                                </div>
+                                <div style="max-height: 400px; overflow-y: auto;">
+                                    <el-card
+                                        v-for="paper in arxivSearchResults"
+                                        :key="paper.arxiv_id"
+                                        :class="{ 'arxiv-selected': selectedArxivPapers.includes(paper.arxiv_id) }"
+                                        style="margin-bottom: 8px; cursor: pointer;"
+                                        @click="toggleArxivPaperSelection(paper.arxiv_id)"
+                                    >
+                                        <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                            <el-checkbox
+                                                v-model="selectedArxivPapers"
+                                                :label="paper.arxiv_id"
+                                                style="margin-top: 4px;"
+                                            ></el-checkbox>
+                                            <div style="flex: 1;">
+                                                <h4 style="margin: 0 0 4px 0; font-size: 14px;">{{ paper.title }}</h4>
+                                                <div style="color: #909399; font-size: 12px; margin-bottom: 4px;">{{ paper.authors.join(', ') }}</div>
+                                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                                    <el-tag size="mini" type="warning">arXiv:{{ paper.arxiv_id }}</el-tag>
+                                                    <el-tag size="mini" v-for="cat in paper.categories" :key="cat">{{ cat }}</el-tag>
+                                                    <el-tag size="mini" v-if="importedArxivIds.has(normalizeArxivId(paper.arxiv_id))" size="mini" type="success">已导入</el-tag>
+                                                    <span style="color: #909399; font-size: 12px;">{{ paper.published_at }}</span>
                                                 </div>
                                             </div>
-                                        </el-card>
-                                    </div>
-                                    <div style="display: flex; gap: 8px; margin-top: 16px;">
-                                        <el-button
-                                            type="success"
-                                            size="small"
-                                            :disabled="selectedArxivPapers.length === 0"
-                                            @click="importSelectedPapers(false)"
-                                        >
-                                            <el-icon :icon="Download"></el-icon> 导入元数据 ({{ selectedArxivPapers.length }})
-                                        </el-button>
-                                        <el-button
-                                            type="primary"
-                                            size="small"
-                                            :disabled="selectedArxivPapers.length === 0"
-                                            @click="importSelectedPapers(true)"
-                                        >
-                                            <el-icon :icon="Download"></el-icon> 导入并下载PDF
-                                        </el-button>
-                                    </div>
+                                        </div>
+                                    </el-card>
                                 </div>
-                            </el-card>
-                        </el-tab-pane>
+                                <div style="display: flex; gap: 8px; margin-top: 16px;">
+                                    <el-button
+                                        type="success"
+                                        size="small"
+                                        :disabled="selectedArxivPapers.length === 0"
+                                        @click="importSelectedPapers(false)"
+                                    >
+                                        <el-icon :icon="Download"></el-icon> 导入元数据 ({{ selectedArxivPapers.length }})
+                                    </el-button>
+                                    <el-button
+                                        type="primary"
+                                        size="small"
+                                        :disabled="selectedArxivPapers.length === 0"
+                                        @click="importSelectedPapers(true)"
+                                    >
+                                        <el-icon :icon="Download"></el-icon> 导入并下载PDF
+                                    </el-button>
+                                </div>
+                            </div>
+                        </el-card>
+                    </div>
+
+                    <!-- 微信公众号 -->
+                    <div v-if="activeIngestView === 'wechat'">
+                        <!-- 单篇文章导入 -->
+                        <div style="margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #ebeef5;">
+                            <h3 style="font-size: 16px; margin-bottom: 12px;">🔗 单篇文章导入</h3>
+                            <el-radio-group v-model="wechatExtractOnly" size="small" style="margin-bottom: 16px;">
+                                <el-radio-button :value="false">📄 原始网页+JS渲染</el-radio-button>
+                                <el-radio-button :value="true">📝 提取正文生成HTML</el-radio-button>
+                            </el-radio-group>
+                            <el-input
+                                v-model="wechatUrl"
+                                placeholder="输入微信公众号文章链接"
+                                style="margin-bottom: 16px;"
+                                @keyup.enter="ingestWechat"
+                            >
+                                <template #append>
+                                    <el-button type="primary" @click="ingestWechat" :loading="wechatIngesting">入库</el-button>
+                                </template>
+                            </el-input>
+                            <p style="color: #909399;">支持格式：mp.weixin.qq.com/s/xxx 链接</p>
+                        </div>
                         
-                        <el-tab-pane label="微信公众号" name="wechat">
-                            <!-- 单篇文章导入 -->
-                            <div style="margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #ebeef5;">
-                                <h3 style="font-size: 16px; margin-bottom: 12px;">🔗 单篇文章导入</h3>
-                                <el-radio-group v-model="wechatExtractOnly" size="small" style="margin-bottom: 16px;">
-                                    <el-radio-button :value="false">📄 原始网页+JS渲染</el-radio-button>
-                                    <el-radio-button :value="true">📝 提取正文生成HTML</el-radio-button>
-                                </el-radio-group>
-                                <el-input
-                                    v-model="wechatUrl"
-                                    placeholder="输入微信公众号文章链接"
-                                    style="margin-bottom: 16px;"
-                                    @keyup.enter="ingestWechat"
-                                >
-                                    <template #append>
-                                        <el-button type="primary" @click="ingestWechat" :loading="wechatIngesting">入库</el-button>
-                                    </template>
-                                </el-input>
-                                <p style="color: #909399;">支持格式：mp.weixin.qq.com/s/xxx 链接</p>
+                        <!-- 公众号订阅管理 -->
+                        <div class="subscription-section">
+                            <!-- 标题区域 -->
+                            <div class="section-header">
+                                <div class="header-icon">📱</div>
+                                <div class="header-content">
+                                    <h3>公众号订阅（单选）</h3>
+                                    <p class="header-desc">选择公众号，检查并导入新文章</p>
+                                </div>
                             </div>
                             
-                            <!-- 公众号订阅管理 -->
-                            <div class="subscription-section">
-                                <!-- 标题区域 -->
-                                <div class="section-header">
-                                    <div class="header-icon">📱</div>
-                                    <div class="header-content">
-                                        <h3>公众号订阅（单选）</h3>
-                                        <p class="header-desc">选择公众号，检查并导入新文章</p>
-                                    </div>
-                                </div>
-                                
-                                <!-- 第三方API密钥配置 -->
-                                <div class="api-key-section-small">
-                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                                        <span style="color: #92400e; font-weight: 500; font-size: 15px; white-space: nowrap;">🔑 第三方API密钥</span>
-                                        <el-input
-                                            v-model="wechatApiKey"
-                                            placeholder="输入API密钥（可选）"
-                                            type="text"
-                                            style="flex: 1; min-width: 200px; max-width: 300px;"
-                                        ></el-input>
-                                        <el-button 
-                                            type="primary"
-                                            @click="openApiKeyWebsite"
-                                        >
-                                            获取密钥
-                                        </el-button>
-                                    </div>
-                                </div>
-                                
-                                <!-- 订阅选择器 - 单选列表形式 -->
-                                <div class="subscription-selector" v-if="subscriptions.length > 0">
-                                    <div class="selector-label">
-                                        <span class="label-icon">📍</span>
-                                        <span>选择公众号</span>
-                                    </div>
-                                    <div class="subscriptions-radio-list">
-                                        <div
-                                            v-for="sub in subscriptions"
-                                            :key="sub.id"
-                                            class="radio-item"
-                                            :class="{ 'radio-item-selected': selectedSubscription === sub.id }"
-                                            @click="selectedSubscription = sub.id"
-                                        >
-                                            <div class="radio-circle">
-                                                <div class="radio-inner" v-if="selectedSubscription === sub.id"></div>
-                                            </div>
-                                            <span class="radio-label">{{ sub.account_name }}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div v-else class="no-subscriptions">
-                                    <span>暂无订阅的公众号，请先添加订阅</span>
-                                </div>
-                                
-                                <!-- 操作按钮 -->
-                                <div class="action-buttons">
+                            <!-- 第三方API密钥配置 -->
+                            <div class="api-key-section-small">
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <span style="color: #92400e; font-weight: 500; font-size: 15px; white-space: nowrap;">🔑 第三方API密钥</span>
+                                    <el-input
+                                        v-model="wechatApiKey"
+                                        placeholder="输入API密钥（可选）"
+                                        type="text"
+                                        style="flex: 1; min-width: 200px; max-width: 300px;"
+                                    ></el-input>
                                     <el-button 
-                                        type="primary" 
-                                        class="btn-check"
-                                        @click="checkNewArticles" 
-                                        :loading="checkingArticles"
+                                        type="primary"
+                                        @click="openApiKeyWebsite"
                                     >
-                                        <span class="btn-icon">🔔</span>
-                                        检查新文章
+                                        获取密钥
                                     </el-button>
-                                    <el-button 
-                                        class="btn-refresh"
-                                        @click="loadSubscriptions"
-                                    >
-                                        <span class="btn-icon">🔄</span>
-                                        刷新
-                                    </el-button>
-                                    <el-button 
-                                        class="btn-add"
-                                        @click="showAddSubscription = true"
-                                    >
-                                        <span class="btn-icon">➕</span>
-                                        添加订阅
-                                    </el-button>
-                                </div>
-                                
-                                <!-- 添加订阅弹窗 -->
-                                <el-dialog 
-                                    title="📱 添加公众号订阅" 
-                                    v-model="showAddSubscription" 
-                                    width="500px"
-                                    class="add-subscription-dialog"
-                                    @closed="clearSubscriptionSearch"
-                                >
-                                    <div class="search-subscription-form">
-                                        <div class="search-input-wrapper">
-                                            <el-input
-                                                v-model="subscriptionSearchKeyword"
-                                                placeholder="输入公众号名称搜索，如：机器之心"
-                                                class="search-input"
-                                                @keyup.enter="searchSubscriptions"
-                                            >
-                                                <template #append>
-                                                    <el-button @click="searchSubscriptions" :loading="searchingSubscription">
-                                                        🔍 搜索
-                                                    </el-button>
-                                                </template>
-                                            </el-input>
-                                        </div>
-                                        
-                                        <!-- 搜索结果列表 -->
-                                        <div v-if="subscriptionSearchResults.length > 0" class="search-results">
-                                            <div class="results-title">
-                                                搜索到 {{ subscriptionSearchResults.length }} 个公众号，点击选择：
-                                            </div>
-                                            <div class="results-list">
-                                                <div
-                                                    v-for="account in subscriptionSearchResults"
-                                                    :key="account.id"
-                                                    class="account-item"
-                                                    @click="selectSubscriptionAccount(account)"
-                                                >
-                                                    <div class="account-avatar">
-                                                        <img v-if="account.avatar" :src="account.avatar" alt="avatar"></img>
-                                                        <span v-else>📱</span>
-                                                    </div>
-                                                    <div class="account-info">
-                                                        <div class="account-name">{{ account.name }}</div>
-                                                        <div class="account-desc">{{ account.desc || '暂无描述' }}</div>
-                                                    </div>
-                                                    <div class="account-select-hint">点击添加</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- 无结果提示 -->
-                                        <div v-else-if="subscriptionSearchKeyword && !searchingSubscription && searched" class="no-results">
-                                            <span>未找到相关公众号，请尝试其他关键词</span>
-                                        </div>
-                                        
-                                        <!-- 搜索提示 -->
-                                        <div v-else-if="!subscriptionSearchKeyword" class="search-hint">
-                                            <span>输入公众号名称，按回车或点击搜索按钮进行搜索</span>
-                                        </div>
-                                    </div>
-                                </el-dialog>
-                                
-                                <!-- 文章列表 -->
-                                <div v-if="wechatArticles.length > 0" class="articles-container">
-                                    <div class="articles-header">
-                                        <div class="articles-count">
-                                            <span class="count-icon">📚</span>
-                                            <span>共找到 <strong>{{ articleTotal }}</strong> 篇文章</span>
-                                        </div>
-                                        <el-button 
-                                            type="text" 
-                                            class="btn-select-all"
-                                            @click="toggleSelectAllArticles" 
-                                            size="small"
-                                        >
-                                            {{ allArticlesSelected ? '✓ 取消全选' : '○ 全选未导入' }}
-                                        </el-button>
-                                    </div>
-                                    
-                                    <div class="articles-list">
-                                        <div
-                                            v-for="article in wechatArticles"
-                                            :key="article.url"
-                                            class="wechat-article-card"
-                                            :class="{ 
-                                                'wechat-article-imported': article.imported,
-                                                'wechat-article-selected': selectedArticles.includes(article.url)
-                                            }"
-                                            @click="toggleArticleSelection(article.url)"
-                                        >
-                                            <div class="article-checkbox-area">
-                                                <el-checkbox
-                                                    v-model="selectedArticles"
-                                                    :value="article.url"
-                                                    :disabled="article.imported"
-                                                    class="custom-checkbox"
-                                                    @click.stop
-                                                ></el-checkbox>
-                                                <div class="article-info">
-                                                    <div class="article-title">{{ article.title }}</div>
-                                                    <div class="article-meta">
-                                                        <span class="meta-source">{{ article.subscription_name }}</span>
-                                                        <span class="meta-divider">·</span>
-                                                        <span class="meta-date">{{ formatArticleDate(article.published_at) }}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="article-actions">
-                                                <el-button 
-                                                    type="text" 
-                                                    class="btn-view-original"
-                                                    @click.stop="openArticleUrl(article.url)"
-                                                >
-                                                    🔗 查看原文
-                                                </el-button>
-                                            </div>
-                                            <div class="article-status">
-                                                <el-tag v-if="article.imported" type="success" class="status-tag">
-                                                    ✓ 已导入
-                                                </el-tag>
-                                                <el-button 
-                                                    v-else 
-                                                    type="text"
-                                                    class="btn-import-status"
-                                                    :class="{ 
-                                                        'btn-import-selected': selectedArticles.includes(article.url),
-                                                        'btn-import-unselected': !selectedArticles.includes(article.url)
-                                                    }"
-                                                    @click.stop="selectedArticles.includes(article.url) && importSingleArticle(article)"
-                                                    :disabled="!selectedArticles.includes(article.url) || importingArticleUrls.has(article.url)"
-                                                    :loading="importingArticleUrls.has(article.url)"
-                                                >
-                                                    <span class="import-icon">⬆️</span>
-                                                    <span class="import-text">{{ selectedArticles.includes(article.url) ? '导入该文章' : '待导入' }}</span>
-                                                </el-button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- 底部操作栏 -->
-                                    <div class="articles-footer">
-                                        <div class="import-btn-wrapper">
-                                            <el-button
-                                                type="primary"
-                                                class="btn-import"
-                                                @click="importSelectedArticles"
-                                                :loading="importingArticles"
-                                                :disabled="selectedArticles.length === 0"
-                                            >
-                                                <span class="btn-icon">📥</span>
-                                                导入选中 ({{ selectedArticles.length }})
-                                            </el-button>
-                                        </div>
-                                        <div class="load-more-wrapper">
-                                            <el-button
-                                                v-if="hasMoreArticles"
-                                                class="btn-load-more"
-                                                @click="loadMoreArticles"
-                                                :loading="loadingMore"
-                                            >
-                                                <span class="btn-icon">📖</span>
-                                                查看更多
-                                            </el-button>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- 加载状态 -->
-                                <div v-else-if="checkingArticles" class="empty-state loading-state">
-                                    <div class="loading-spinner">
-                                        <el-spinner size="medium"></el-spinner>
-                                    </div>
-                                    <p class="empty-text">正在检查新文章...</p>
-                                </div>
-                                
-                                <!-- 空状态 -->
-                                <div v-else class="empty-state">
-                                    <div class="empty-icon">📭</div>
-                                    <p class="empty-title">暂无文章</p>
-                                    <p class="empty-desc">选择公众号并点击「检查新文章」</p>
                                 </div>
                             </div>
-                        </el-tab-pane>
+                            
+                            <!-- 订阅选择器 - 单选列表形式 -->
+                            <div class="subscription-selector" v-if="subscriptions.length > 0">
+                                <div class="selector-label">
+                                    <span class="label-icon">📍</span>
+                                    <span>选择公众号</span>
+                                </div>
+                                <div class="subscriptions-radio-list">
+                                    <div
+                                        v-for="sub in subscriptions"
+                                        :key="sub.id"
+                                        class="radio-item"
+                                        :class="{ 'radio-item-selected': selectedSubscription === sub.id }"
+                                        @click="selectedSubscription = sub.id"
+                                    >
+                                        <div class="radio-circle">
+                                            <div class="radio-inner" v-if="selectedSubscription === sub.id"></div>
+                                        </div>
+                                        <span class="radio-label">{{ sub.account_name }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-else class="no-subscriptions">
+                                <span>暂无订阅的公众号，请先添加订阅</span>
+                            </div>
+                            
+                            <!-- 操作按钮 -->
+                            <div class="action-buttons">
+                                <el-button 
+                                    type="primary" 
+                                    class="btn-check"
+                                    @click="checkNewArticles" 
+                                    :loading="checkingArticles"
+                                >
+                                    <span class="btn-icon">🔔</span>
+                                    检查新文章
+                                </el-button>
+                                <el-button 
+                                    class="btn-refresh"
+                                    @click="loadSubscriptions"
+                                >
+                                    <span class="btn-icon">🔄</span>
+                                    刷新
+                                </el-button>
+                                <el-button 
+                                    class="btn-add"
+                                    @click="showAddSubscription = true"
+                                >
+                                    <span class="btn-icon">➕</span>
+                                    添加订阅
+                                </el-button>
+                            </div>
+                            
+                            <!-- 添加订阅弹窗 -->
+                            <el-dialog 
+                                title="📱 添加公众号订阅" 
+                                v-model="showAddSubscription" 
+                                width="500px"
+                                class="add-subscription-dialog"
+                                @closed="clearSubscriptionSearch"
+                            >
+                                <div class="search-subscription-form">
+                                    <div class="search-input-wrapper">
+                                        <el-input
+                                            v-model="subscriptionSearchKeyword"
+                                            placeholder="输入公众号名称搜索，如：机器之心"
+                                            class="search-input"
+                                            @keyup.enter="searchSubscriptions"
+                                        >
+                                            <template #append>
+                                                <el-button @click="searchSubscriptions" :loading="searchingSubscription">
+                                                    🔍 搜索
+                                                </el-button>
+                                            </template>
+                                        </el-input>
+                                    </div>
+                                    
+                                    <!-- 搜索结果列表 -->
+                                    <div v-if="subscriptionSearchResults.length > 0" class="search-results">
+                                        <div class="results-title">
+                                            搜索到 {{ subscriptionSearchResults.length }} 个公众号，点击选择：
+                                        </div>
+                                        <div class="results-list">
+                                            <div
+                                                v-for="account in subscriptionSearchResults"
+                                                :key="account.id"
+                                                class="account-item"
+                                                @click="selectSubscriptionAccount(account)"
+                                            >
+                                                <div class="account-avatar">
+                                                    <img v-if="account.avatar" :src="account.avatar" alt="avatar"></img>
+                                                    <span v-else>📱</span>
+                                                </div>
+                                                <div class="account-info">
+                                                    <div class="account-name">{{ account.name }}</div>
+                                                    <div class="account-desc">{{ account.desc || '暂无描述' }}</div>
+                                                </div>
+                                                <div class="account-select-hint">点击添加</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 无结果提示 -->
+                                    <div v-else-if="subscriptionSearchKeyword && !searchingSubscription && searched" class="no-results">
+                                        <span>未找到相关公众号，请尝试其他关键词</span>
+                                    </div>
+                                    
+                                    <!-- 搜索提示 -->
+                                    <div v-else-if="!subscriptionSearchKeyword" class="search-hint">
+                                        <span>输入公众号名称，按回车或点击搜索按钮进行搜索</span>
+                                    </div>
+                                </div>
+                            </el-dialog>
+                            
+                            <!-- 文章列表 -->
+                            <div v-if="wechatArticles.length > 0" class="articles-container">
+                                <div class="articles-header">
+                                    <div class="articles-count">
+                                        <span class="count-icon">📚</span>
+                                        <span>共找到 <strong>{{ articleTotal }}</strong> 篇文章</span>
+                                    </div>
+                                    <el-button 
+                                        type="text" 
+                                        class="btn-select-all"
+                                        @click="toggleSelectAllArticles" 
+                                        size="small"
+                                    >
+                                        {{ allArticlesSelected ? '✓ 取消全选' : '○ 全选未导入' }}
+                                    </el-button>
+                                </div>
+                                
+                                <div class="articles-list">
+                                    <div
+                                        v-for="article in wechatArticles"
+                                        :key="article.url"
+                                        class="wechat-article-card"
+                                        :class="{ 
+                                            'wechat-article-imported': article.imported,
+                                            'wechat-article-selected': selectedArticles.includes(article.url)
+                                        }"
+                                        @click="toggleArticleSelection(article.url)"
+                                    >
+                                        <div class="article-checkbox-area">
+                                            <el-checkbox
+                                                v-model="selectedArticles"
+                                                :value="article.url"
+                                                :disabled="article.imported"
+                                                class="custom-checkbox"
+                                                @click.stop
+                                            ></el-checkbox>
+                                            <div class="article-info">
+                                                <div class="article-title">{{ article.title }}</div>
+                                                <div class="article-meta">
+                                                    <span class="meta-source">{{ article.subscription_name }}</span>
+                                                    <span class="meta-divider">·</span>
+                                                    <span class="meta-date">{{ formatArticleDate(article.published_at) }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="article-actions">
+                                            <el-button 
+                                                type="text" 
+                                                class="btn-view-original"
+                                                @click.stop="openArticleUrl(article.url)"
+                                            >
+                                                🔗 查看原文
+                                            </el-button>
+                                        </div>
+                                        <div class="article-status">
+                                            <el-tag v-if="article.imported" type="success" class="status-tag">
+                                                ✓ 已导入
+                                            </el-tag>
+                                            <el-button 
+                                                v-else 
+                                                type="text"
+                                                class="btn-import-status"
+                                                :class="{ 
+                                                    'btn-import-selected': selectedArticles.includes(article.url),
+                                                    'btn-import-unselected': !selectedArticles.includes(article.url)
+                                                }"
+                                                @click.stop="selectedArticles.includes(article.url) && importSingleArticle(article)"
+                                                :disabled="!selectedArticles.includes(article.url) || importingArticleUrls.has(article.url)"
+                                                :loading="importingArticleUrls.has(article.url)"
+                                            >
+                                                <span class="import-icon">⬆️</span>
+                                                <span class="import-text">{{ selectedArticles.includes(article.url) ? '导入该文章' : '待导入' }}</span>
+                                            </el-button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 底部操作栏 -->
+                                <div class="articles-footer">
+                                    <div class="import-btn-wrapper">
+                                        <el-button
+                                            type="primary"
+                                            class="btn-import"
+                                            @click="importSelectedArticles"
+                                            :loading="importingArticles"
+                                            :disabled="selectedArticles.length === 0"
+                                        >
+                                            <span class="btn-icon">📥</span>
+                                            导入选中 ({{ selectedArticles.length }})
+                                        </el-button>
+                                    </div>
+                                    <div class="load-more-wrapper">
+                                        <el-button
+                                            v-if="hasMoreArticles"
+                                            class="btn-load-more"
+                                            @click="loadMoreArticles"
+                                            :loading="loadingMore"
+                                        >
+                                            <span class="btn-icon">📖</span>
+                                            查看更多
+                                        </el-button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 加载状态 -->
+                            <div v-else-if="checkingArticles" class="empty-state loading-state">
+                                <div class="loading-spinner">
+                                    <el-spinner size="medium"></el-spinner>
+                                </div>
+                                <p class="empty-text">正在检查新文章...</p>
+                            </div>
+                            
+                            <!-- 空状态 -->
+                            <div v-else class="empty-state">
+                                <div class="empty-icon">📭</div>
+                                <p class="empty-title">暂无文章</p>
+                                <p class="empty-desc">选择公众号并点击「检查新文章」</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 知乎 -->
+                    <div v-if="activeIngestView === 'zhihu'">
+                        <el-radio-group v-model="zhihuMode" size="small" style="margin-bottom: 20px;">
+                            <el-radio-button value="url">🔗 URL 自动导入</el-radio-button>
+                            <el-radio-button value="manual">📝 手动粘贴</el-radio-button>
+                        </el-radio-group>
 
-                        <!-- 知乎 -->
-                        <el-tab-pane label="知乎" name="zhihu">
-                            <el-radio-group v-model="zhihuMode" size="small" style="margin-bottom: 20px;">
-                                <el-radio-button value="url">🔗 URL 自动导入</el-radio-button>
-                                <el-radio-button value="manual">📝 手动粘贴</el-radio-button>
-                            </el-radio-group>
-
-                            <!-- URL模式 -->
-                            <el-form v-if="zhihuMode === 'url'" :model="zhihuUrlForm" label-width="80px">
-                                <el-form-item label="文章链接">
-                                    <el-input v-model="zhihuUrlForm.url" placeholder="支持：zhuanlan.zhihu.com/p/xxx 或 www.zhihu.com/question/xxx/answer/xxx"></el-input>
-                                </el-form-item>
-                                <el-form-item label="知乎 Cookie">
-                                    <el-input
-                                        v-model="zhihuUrlForm.cookie"
-                                        type="textarea"
-                                        :rows="4"
-                                        placeholder="获取Cookie方法：
+                        <!-- URL模式 -->
+                        <el-form v-if="zhihuMode === 'url'" :model="zhihuUrlForm" label-width="80px">
+                            <el-form-item label="文章链接">
+                                <el-input v-model="zhihuUrlForm.url" placeholder="支持：zhuanlan.zhihu.com/p/xxx 或 www.zhihu.com/question/xxx/answer/xxx"></el-input>
+                            </el-form-item>
+                            <el-form-item label="知乎 Cookie">
+                                <el-input
+                                    v-model="zhihuUrlForm.cookie"
+                                    type="textarea"
+                                    :rows="4"
+                                    placeholder="获取Cookie方法：
 1. 浏览器打开 zhihu.com 并登录
 2. F12 打开开发者工具 → Application → Cookies
 3. 复制所有 Cookie 粘贴到这里
 ⚠️ Cookie 具有时效性，请定期更新"
-                                    ></el-input>
-                                </el-form-item>
-                                <el-form-item>
-                                    <el-button type="primary" @click="ingestZhihuUrl" :loading="zhihuIngesting">自动解析并入库</el-button>
-                                    <el-button @click="clearZhihuUrlForm">清空</el-button>
-                                </el-form-item>
-                            </el-form>
+                                ></el-input>
+                            </el-form-item>
+                            <el-form-item>
+                                <el-button type="primary" @click="ingestZhihuUrl" :loading="zhihuIngesting">自动解析并入库</el-button>
+                                <el-button @click="clearZhihuUrlForm">清空</el-button>
+                            </el-form-item>
+                        </el-form>
 
-                            <!-- 手动模式 -->
-                            <el-form v-if="zhihuMode === 'manual'" :model="zhihuForm" label-width="80px">
-                                <el-form-item label="标题">
-                                    <el-input v-model="zhihuForm.title" placeholder="输入知乎文章标题"></el-input>
-                                </el-form-item>
-                                <el-form-item label="作者">
-                                    <el-input v-model="zhihuForm.author" placeholder="知乎作者名称"></el-input>
-                                </el-form-item>
-                                <el-form-item label="日期">
-                                    <el-date-picker
-                                        v-model="zhihuForm.created_at"
-                                        type="datetime"
-                                        placeholder="选择发布时间"
-                                        format="YYYY-MM-DD HH:mm"
-                                        value-format="YYYY-MM-DDTHH:mm:ss"
-                                        style="width: 100%;"
-                                    ></el-date-picker>
-                                </el-form-item>
-                                <el-form-item label="正文">
-                                    <el-input
-                                        v-model="zhihuForm.content"
-                                        type="textarea"
-                                        :rows="12"
-                                        placeholder="粘贴知乎文章内容（支持 Markdown）...
+                        <!-- 手动模式 -->
+                        <el-form v-if="zhihuMode === 'manual'" :model="zhihuForm" label-width="80px">
+                            <el-form-item label="标题">
+                                <el-input v-model="zhihuForm.title" placeholder="输入知乎文章标题"></el-input>
+                            </el-form-item>
+                            <el-form-item label="作者">
+                                <el-input v-model="zhihuForm.author" placeholder="知乎作者名称"></el-input>
+                            </el-form-item>
+                            <el-form-item label="日期">
+                                <el-date-picker
+                                    v-model="zhihuForm.created_at"
+                                    type="datetime"
+                                    placeholder="选择发布时间"
+                                    format="YYYY-MM-DD HH:mm"
+                                    value-format="YYYY-MM-DDTHH:mm:ss"
+                                    style="width: 100%;"
+                                ></el-date-picker>
+                            </el-form-item>
+                            <el-form-item label="正文">
+                                <el-input
+                                    v-model="zhihuForm.content"
+                                    type="textarea"
+                                    :rows="12"
+                                    placeholder="粘贴知乎文章内容（支持 Markdown）...
 
 使用方法：
 1. 浏览器打开知乎文章
 2. 全选内容复制粘贴即可"
-                                    ></el-input>
-                                </el-form-item>
-                                <el-form-item>
-                                    <el-button type="primary" @click="ingestZhihuManual" :loading="zhihuIngesting">导入知乎文章</el-button>
-                                    <el-button @click="clearZhihuForm">清空</el-button>
-                                </el-form-item>
-                            </el-form>
-                        </el-tab-pane>
+                                ></el-input>
+                            </el-form-item>
+                            <el-form-item>
+                                <el-button type="primary" @click="ingestZhihuManual" :loading="zhihuIngesting">导入知乎文章</el-button>
+                                <el-button @click="clearZhihuForm">清空</el-button>
+                            </el-form-item>
+                        </el-form>
+                    </div>
 
-                        <!-- 通用网页 -->
-                        <el-tab-pane label="🌐 通用网页" name="web">
-                            <el-card>
-                                <template #header>
-                                    <div style="font-weight: 600;">输入任意网页URL，一键提取正文并保存</div>
-                                </template>
-                                <el-input
-                                    v-model="webUrl"
-                                    placeholder="输入任意网页链接，例如：https://example.com/article"
-                                    style="margin-bottom: 16px;"
-                                    @keyup.enter="previewWebArticle"
-                                >
-                                    <template #append>
-                                        <el-button type="primary" @click="previewWebArticle" :loading="webPreviewLoading">🔍 预览提取</el-button>
-                                    </template>
-                                </el-input>
-                                <p style="color: #909399; margin: 0;">支持任意公开网页，自动用多算法融合提取正文</p>
-                                
-                                <div v-if="webPreviewData" style="margin-top: 20px; border-top: 1px solid #ebeef5; padding-top: 20px;">
-                                    <h3 style="font-size: 16px; margin-bottom: 12px;">✅ 提取预览（可手动编辑修改）</h3>
-                                    
-                                    <el-form label-position="top">
-                                        <el-form-item label="📌 标题">
-                                            <el-input v-model="webPreviewData.title" placeholder="文章标题"></el-input>
-                                        </el-form-item>
-                                        
-                                        <el-form-item label="✍️ 作者">
-                                            <el-input v-model="webPreviewData.author" placeholder="作者名称"></el-input>
-                                        </el-form-item>
-                                        
-                                        <el-form-item label="📝 正文内容">
-                                            <el-input v-model="webPreviewData.content" type="textarea" :rows="15" placeholder="提取到的正文内容"></el-input>
-                                        </el-form-item>
-                                    </el-form>
-                                    
-                                    <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
-                                        <el-tag v-if="webPreviewData.best_method" type="info">提取算法: {{ webPreviewData.best_method }}</el-tag>
-                                        <el-tag v-if="webPreviewData.text_length" type="success">正文长度: {{ webPreviewData.text_length }} 字符</el-tag>
-                                    </div>
-                                    
-                                    <div style="margin-top: 20px; display: flex; gap: 12px;">
-                                        <el-button type="success" @click="confirmIngestWebArticle" :loading="webIngesting">✅ 确认入库</el-button>
-                                        <el-button @click="webPreviewData = null">清空预览</el-button>
-                                    </div>
-                                </div>
-                            </el-card>
-                        </el-tab-pane>
-
-                        <!-- 批量上传 -->
-                        <el-tab-pane label="批量PDF/HTML上传" name="pdf">
-                            <el-form style="margin-bottom: 12px;">
-                                <el-form-item label="PDF来源URL" style="margin-bottom: 0;">
-                                    <el-input
-                                        v-model="pdfSourceUrl"
-                                        placeholder="可选，填写后会将此URL记录为PDF的来源（如 https://example.com/paper.pdf）"
-                                        clearable
-                                    ></el-input>
-                                </el-form-item>
-                            </el-form>
-                            <el-upload
-                                ref="uploadRef"
-                                action="/api/ingest/pdf"
-                                :auto-upload="false"
-                                :multiple="true"
-                                :on-change="handleFileChange"
-                                :on-remove="handleFileRemove"
-                                :on-success="handleUploadSuccess"
-                                :on-error="handleUploadError"
-                                accept=".pdf,.html,.htm"
-                                drag
+                    <!-- 通用网页 -->
+                    <div v-if="activeIngestView === 'web'">
+                        <el-card>
+                            <template #header>
+                                <div style="font-weight: 600;">输入任意网页URL，一键提取正文并保存</div>
+                            </template>
+                            <el-input
+                                v-model="webUrl"
+                                placeholder="输入任意网页链接，例如：https://example.com/article"
                                 style="margin-bottom: 16px;"
+                                @keyup.enter="previewWebArticle"
                             >
-                                <el-icon class="el-icon--upload"><upload-filled></upload-filled></el-icon>
-                                <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
-                                <template #tip>
-                                    <div class="el-upload__tip">支持批量上传 PDF / 微信公众号HTML 文件</div>
+                                <template #append>
+                                    <el-button type="primary" @click="previewWebArticle" :loading="webPreviewLoading">🔍 预览提取</el-button>
                                 </template>
-                            </el-upload>
-                            <div v-if="uploadFiles.length > 0">
-                                <el-button type="primary" @click="startUpload" :loading="uploading">开始上传 ({{ uploadFiles.length }})</el-button>
-                                <el-button @click="clearUpload">清空列表</el-button>
+                            </el-input>
+                            <p style="color: #909399; margin: 0;">支持任意公开网页，自动用多算法融合提取正文</p>
+                            
+                            <div v-if="webPreviewData" style="margin-top: 20px; border-top: 1px solid #ebeef5; padding-top: 20px;">
+                                <h3 style="font-size: 16px; margin-bottom: 12px;">✅ 提取预览（可手动编辑修改）</h3>
+                                
+                                <el-form label-position="top">
+                                    <el-form-item label="📌 标题">
+                                        <el-input v-model="webPreviewData.title" placeholder="文章标题"></el-input>
+                                    </el-form-item>
+                                    
+                                    <el-form-item label="✍️ 作者">
+                                        <el-input v-model="webPreviewData.author" placeholder="作者名称"></el-input>
+                                    </el-form-item>
+                                    
+                                    <el-form-item label="📝 正文内容">
+                                        <el-input v-model="webPreviewData.content" type="textarea" :rows="15" placeholder="提取到的正文内容"></el-input>
+                                    </el-form-item>
+                                </el-form>
+                                
+                                <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
+                                    <el-tag v-if="webPreviewData.best_method" type="info">提取算法: {{ webPreviewData.best_method }}</el-tag>
+                                    <el-tag v-if="webPreviewData.text_length" type="success">正文长度: {{ webPreviewData.text_length }} 字符</el-tag>
+                                </div>
+                                
+                                <div style="margin-top: 20px; display: flex; gap: 12px;">
+                                    <el-button type="success" @click="confirmIngestWebArticle" :loading="webIngesting">✅ 确认入库</el-button>
+                                    <el-button @click="webPreviewData = null">清空预览</el-button>
+                                </div>
                             </div>
-                        </el-tab-pane>
+                        </el-card>
+                    </div>
 
-                        <!-- 对话笔记 -->
-                        <el-tab-pane label="对话笔记" name="note">
-                            <el-form :model="noteForm" label-width="80px">
-                                <el-form-item label="标题">
-                                    <el-input v-model="noteForm.title" placeholder="输入笔记标题，如：Claude 代码优化对话摘要"></el-input>
-                                </el-form-item>
-                                <el-form-item label="来源">
-                                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px;">
-                                        <el-radio-group v-model="noteForm.source">
-                                            <el-radio v-for="source in noteSources" :key="source" :label="source" size="small">{{ source }}</el-radio>
-                                        </el-radio-group>
-                                    </div>
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <el-input v-if="noteForm.source === '其他'" v-model="customSource" placeholder="输入自定义来源" size="small" style="width: 200px;"></el-input>
-                                        <el-button v-if="noteForm.source === '其他' && customSource.trim()" type="primary" size="small" @click="addCustomSource">新增来源</el-button>
-                                    </div>
-                                </el-form-item>
-                                <el-form-item label="日期">
-                                    <el-date-picker
-                                        v-model="noteForm.created_at"
-                                        type="datetime"
-                                        placeholder="选择创建时间"
-                                        format="YYYY-MM-DD HH:mm"
-                                        value-format="YYYY-MM-DDTHH:mm:ss"
-                                        style="width: 100%;"
-                                    ></el-date-picker>
-                                </el-form-item>
-                                <el-form-item label="正文">
-                                    <el-input
-                                        v-model="noteForm.content"
-                                        type="textarea"
-                                        :rows="12"
-                                        placeholder="粘贴 Markdown 格式的对话内容...
+                    <!-- PDF 上传 -->
+                    <div v-if="activeIngestView === 'pdf-upload'">
+                        <el-form style="margin-bottom: 12px;">
+                            <el-form-item label="PDF来源URL" style="margin-bottom: 0;">
+                                <el-input
+                                    v-model="pdfSourceUrl"
+                                    placeholder="可选，填写后会将此URL记录为PDF的来源（如 https://example.com/paper.pdf）"
+                                    clearable
+                                ></el-input>
+                            </el-form-item>
+                        </el-form>
+                        <el-upload
+                            ref="uploadRef"
+                            action="/api/ingest/pdf"
+                            :auto-upload="false"
+                            :multiple="true"
+                            :on-change="handleFileChange"
+                            :on-remove="handleFileRemove"
+                            :on-success="handleUploadSuccess"
+                            :on-error="handleUploadError"
+                            accept=".pdf,.html,.htm"
+                            drag
+                            style="margin-bottom: 16px;"
+                        >
+                            <el-icon class="el-icon--upload"><upload-filled></upload-filled></el-icon>
+                            <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+                            <template #tip>
+                                <div class="el-upload__tip">支持批量上传 PDF / 微信公众号HTML 文件</div>
+                            </template>
+                        </el-upload>
+                        <div v-if="uploadFiles.length > 0">
+                            <el-button type="primary" @click="startUpload" :loading="uploading">开始上传 ({{ uploadFiles.length }})</el-button>
+                            <el-button @click="clearUpload">清空列表</el-button>
+                        </div>
+                    </div>
+
+                    <!-- 对话笔记 -->
+                    <div v-if="activeIngestView === 'note'">
+                        <el-form :model="noteForm" label-width="80px">
+                            <el-form-item label="标题">
+                                <el-input v-model="noteForm.title" placeholder="输入笔记标题，如：Claude 代码优化对话摘要"></el-input>
+                            </el-form-item>
+                            <el-form-item label="来源">
+                                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                    <el-radio-group v-model="noteForm.source">
+                                        <el-radio v-for="source in noteSources" :key="source" :label="source" size="small">{{ source }}</el-radio>
+                                    </el-radio-group>
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <el-input v-if="noteForm.source === '其他'" v-model="customSource" placeholder="输入自定义来源" size="small" style="width: 200px;"></el-input>
+                                    <el-button v-if="noteForm.source === '其他' && customSource.trim()" type="primary" size="small" @click="addCustomSource">新增来源</el-button>
+                                </div>
+                            </el-form-item>
+                            <el-form-item label="日期">
+                                <el-date-picker
+                                    v-model="noteForm.created_at"
+                                    type="datetime"
+                                    placeholder="选择创建时间"
+                                    format="YYYY-MM-DD HH:mm"
+                                    value-format="YYYY-MM-DDTHH:mm:ss"
+                                    style="width: 100%;"
+                                ></el-date-picker>
+                            </el-form-item>
+                            <el-form-item label="正文">
+                                <el-input
+                                    v-model="noteForm.content"
+                                    type="textarea"
+                                    :rows="12"
+                                    placeholder="粘贴 Markdown 格式的对话内容...
 
 支持格式：
 ## 标题
@@ -1889,81 +2050,129 @@
 ```python
 代码块
 ```"
-                                    ></el-input>
-                                </el-form-item>
-                                <el-form-item>
-                                    <el-button type="primary" @click="ingestNote" :loading="noteIngesting">导入笔记</el-button>
-                                    <el-button @click="clearNoteForm">清空</el-button>
-                                </el-form-item>
-                            </el-form>
-                            <p style="color: #909399; font-size: 12px;">✓ 支持完整 Markdown 格式渲染</p>
-                            <p style="color: #909399; font-size: 12px;">✓ 同时保存 .md 源文件和 .html 渲染文件</p>
-                        </el-tab-pane>
+                                ></el-input>
+                            </el-form-item>
+                            <el-form-item>
+                                <el-button type="primary" @click="ingestNote" :loading="noteIngesting">导入笔记</el-button>
+                                <el-button @click="clearNoteForm">清空</el-button>
+                            </el-form-item>
+                        </el-form>
+                        <p style="color: #909399; font-size: 12px;">✓ 支持完整 Markdown 格式渲染</p>
+                        <p style="color: #909399; font-size: 12px;">✓ 同时保存 .md 源文件和 .html 渲染文件</p>
+                    </div>
 
-                        <!-- 💾 备份/恢复 -->
-                        <el-tab-pane label="💾 备份/恢复" name="backup">
-                            <div v-if="backupLoading" style="text-align: center; padding: 40px;">
-                                <el-spinner />
-                                <p style="margin-top: 12px; color: #909399;">{{ backupLoadingText }}</p>
+                    <!-- 备份/恢复 -->
+                    <div v-if="activeIngestView === 'backup'">
+                        <div v-if="backupLoading" style="text-align: center; padding: 40px;">
+                            <el-spinner />
+                            <p style="margin-top: 12px; color: #909399;">{{ backupLoadingText }}</p>
+                        </div>
+                        <div v-else>
+                            <el-alert
+                                title="备份包含 SQLite 数据库和所有论文/文章/笔记文件"
+                                type="info"
+                                :closable="false"
+                                style="margin-bottom: 16px;"
+                            />
+                            <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                                <el-input v-model="backupName" placeholder="备份名称（可选）" size="small" style="flex: 1;"></el-input>
+                                <el-button type="primary" size="small" @click="exportBackup" :loading="backupExporting">
+                                    📦 立即备份
+                                </el-button>
+                            </div>
+                            <el-divider content-position="left">历史备份</el-divider>
+                            <div v-if="backupList.length === 0" style="text-align: center; padding: 20px; color: #909399;">
+                                暂无备份文件
                             </div>
                             <div v-else>
-                                <el-alert
-                                    title="备份包含 SQLite 数据库和所有论文/文章/笔记文件"
-                                    type="info"
-                                    :closable="false"
-                                    style="margin-bottom: 16px;"
-                                />
-                                <div style="display: flex; gap: 12px; margin-bottom: 20px;">
-                                    <el-input v-model="backupName" placeholder="备份名称（可选）" size="small" style="flex: 1;"></el-input>
-                                    <el-button type="primary" size="small" @click="exportBackup" :loading="backupExporting">
-                                        📦 立即备份
-                                    </el-button>
-                                </div>
-                                <el-divider content-position="left">历史备份</el-divider>
-                                <div v-if="backupList.length === 0" style="text-align: center; padding: 20px; color: #909399;">
-                                    暂无备份文件
-                                </div>
-                                <div v-else>
-                                    <div v-for="backup in backupList" :key="backup.filename"
-                                         style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid #ebeef5; border-radius: 6px; margin-bottom: 8px;">
-                                        <div style="flex: 1; min-width: 0;">
-                                            <div style="font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ backup.filename }}</div>
-                                            <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ backup.size }} · {{ backup.created_at }}</div>
-                                        </div>
-                                        <div style="display: flex; gap: 6px; margin-left: 8px;">
-                                            <el-button size="small" type="primary" plain @click="downloadBackup(backup.filename)">下载</el-button>
-                                            <el-button size="small" type="danger" plain @click="deleteBackup(backup.filename)">删除</el-button>
-                                        </div>
+                                <div v-for="backup in backupList" :key="backup.filename"
+                                        style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid #ebeef5; border-radius: 6px; margin-bottom: 8px;">
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ backup.filename }}</div>
+                                        <div style="font-size: 12px; color: #909399; margin-top: 4px;">{{ backup.size }} · {{ backup.created_at }}</div>
                                     </div>
-                                </div>
-                                <el-divider content-position="left">从文件恢复</el-divider>
-                                <el-upload
-                                    action="#"
-                                    :auto-upload="false"
-                                    :on-change="handleBackupFileChange"
-                                    :limit="1"
-                                    accept=".zip"
-                                    drag
-                                    style="width: 100%;"
-                                >
-                                    <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-                                    <div class="el-upload__text">
-                                        拖拽备份文件到此处或 <em>点击上传</em>
+                                    <div style="display: flex; gap: 6px; margin-left: 8px;">
+                                        <el-button size="small" type="primary" plain @click="downloadBackup(backup.filename)">下载</el-button>
+                                        <el-button size="small" type="danger" plain @click="deleteBackup(backup.filename)">删除</el-button>
                                     </div>
-                                    <template #tip>
-                                        <div class="el-upload__tip" style="text-align: center;">
-                                            仅支持 .zip 格式的 PaperHub 备份文件，恢复会覆盖现有数据
-                                        </div>
-                                    </template>
-                                </el-upload>
-                                <div v-if="selectedBackupFile" style="margin-top: 12px; text-align: center;">
-                                    <el-button type="danger" @click="importBackup" :loading="backupImporting">
-                                        ⚠️ 确认恢复
-                                    </el-button>
                                 </div>
                             </div>
-                        </el-tab-pane>
-                    </el-tabs>
+                            <el-divider content-position="left">从文件恢复</el-divider>
+                            <el-upload
+                                action="#"
+                                :auto-upload="false"
+                                :on-change="handleBackupFileChange"
+                                :limit="1"
+                                accept=".zip"
+                                drag
+                                style="width: 100%;"
+                            >
+                                <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                                <div class="el-upload__text">
+                                    拖拽备份文件到此处或 <em>点击上传</em>
+                                </div>
+                                <template #tip>
+                                    <div class="el-upload__tip" style="text-align: center;">
+                                        仅支持 .zip 格式的 PaperHub 备份文件，恢复会覆盖现有数据
+                                    </div>
+                                </template>
+                            </el-upload>
+                            <div v-if="selectedBackupFile" style="margin-top: 12px; text-align: center;">
+                                <el-button type="danger" @click="importBackup" :loading="backupImporting">
+                                    ⚠️ 确认恢复
+                                </el-button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- AI 解读（占位功能） -->
+                    <div v-if="activeIngestView === 'ai-insight'">
+                        <el-card>
+                            <el-alert type="info" :closable="false" style="margin-bottom: 20px;">
+                                <h3 style="margin: 0 0 8px 0;">🤖 AI 解读功能</h3>
+                                <p style="margin: 0;">支持对论文库、文章库、笔记库中的内容进行 AI 解读分析。</p>
+                                <p style="margin: 8px 0 0 0;">功能开发中，敬请期待！</p>
+                            </el-alert>
+                            <div style="text-align: center; padding: 40px; color: #909399;">
+                                <p>该功能正在开发中...</p>
+                                <p>预计支持：摘要生成、翻译、要点提取、关联分析等</p>
+                            </div>
+                        </el-card>
+                    </div>
+
+                    <!-- 数据导出（占位功能） -->
+                    <div v-if="activeIngestView === 'data-export'">
+                        <el-card>
+                            <template #header>
+                                <div style="font-weight: 600;">📤 数据导出</div>
+                            </template>
+                            <el-alert type="info" :closable="false" style="margin-bottom: 20px;">
+                                将您的论文、文章、笔记数据导出为常用格式
+                            </el-alert>
+                            <div class="export-options">
+                                <div class="export-option" @click="handleComingSoon('JSON 导出')">
+                                    <span class="export-icon">📋</span>
+                                    <div class="export-info">
+                                        <div class="export-name">JSON 导出</div>
+                                        <div class="export-desc">导出完整数据结构，兼容各种应用</div>
+                                    </div>
+                                </div>
+                                <div class="export-option" @click="handleComingSoon('CSV 导出')">
+                                    <span class="export-icon">📊</span>
+                                    <div class="export-info">
+                                        <div class="export-name">CSV 导出</div>
+                                        <div class="export-desc">导出为表格格式，便于在 Excel 中分析</div>
+                                    </div>
+                                </div>
+                                <div class="export-option" @click="handleComingSoon('Markdown 导出')">
+                                    <span class="export-icon">📝</span>
+                                    <div class="export-info">
+                                        <div class="export-name">Markdown 导出</div>
+                                        <div class="export-desc">导出为 Markdown 格式，便于在笔记工具中使用</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </el-card>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2407,7 +2616,29 @@
                 const monthEndYear = ref(null);
                 const monthEndMonth = ref(null);
                 const ingestTab = ref('arxiv');
+                const activeIngestView = ref('home'); // 'home' 或功能名称
                 const uploadRef = ref(null);
+
+                // 切换到入库视图
+                function switchIngestView(viewName) {
+                    activeIngestView.value = viewName;
+                    // 切换到备份视图时加载备份列表
+                    if (viewName === 'backup') {
+                        backupName.value = '';
+                        selectedBackupFile.value = null;
+                        loadBackupList();
+                    }
+                }
+
+                // 返回入库首页
+                function goBackToIngestHome() {
+                    activeIngestView.value = 'home';
+                }
+
+                // 处理未实现的功能
+                function handleComingSoon(featureName) {
+                    ElementPlus.ElMessage.info(`${featureName} 功能开发中，敬请期待！`);
+                }
                 const uploadFiles = ref([]);
                 const uploading = ref(false);
                 const pdfSourceUrl = ref('');
@@ -2621,6 +2852,7 @@
 
                 function showIngest() {
                     activeMenu.value = 'ingest';
+                    activeIngestView.value = 'home';
                     arxivInput.value = '';
                 }
 
@@ -5476,6 +5708,7 @@
                     dateRange, dateGranularity, yearStart, yearEnd, monthStartYear, monthStartMonth, monthEndYear, monthEndMonth, onDateGranularityChange, filterByDateRange, applyYearFilter, applyMonthFilter, clearDateFilter,
 
                     // ============ 入库 =============
+                    activeIngestView, switchIngestView, goBackToIngestHome, handleComingSoon,
                     ingestTab, uploadRef, uploadFiles, uploading, pdfSourceUrl,
                     wechatUrl, wechatIngesting, wechatContent, wechatExtractOnly,
                     webUrl, webPreviewLoading, webIngesting, webPreviewData, previewWebArticle, confirmIngestWebArticle,
@@ -5518,5 +5751,6 @@
         app.mount('#app');
         console.log('Vue app mounted successfully!');
     </script>
+
 </body>
 </html>

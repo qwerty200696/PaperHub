@@ -423,6 +423,119 @@ Element Plus 的 `el-switch` 组件使用**自闭合标签** `/>` 时，可能�
 
 ---
 
+## 🐛 Bug #10: Div 标签不平衡导致页面完全崩溃
+
+**发生时间**：2026-05-12  
+**发现者**：用户（入库界面重构后）
+
+### 现象
+- 前端界面完全崩溃，白屏
+- Vue 应用无法正常挂载
+
+### 根本原因
+重构入库界面时，删除或移动了 `<div>` 标签，但忘记对应的闭合标签，导致 HTML 结构完全混乱。
+
+```html
+<!-- ❌ 错误示范：少闭合 div -->
+<div class="ingest-home-grid">
+    <el-card>...</el-card>
+    <el-card>...</el-card>
+<!-- 漏掉了 </div>！ -->
+
+<div v-if="activeIngestView === 'arxiv'">
+    ...
+</div>
+<!-- 整个结构全乱了 -->
+```
+
+### 排查方法
+写一个简单的 Python 脚本验证 `<div>` 闭合数量：
+```python
+import re
+
+with open('frontend/index.html', 'r') as f:
+    content = f.read()
+
+# 移除 script/style 内容避免干扰
+script_pattern = re.compile(r'<script[^>]*>.*?</script>', re.DOTALL)
+style_pattern = re.compile(r'<style[^>]*>.*?</style>', re.DOTALL)
+
+html_only = script_pattern.sub('', content)
+html_only = style_pattern.sub('', html_only)
+
+div_opens = len(re.findall(r'<div[\s>]', html_only, re.IGNORECASE))
+div_closes = len(re.findall(r'</div>', html_only, re.IGNORECASE))
+
+print(f"HTML 部分 <div> 开始标签: {div_opens}")
+print(f"HTML 部分 </div> 结束标签: {div_closes}")
+print(f"差值: {div_opens - div_closes}")
+```
+
+### 正确做法
+- 每次添加/删除 `<div>` 时，同时检查对应的闭合标签
+- 重构大段 HTML 后，用脚本验证标签平衡
+
+### ✅ 快速排查 Checklist
+- [ ] 是不是刚重构了大段 HTML 结构？
+- [ ] 用脚本验证一下 `<div>` 数量是否平衡？
+- [ ] F12 看有没有 Vue 编译器错误？
+
+### ⏱️ 排查时间 vs 修复时间
+- **排查**：15 分钟（先以为是别的问题，最后用脚本发现标签不平衡）
+- **修复**：3 分钟（逐个补全闭合标签）
+- **坑指数**: ⭐⭐⭐⭐
+
+---
+
+## 🐛 Bug #11: v-else/v-else-if 在 template 内部导致 Vue 编译器错误
+
+**发生时间**：2026-05-12  
+**发现者**：用户（修复标签不平衡后仍然白屏）
+
+### 现象
+- 页面仍然空白
+- F12 报错：`Uncaught SyntaxError: https://vuejs.org/error-reference/#compiler-30`
+- Vue 错误代码 30 = v-else/v-else-if has no adjacent v-if or v-else-if
+
+### 根本原因
+`<template v-if>` 包裹的元素内部使用了 `v-else`/`v-else-if`，但外部又跟着 `v-else-if`/`v-else`，导致 Vue 编译器无法正确识别层级关系。
+
+```html
+<!-- ❌ 错误示范 -->
+<template v-if="paper.source === 'wechat'">
+    <el-tag v-if="paper.url && ...">微信本地</el-tag>
+    <el-tag v-else>微信URL</el-tag>
+</template>
+<!-- 下面这个 v-else-if 找不到对应的 v-if -->
+<el-tag v-else-if="paper.source === 'note'">对话笔记</el-tag>
+```
+
+### 修复方案
+直接把 `<template>` 拆成独立的 `v-if`/`v-else-if`/`v-else` 链：
+```html
+<!-- ✅ 正确示范 -->
+<el-tag v-if="paper.source === 'wechat' && paper.url && ...">微信本地</el-tag>
+<el-tag v-else-if="paper.source === 'wechat'">微信URL</el-tag>
+<el-tag v-else-if="paper.source === 'note'">对话笔记</el-tag>
+```
+
+### 根因分析
+1. Vue 的 `v-if`/`v-else`/`v-else-if` 必须是**相邻的兄弟元素**
+2. `<template>` 标签本身也是一个虚拟元素，包裹的内容和外部不能形成链式关系
+3. 错误使用会导致 Vue 编译器完全崩溃
+
+### ✅ 快速排查 Checklist
+- [ ] 看到 Vue 错误代码 30 吗？
+- [ ] 是不是用了 `<template v-if>` + `v-else-if`？
+- [ ] 检查所有 `v-else` 是否直接跟在 `v-if`/`v-else-if` 后面？
+
+### ⏱️ 排查时间 vs 修复时间
+- **排查**：10 分钟（先查了别的，最后根据错误代码定位到）
+- **修复**：2 分钟（重构一下结构）
+- **坑指数**: ⭐⭐⭐⭐⭐
+
+---
+
 ## 🚑 前端 Bug 快速排查万能公式
 
 ### Step 1: 浏览器 F12 看报错
@@ -469,4 +582,5 @@ Element Plus 的 `el-switch` 组件使用**自闭合标签** `/>` 时，可能�
 > **前端没有高深的 Bug，只有忘了导入、忘了同步、忘了序列化的坑。**
 
 *文档创建：2026-05-02*
-*累计收录 9 个经典坑*
+*最后更新：2026-05-12*
+*累计收录 11 个经典坑*
