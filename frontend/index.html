@@ -1259,7 +1259,7 @@
                         </el-button>
                     </div>
 
-                    <h2 style="margin-bottom: 20px;">📥 入库管理</h2>
+                    <h2 style="margin-bottom: 20px;">{{ currentIngestTitle }}</h2>
 
                     <!-- ============ 入库首页：四宫格布局 ============ -->
                     <div v-if="activeIngestView === 'home'" class="ingest-home-grid">
@@ -2618,6 +2618,25 @@
                 const ingestTab = ref('arxiv');
                 const activeIngestView = ref('home'); // 'home' 或功能名称
                 const uploadRef = ref(null);
+                
+                // 🆕 添加标题映射
+                const ingestViewTitleMap = {
+                    'home': '📥 入库管理',
+                    'arxiv': '📚 arXiv 入库',
+                    'pdf-upload': '📚 PDF 上传',
+                    'wechat': '📰 微信公众号',
+                    'zhihu': '📰 知乎',
+                    'web': '📰 通用网页',
+                    'note': '📝 对话笔记',
+                    'ai-insight': '📝 AI 解读',
+                    'backup': '💾 备份/恢复',
+                    'data-export': '💾 数据导出'
+                };
+                
+                // 🆕 计算当前视图标题
+                const currentIngestTitle = computed(() => {
+                    return ingestViewTitleMap[activeIngestView.value] || '📥 入库管理';
+                });
 
                 // 切换到入库视图
                 function switchIngestView(viewName) {
@@ -5717,6 +5736,8 @@
                     showIngest, ingestArxiv,
                     handleFileChange, handleFileRemove, handleUploadSuccess, handleUploadError,
                     startUpload, clearUpload, ingestWechat,
+                    // 🆕 添加标题相关
+                    currentIngestTitle,
                     
                     // ============ 公众号订阅 =============
                     subscriptions, selectedSubscription, wechatArticles, selectedArticles,
