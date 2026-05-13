@@ -112,6 +112,10 @@ def create_app(config_name='default'):
     def web_static(filename):
         return send_from_directory(str(BASE_DIR / 'data/papers/web'), filename)
 
+    @app.route('/static/wechat_subscriptions/images/<path:filename>')
+    def wechat_subscriptions_images(filename):
+        return send_from_directory(str(BASE_DIR / 'data/papers/wechat_subscriptions/images'), filename)
+
     @app.route('/src/<path:filename>')
     def frontend_src(filename):
         return send_from_directory(str(BASE_DIR / 'frontend/src'), filename)
@@ -125,9 +129,9 @@ def create_app(config_name='default'):
 
 def register_routes(app):
     try:
-        from backend.api import papers, ingest, notes, articles, ai, wechat_subscription, search, note_images, web_extract, backup
+        from backend.api import papers, ingest, notes, articles, ai, wechat_subscription, wechat_subscriptions, search, note_images, web_extract, backup
     except ImportError:
-        from api import papers, ingest, notes, articles, ai, wechat_subscription, search, note_images, web_extract, backup
+        from api import papers, ingest, notes, articles, ai, wechat_subscription, wechat_subscriptions, search, note_images, web_extract, backup
 
     app.register_blueprint(papers.bp, url_prefix='/api')
     app.register_blueprint(ingest.bp, url_prefix='/api')
@@ -139,6 +143,7 @@ def register_routes(app):
     app.register_blueprint(backup.bp, url_prefix='/api')
     notes.get_note_routes(app)
     articles.get_article_routes(app)
+    wechat_subscriptions.get_subscription_routes(app)
 
 
 def init_database():
