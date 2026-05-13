@@ -1186,6 +1186,7 @@
                                 </div>
                             </div>
                         </el-card>
+
                     </div>
 
                     <!-- 关联笔记 - 仅在有笔记时显示 -->
@@ -1412,6 +1413,46 @@
                                     <div class="feature-info">
                                         <div class="feature-name">数据管理</div>
                                         <div class="feature-desc">数据维护工具（开发中）</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </el-card>
+
+                        <!-- 精选第三方信息源卡片 -->
+                        <el-card class="ingest-category-card" shadow="hover">
+                            <template #header>
+                                <div class="category-header">
+                                    <span class="category-icon">🌐</span>
+                                    <span class="category-title">精选第三方信息源</span>
+                                </div>
+                            </template>
+                            <div class="feature-list">
+                                <a href="https://aihot.virxact.com/" target="_blank" class="feature-item external-link">
+                                    <span class="feature-icon">🔥</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">AI HOT</div>
+                                        <div class="feature-desc">AI 精选热点聚合</div>
+                                    </div>
+                                </a>
+                                <a href="https://learnprompt.github.io/ai-news-radar/" target="_blank" class="feature-item external-link">
+                                    <span class="feature-icon">📡</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">AI News Radar</div>
+                                        <div class="feature-desc">24小时AI更新雷达</div>
+                                    </div>
+                                </a>
+                                <a href="https://www.bestblogs.dev/" target="_blank" class="feature-item external-link">
+                                    <span class="feature-icon">📚</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">BestBlogs</div>
+                                        <div class="feature-desc">AI 驱动的个性化阅读</div>
+                                    </div>
+                                </a>
+                                <div class="feature-item" @click="switchIngestView('external-sources')">
+                                    <span class="feature-icon">➕</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">更多...</div>
+                                        <div class="feature-desc">查看全部精选信息源</div>
                                     </div>
                                 </div>
                             </div>
@@ -2173,6 +2214,84 @@
                             </div>
                         </el-card>
                     </div>
+
+                    <!-- 精选第三方信息源详情页 -->
+                    <div v-if="activeIngestView === 'external-sources'">
+                        <el-card>
+                            <template #header>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span>🌐</span>
+                                    <span style="font-weight: 600; font-size: 18px;">精选第三方信息源</span>
+                                </div>
+                            </template>
+                            <div class="external-sources-list">
+                                <a href="https://aihot.virxact.com/" target="_blank" class="source-card">
+                                    <span class="source-icon">🔥</span>
+                                    <div class="source-content">
+                                        <div class="source-name">AI HOT</div>
+                                        <div class="source-desc">AI 精选热点聚合</div>
+                                    </div>
+                                    <el-icon class="source-arrow"><arrow-right /></el-icon>
+                                </a>
+                                <a href="https://learnprompt.github.io/ai-news-radar/" target="_blank" class="source-card">
+                                    <span class="source-icon">📡</span>
+                                    <div class="source-content">
+                                        <div class="source-name">AI News Radar</div>
+                                        <div class="source-desc">24小时AI更新雷达</div>
+                                    </div>
+                                    <el-icon class="source-arrow"><arrow-right /></el-icon>
+                                </a>
+                                <a href="https://waytoagi.feishu.cn/wiki/QPe5w5g7UisbEkkow8XcDmOpn8e?fromScene=spaceOverview" target="_blank" class="source-card">
+                                    <span class="source-icon">🧠</span>
+                                    <div class="source-content">
+                                        <div class="source-name">WaytoAGI</div>
+                                        <div class="source-desc">AGI知识与资讯</div>
+                                    </div>
+                                    <el-icon class="source-arrow"><arrow-right /></el-icon>
+                                </a>
+                                <a href="https://www.bestblogs.dev/" target="_blank" class="source-card">
+                                    <span class="source-icon">📚</span>
+                                    <div class="source-content">
+                                        <div class="source-name">BestBlogs</div>
+                                        <div class="source-desc">AI 驱动的个性化阅读</div>
+                                    </div>
+                                    <el-icon class="source-arrow"><arrow-right /></el-icon>
+                                </a>
+                                <a href="https://www.aibase.com/" target="_blank" class="source-card">
+                                    <span class="source-icon">🏠</span>
+                                    <div class="source-content">
+                                        <div class="source-name">AIbase</div>
+                                        <div class="source-desc">AI资讯聚合平台</div>
+                                    </div>
+                                    <el-icon class="source-arrow"><arrow-right /></el-icon>
+                                </a>
+                                <a href="https://momoyu.cc/" target="_blank" class="source-card">
+                                    <span class="source-icon">🐟</span>
+                                    <div class="source-content">
+                                        <div class="source-name">摸摸鱼</div>
+                                        <div class="source-desc">国内主流平台热榜汇总</div>
+                                    </div>
+                                    <el-icon class="source-arrow"><arrow-right /></el-icon>
+                                </a>
+                                <a href="https://theresanaiforthat.com/" target="_blank" class="source-card">
+                                    <span class="source-icon">🤖</span>
+                                    <div class="source-content">
+                                        <div class="source-name">There's an AI for that</div>
+                                        <div class="source-desc">最大AI工具数据库</div>
+                                    </div>
+                                    <el-icon class="source-arrow"><arrow-right /></el-icon>
+                                </a>
+                                <a href="https://www.producthunt.com/" target="_blank" class="source-card">
+                                    <span class="source-icon">🚀</span>
+                                    <div class="source-content">
+                                        <div class="source-name">Product Hunt</div>
+                                        <div class="source-desc">最新 AI 产品发现</div>
+                                    </div>
+                                    <el-icon class="source-arrow"><arrow-right /></el-icon>
+                                </a>
+                            </div>
+                        </el-card>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2630,7 +2749,8 @@
                     'note': '📝 对话笔记',
                     'ai-insight': '📝 AI 解读',
                     'backup': '💾 备份/恢复',
-                    'data-export': '💾 数据导出'
+                    'data-export': '💾 数据导出',
+                    'external-sources': '🌐 精选第三方信息源'
                 };
                 
                 // 🆕 计算当前视图标题
