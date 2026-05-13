@@ -30,7 +30,14 @@ except ImportError:
 # 默认配置
 DEFAULT_EXCEL_PATH = '/Users/wanglijie/Documents/wechat_article/宝玉AI.xlsx'
 DEFAULT_SUBSCRIPTION_NAME = '宝玉AI'
-BASE_OUTPUT_DIR = Path(__file__).parent.parent / 'data' / 'papers' / 'wechat_subscriptions'
+
+# 项目根目录（脚本可能在 scripts/ 或项目根目录运行）
+SCRIPT_DIR = Path(__file__).resolve().parent
+if SCRIPT_DIR.name == 'scripts':
+    PROJECT_ROOT = SCRIPT_DIR.parent
+else:
+    PROJECT_ROOT = SCRIPT_DIR
+BASE_OUTPUT_DIR = PROJECT_ROOT / 'data' / 'papers' / 'wechat_subscriptions'
 
 # 图片压缩配置
 MAX_WIDTH = 240
@@ -42,7 +49,8 @@ def get_output_paths(subscription_name):
     """根据公众号名称获取输出路径"""
     output_dir = BASE_OUTPUT_DIR
     output_file = output_dir / f'{subscription_name}.txt'
-    images_dir = output_dir / 'images'
+    # 每个公众号独立的图片目录: images_公众号名称
+    images_dir = output_dir / f'images_{subscription_name}'
     return output_dir, output_file, images_dir
 
 
@@ -110,7 +118,7 @@ def format_datetime(dt):
     return str(dt)
 
 
-def process_cover(cover_url, images_dir):
+def process_cover(cover_url, images_dir, subscription_name):
     """处理封面图片，返回本地路径"""
     if not cover_url or pd.isna(cover_url):
         return ''
@@ -121,22 +129,22 @@ def process_cover(cover_url, images_dir):
     img_path = images_dir / img_filename
 
     if img_path.exists():
-        return f'/static/wechat_subscriptions/images/{img_filename}'
+        return f'/static/wechat_subscriptions/images/images_{subscription_name}/{img_filename}'
     else:
         if download_image(cover_url, img_path):
-            return f'/static/wechat_subscriptions/images/{img_filename}'
+            return f'/static/wechat_subscriptions/images/images_{subscription_name}/{img_filename}'
         else:
             return str(cover_url)
 
 
-def row_to_article(row, images_dir):
+def row_to_article(row, images_dir, subscription_name):
     return {
         'publish_time': format_datetime(row.get('发布时间')),
         'id': str(row.get('ID', '')),
         'title': str(row.get('标题', '')) if pd.notna(row.get('标题')) else '',
         'url': str(row.get('链接', '')) if pd.notna(row.get('链接')) else '',
         'summary': str(row.get('摘要', '')) if pd.notna(row.get('摘要')) else '',
-        'cover': process_cover(row.get('封面', ''), images_dir)
+        'cover': process_cover(row.get('封面', ''), images_dir, subscription_name)
     }
 
 
@@ -194,7 +202,7 @@ def convert_excel_to_txt(excel_path=None, subscription_name=None, incremental=Tr
         if not article_id:
             continue
 
-        new_article = row_to_article(row, images_dir)
+        new_article = row_to_article(row, images_dir, subscription_name)
 
         if article_id in existing_articles:
             existing = existing_articles[article_id]
