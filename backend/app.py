@@ -112,9 +112,9 @@ def create_app(config_name='default'):
     def web_static(filename):
         return send_from_directory(str(BASE_DIR / 'data/papers/web'), filename)
 
-    @app.route('/static/wechat_subscriptions/images/<path:filename>')
-    def wechat_subscriptions_images(filename):
-        return send_from_directory(str(BASE_DIR / 'data/papers/wechat_subscriptions/images'), filename)
+    @app.route('/static/wechat_subscriptions/images/<path:sub_dir>/<path:filename>')
+    def wechat_subscriptions_images(sub_dir, filename):
+        return send_from_directory(str(BASE_DIR / 'data/papers/wechat_subscriptions' / sub_dir), filename)
 
     @app.route('/src/<path:filename>')
     def frontend_src(filename):
