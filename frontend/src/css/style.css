@@ -1561,3 +1561,118 @@ body {
     color: #409eff;
     transform: translateX(4px);
 }
+
+/* ========================================
+   ✨ 精选公众号样式
+   ======================================== */
+
+/* 精选公众号Tab样式 */
+.wechat-sub-tabs {
+    margin-top: 8px;
+}
+
+.wechat-sub-tabs .el-tabs__header {
+    margin-bottom: 16px;
+}
+
+.wechat-sub-content {
+    min-height: 400px;
+}
+
+/* 文章列表容器 */
+.wechat-sub-articles {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* 文章卡片 */
+.wechat-sub-article-card {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.wechat-sub-article-card:hover {
+    border-color: #409eff;
+    background: #f0f9ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.1);
+}
+
+/* 封面图片 */
+.wechat-sub-article-card .article-cover {
+    width: 120px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+/* 文章信息 */
+.wechat-sub-article-card .article-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.wechat-sub-article-card .article-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+    margin: 0;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.wechat-sub-article-card .article-summary {
+    font-size: 13px;
+    color: #606266;
+    margin: 0;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.wechat-sub-article-card .article-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: auto;
+}
+
+.wechat-sub-article-card .publish-time {
+    font-size: 12px;
+    color: #909399;
+}
+
+/* 加载更多按钮 */
+.load-more {
+    text-align: center;
+    padding: 24px 0;
+}
+
+/* 加载状态 */
+.loading-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: #909399;
+}
+
+.loading-state .el-icon {
+    font-size: 24px;
+    margin-right: 8px;
+    vertical-align: middle;
+}

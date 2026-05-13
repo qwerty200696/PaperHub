@@ -1457,6 +1457,25 @@
                                 </div>
                             </div>
                         </el-card>
+
+                        <!-- 精选公众号卡片 -->
+                        <el-card class="ingest-category-card" shadow="hover">
+                            <template #header>
+                                <div class="category-header">
+                                    <span class="category-icon">✨</span>
+                                    <span class="category-title">精选公众号</span>
+                                </div>
+                            </template>
+                            <div class="feature-list">
+                                <div class="feature-item" @click="switchIngestView('wechat-subs')">
+                                    <span class="feature-icon">🤖</span>
+                                    <div class="feature-info">
+                                        <div class="feature-name">宝玉AI</div>
+                                        <div class="feature-desc">AI 领域深度好文</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </el-card>
                     </div>
 
                     <!-- ============ 功能视图 ============ -->
@@ -1898,6 +1917,50 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- 精选公众号 -->
+                    <div v-if="activeIngestView === 'wechat-subs'">
+                        <!-- 子Tab选择 -->
+                        <el-tabs v-model="wechatSubActiveTab" class="wechat-sub-tabs">
+                            <el-tab-pane label="宝玉AI" name="宝玉AI">
+                                <div v-if="wechatSubActiveTab === '宝玉AI'" class="wechat-sub-content">
+                                    <div v-if="wechatSubLoading" class="loading-state">
+                                        <el-icon class="is-loading"><Loading /></el-icon> 加载中...
+                                    </div>
+                                    <div v-else-if="wechatSubArticles.length > 0">
+                                        <div class="wechat-sub-articles">
+                                            <div
+                                                v-for="(article, index) in wechatSubArticles"
+                                                :key="article.id || index"
+                                                class="wechat-sub-article-card"
+                                                @click="openWechatSubArticle(article)"
+                                            >
+                                                <img v-if="article.cover" :src="article.cover" class="article-cover" @error="handleImageError" />
+                                                <div class="article-info">
+                                                    <h4 class="article-title">{{ article.title }}</h4>
+                                                    <p v-if="article.summary" class="article-summary">{{ article.summary }}</p>
+                                                    <div class="article-meta">
+                                                        <span class="publish-time">{{ article.publish_time }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- 加载更多 -->
+                                        <div v-if="wechatSubHasMore" class="load-more">
+                                            <el-button @click="loadMoreWechatSubArticles" :loading="wechatSubLoadingMore">
+                                                加载更多
+                                            </el-button>
+                                        </div>
+                                    </div>
+                                    <div v-else class="empty-state">
+                                        <div class="empty-icon">📭</div>
+                                        <p class="empty-title">暂无文章</p>
+                                    </div>
+                                </div>
+                            </el-tab-pane>
+                        </el-tabs>
+                    </div>
+
                     <!-- 知乎 -->
                     <div v-if="activeIngestView === 'zhihu'">
                         <el-radio-group v-model="zhihuMode" size="small" style="margin-bottom: 20px;">
@@ -2735,8 +2798,14 @@
                 const monthEndYear = ref(null);
                 const monthEndMonth = ref(null);
                 const ingestTab = ref('arxiv');
-                const activeIngestView = ref('home'); // 'home' 或功能名称
+                const activeIngestView = ref('home');
                 const uploadRef = ref(null);
+                const wechatSubActiveTab = ref('宝玉AI');
+                const wechatSubArticles = ref([]);
+                const wechatSubOffset = ref(0);
+                const wechatSubHasMore = ref(true);
+                const wechatSubLoading = ref(false);
+                const wechatSubLoadingMore = ref(false);
                 
                 // 🆕 添加标题映射
                 const ingestViewTitleMap = {
@@ -2744,6 +2813,7 @@
                     'arxiv': '📚 arXiv 入库',
                     'pdf-upload': '📚 PDF 上传',
                     'wechat': '📰 微信公众号',
+                    'wechat-subs': '✨ 精选公众号',
                     'zhihu': '📰 知乎',
                     'web': '📰 通用网页',
                     'note': '📝 对话笔记',
@@ -2766,6 +2836,10 @@
                         backupName.value = '';
                         selectedBackupFile.value = null;
                         loadBackupList();
+                    }
+                    // 切换到精选公众号时加载文章
+                    if (viewName === 'wechat-subs') {
+                        loadWechatSubArticles();
                     }
                 }
 
@@ -3298,6 +3372,61 @@
                         selectedBackupFile.value = null;
                         loadBackupList();
                     }
+                }
+
+                // ============ 精选公众号函数 ============
+                async function loadWechatSubArticles() {
+                    wechatSubLoading.value = true;
+                    wechatSubOffset.value = 0;
+                    wechatSubArticles.value = [];
+                    try {
+                        const res = await axios.get('/api/wechat-subscriptions/articles', {
+                            params: {
+                                name: wechatSubActiveTab.value,
+                                offset: 0,
+                                limit: 100
+                            }
+                        });
+                        wechatSubArticles.value = res.data.articles || [];
+                        wechatSubOffset.value = res.data.articles?.length || 0;
+                        wechatSubHasMore.value = res.data.has_more;
+                    } catch (e) {
+                        console.error('加载精选公众号文章失败:', e);
+                        ElementPlus.ElMessage.error('加载文章失败');
+                    } finally {
+                        wechatSubLoading.value = false;
+                    }
+                }
+
+                async function loadMoreWechatSubArticles() {
+                    wechatSubLoadingMore.value = true;
+                    try {
+                        const res = await axios.get('/api/wechat-subscriptions/articles', {
+                            params: {
+                                name: wechatSubActiveTab.value,
+                                offset: wechatSubOffset.value,
+                                limit: 100
+                            }
+                        });
+                        wechatSubArticles.value = [...wechatSubArticles.value, ...(res.data.articles || [])];
+                        wechatSubOffset.value += res.data.articles?.length || 0;
+                        wechatSubHasMore.value = res.data.has_more;
+                    } catch (e) {
+                        console.error('加载更多文章失败:', e);
+                        ElementPlus.ElMessage.error('加载更多失败');
+                    } finally {
+                        wechatSubLoadingMore.value = false;
+                    }
+                }
+
+                function openWechatSubArticle(article) {
+                    if (article.url) {
+                        window.open(article.url, '_blank');
+                    }
+                }
+
+                function handleImageError(e) {
+                    e.target.style.display = 'none';
                 }
 
                 async function loadBackupList() {
@@ -5856,6 +5985,9 @@
                     showIngest, ingestArxiv,
                     handleFileChange, handleFileRemove, handleUploadSuccess, handleUploadError,
                     startUpload, clearUpload, ingestWechat,
+                    wechatSubActiveTab, wechatSubArticles, wechatSubHasMore, wechatSubLoading, wechatSubLoadingMore,
+                    loadWechatSubArticles, loadMoreWechatSubArticles, openWechatSubArticle,
+                    handleImageError,
                     // 🆕 添加标题相关
                     currentIngestTitle,
                     
