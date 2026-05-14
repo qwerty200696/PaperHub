@@ -43,7 +43,9 @@ class Config:
 
     # CORS 配置
     CORS_ORIGINS = ['http://localhost:5000', 'http://127.0.0.1:5000',
-                    'http://localhost:5799', 'http://127.0.0.1:5799']
+                    'http://localhost:5799', 'http://127.0.0.1:5799',
+                    'http://localhost:5899', 'http://127.0.0.1:5899',
+                    'chrome-extension://*']  # 支持浏览器插件
 
     # 文件上传配置
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024
