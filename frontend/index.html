@@ -2699,11 +2699,8 @@
                 watch(aiConfigDialogVisible, (visible) => {
                     if (visible) {
                         loadAIConfig();
-                        const config = aiConfigs.value[aiProvider.value] || { api_key: '', base_url: '', model_id: '', temperature: 0 };
-                        editApiKey.value = config.api_key;
-                        editBaseUrl.value = config.base_url;
-                        editModelId.value = config.model_id;
-                        editTemperature.value = config.temperature ?? 0;
+                        // 注意：不在这里立即更新编辑变量，因为 loadAIConfig 是异步的
+                        // 编辑变量的更新会在 loadAIConfig 的 axios.then 回调中完成
                     }
                 });
 
@@ -3329,7 +3326,7 @@
                     const allProviders = ['doubao', 'openai', 'qwen', 'anthropic', 'teg'];
                     allProviders.forEach(p => {
                         if (!configs[p]) {
-                            configs[p] = { api_key: '', base_url: '', model_id: '', temperature: 0.7 };
+                            configs[p] = { api_key: '', base_url: '', model_id: '', temperature: 0 };
                         }
                         if (configs[p].temperature === undefined) {
                             configs[p].temperature = 0;
@@ -3338,10 +3335,17 @@
 
                     aiConfigs.value = configs;
                     aiProvider.value = lastProvider;
+                    
+                    // 立即从 localStorage 更新编辑变量（同步）
+                    const localConfig = configs[lastProvider] || { api_key: '', base_url: '', model_id: '', temperature: 0 };
+                    editApiKey.value = localConfig.api_key;
+                    editBaseUrl.value = localConfig.base_url;
+                    editModelId.value = localConfig.model_id;
+                    editTemperature.value = localConfig.temperature ?? 0;
 
-                    // 同时从后端加载当前 provider 的配置
+                    // 同时从后端加载当前 provider 的配置（异步）
                     axios.get('/api/ai/config').then(response => {
-                        if (response.data.provider && response.data.api_key) {
+                        if (response.data.provider && response.data.has_api_key) {
                             aiConfigs.value[response.data.provider] = {
                                 api_key: response.data.api_key,
                                 base_url: response.data.base_url || '',
@@ -3350,9 +3354,17 @@
                             };
                             aiProvider.value = response.data.provider;
                             localStorage.setItem('lastAiProvider', response.data.provider);
+                            
+                            // 同步更新编辑变量，确保弹窗显示最新配置
+                            if (aiConfigDialogVisible.value) {
+                                editApiKey.value = response.data.api_key;
+                                editBaseUrl.value = response.data.base_url || '';
+                                editModelId.value = response.data.model_id || '';
+                                editTemperature.value = response.data.temperature ?? 0;
+                            }
                         }
-                    }).catch(() => {
-                        // ignore
+                    }).catch((error) => {
+                        console.warn('从后端加载AI配置失败，使用本地配置:', error);
                     });
                 }
 
