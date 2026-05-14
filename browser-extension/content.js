@@ -82,12 +82,12 @@ function showFloatingToolbar(range) {
     
     document.body.appendChild(toolbar);
     
-    // 绑定事件
+    // 绑定事件（使用 mousedown 而不是 click，避免被拦截）
     console.log('[PaperHub Clipper] Binding toolbar events...');
     toolbar.querySelectorAll('.toolbar-btn').forEach((btn, index) => {
         console.log(`[PaperHub Clipper] Binding event for button ${index}:`, btn.dataset.action);
-        btn.addEventListener('click', (e) => {
-            console.log('[PaperHub Clipper] Button clicked:', btn.dataset.action);
+        btn.addEventListener('mousedown', (e) => {
+            console.log('[PaperHub Clipper] Button mousedown:', btn.dataset.action);
             e.preventDefault();
             e.stopPropagation();
             const action = btn.dataset.action;
