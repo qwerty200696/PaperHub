@@ -3,8 +3,19 @@
  * 负责消息路由、与后端 API 通信
  */
 
-// PaperHub 后端地址
-const PAPERHUB_API = 'http://localhost:5000';
+// 默认 PaperHub 后端地址
+const DEFAULT_PAPERHUB_API = 'http://localhost:5000';
+
+// 获取配置的 API 地址
+async function getApiBaseUrl() {
+    try {
+        const result = await chrome.storage.local.get(['apiConfig']);
+        return result.apiConfig?.baseUrl || DEFAULT_PAPERHUB_API;
+    } catch (error) {
+        console.error('[PaperHub Clipper] Failed to get API config:', error);
+        return DEFAULT_PAPERHUB_API;
+    }
+}
 
 // ==================== 消息监听 ====================
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -39,8 +50,10 @@ async function handleClipFullPage(data) {
     try {
         console.log('[PaperHub Clipper] Processing full page clip...');
         
+        const baseUrl = await getApiBaseUrl();
+        
         // 调用后端 API
-        const response = await fetch(`${PAPERHUB_API}/api/ingest/browser_clipper`, {
+        const response = await fetch(`${baseUrl}/api/ingest/browser_clipper`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -85,13 +98,14 @@ async function handleClipSelection(data) {
     try {
         console.log('[PaperHub Clipper] Processing selection clip...');
         
+        const baseUrl = await getApiBaseUrl();
         const targetLibrary = data.target_library || 'note';
         
         let apiUrl, payload;
         
         if (targetLibrary === 'note') {
             // 保存到笔记库
-            apiUrl = `${PAPERHUB_API}/api/notes`;
+            apiUrl = `${baseUrl}/api/notes`;
             payload = {
                 title: data.title,
                 content: data.content,
@@ -102,7 +116,7 @@ async function handleClipSelection(data) {
             };
         } else {
             // 保存到文章库
-            apiUrl = `${PAPERHUB_API}/api/articles`;
+            apiUrl = `${baseUrl}/api/articles`;
             payload = {
                 title: data.title,
                 content: data.content,
@@ -145,7 +159,8 @@ async function handleClipSelection(data) {
 // ==================== 测试连接 ====================
 async function testConnection() {
     try {
-        const response = await fetch(`${PAPERHUB_API}/api/papers?page=1&per_page=1`);
+        const baseUrl = await getApiBaseUrl();
+        const response = await fetch(`${baseUrl}/api/papers?page=1&per_page=1`);
         
         if (!response.ok) {
             throw new Error('无法连接到 PaperHub 后端');

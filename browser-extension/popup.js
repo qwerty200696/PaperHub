@@ -7,10 +7,16 @@
 let currentPageInfo = null;
 let selectedMode = 'full'; // full | selection | smart | quick
 let isProcessing = false;
+let apiConfig = {
+    baseUrl: 'http://localhost:5000'
+};
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('[PaperHub Clipper] Popup loaded');
+    
+    // 加载配置
+    await loadConfig();
     
     // 获取当前页面信息
     await loadCurrentPageInfo();
@@ -94,6 +100,18 @@ function bindEvents() {
     document.getElementById('cancel-btn').addEventListener('click', () => {
         window.close();
     });
+    
+    // 设置按钮
+    document.getElementById('settings-btn').addEventListener('click', () => {
+        const configPanel = document.getElementById('config-panel');
+        configPanel.classList.toggle('show');
+    });
+    
+    // 测试连接按钮
+    document.getElementById('test-connection-btn').addEventListener('click', testConnection);
+    
+    // 保存配置按钮
+    document.getElementById('save-config-btn').addEventListener('click', saveConfig);
 }
 
 // ==================== 模式选择 ====================
@@ -302,4 +320,113 @@ function showSuccess(message) {
     successEl.style.display = 'block';
     
     document.getElementById('error-message').style.display = 'none';
+}
+
+// ==================== 配置管理 ====================
+
+/**
+ * 加载配置
+ */
+async function loadConfig() {
+    try {
+        const result = await chrome.storage.local.get(['apiConfig']);
+        
+        if (result.apiConfig) {
+            apiConfig = result.apiConfig;
+            console.log('[PaperHub Clipper] Config loaded:', apiConfig);
+        }
+        
+        // 更新 UI
+        const apiUrlInput = document.getElementById('api-url');
+        if (apiUrlInput) {
+            apiUrlInput.value = apiConfig.baseUrl;
+        }
+        
+    } catch (error) {
+        console.error('[PaperHub Clipper] Failed to load config:', error);
+    }
+}
+
+/**
+ * 保存配置
+ */
+async function saveConfig() {
+    try {
+        const apiUrlInput = document.getElementById('api-url');
+        const baseUrl = apiUrlInput.value.trim();
+        
+        if (!baseUrl) {
+            showConnectionStatus('请输入 API 地址', 'error');
+            return;
+        }
+        
+        // 验证 URL 格式
+        if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+            showConnectionStatus('URL 必须以 http:// 或 https:// 开头', 'error');
+            return;
+        }
+        
+        // 移除末尾的斜杠
+        apiConfig.baseUrl = baseUrl.replace(/\/$/, '');
+        
+        // 保存到 chrome.storage
+        await chrome.storage.local.set({ apiConfig });
+        
+        showConnectionStatus('✅ 配置已保存', 'success');
+        console.log('[PaperHub Clipper] Config saved:', apiConfig);
+        
+        // 1秒后隐藏配置面板
+        setTimeout(() => {
+            document.getElementById('config-panel').classList.remove('show');
+        }, 1000);
+        
+    } catch (error) {
+        console.error('[PaperHub Clipper] Failed to save config:', error);
+        showConnectionStatus('❌ 保存失败: ' + error.message, 'error');
+    }
+}
+
+/**
+ * 测试连接
+ */
+async function testConnection() {
+    const testBtn = document.getElementById('test-connection-btn');
+    const originalText = testBtn.textContent;
+    
+    try {
+        testBtn.disabled = true;
+        testBtn.textContent = '⏳ 测试中...';
+        
+        const response = await sendMessageToBackground({
+            action: 'test_connection',
+            data: { baseUrl: apiConfig.baseUrl }
+        });
+        
+        if (response && response.success) {
+            showConnectionStatus('✅ 连接成功！', 'success');
+        } else {
+            showConnectionStatus('❌ 连接失败: ' + (response?.message || '未知错误'), 'error');
+        }
+        
+    } catch (error) {
+        console.error('[PaperHub Clipper] Connection test failed:', error);
+        showConnectionStatus('❌ 连接失败: ' + error.message, 'error');
+    } finally {
+        testBtn.disabled = false;
+        testBtn.textContent = originalText;
+    }
+}
+
+/**
+ * 显示连接状态
+ */
+function showConnectionStatus(message, type) {
+    const statusEl = document.getElementById('connection-status');
+    statusEl.textContent = message;
+    statusEl.className = 'connection-status ' + type;
+    
+    // 3秒后自动隐藏
+    setTimeout(() => {
+        statusEl.className = 'connection-status';
+    }, 3000);
 }
