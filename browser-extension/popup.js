@@ -8,7 +8,7 @@ let currentPageInfo = null;
 let selectedMode = 'full'; // full | selection | smart | quick
 let isProcessing = false;
 let apiConfig = {
-    baseUrl: 'http://localhost:5000'
+    baseUrl: 'http://localhost:5799'
 };
 
 // ==================== 初始化 ====================

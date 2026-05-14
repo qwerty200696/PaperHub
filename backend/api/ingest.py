@@ -1027,13 +1027,12 @@ def ingest_from_browser_clipper():
             md_file = notes_dir / f'note_{note_id}.md'
             md_file.write_text(content_md, encoding='utf-8')
             
-            # 创建笔记记录
+            # 创建笔记记录（id 由数据库自增生成）
             note = Note(
-                id=note_id,
                 title=title,
                 content=content_md,
                 source=data.get('source', 'browser_clipper'),
-                source_url=url
+                url=url
             )
             
             session.add(note)
