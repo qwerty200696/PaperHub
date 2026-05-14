@@ -4,7 +4,7 @@
  */
 
 // 默认 PaperHub 后端地址
-const DEFAULT_PAPERHUB_API = 'http://localhost:5000';
+const DEFAULT_PAPERHUB_API = 'http://localhost:5799';
 
 // 获取配置的 API 地址
 async function getApiBaseUrl() {

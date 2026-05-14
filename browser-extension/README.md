@@ -52,7 +52,7 @@ cd /Users/wanglijie/PycharmProjects/claude_code_project/PaperHub/backend
 python app.py
 ```
 
-确保服务运行在 `http://localhost:5000`
+确保服务运行在 `http://localhost:5799`
 
 ### 2. 测试全文剪藏
 
@@ -115,11 +115,11 @@ browser-extension/
 
 ### 2. 无法连接到 PaperHub 后端
 
-- 确认后端服务已启动：`http://localhost:5000`
+- 确认后端服务已启动：`http://localhost:5799`
 - **点击插件右上角的 ⚙️ 设置按钮**
-- **检查 API 地址配置是否正确（默认 `http://localhost:5000`）**
-- **点击“🔍 测试连接”按钮验证连接状态**
-- 如果端口不是 5000，修改为实际端口（如 `http://localhost:8080`）
+- **检查 API 地址配置是否正确（默认 `http://localhost:5799`）**
+- **点击"🔍 测试连接"按钮验证连接状态**
+- 如果端口不是 5799，修改为实际端口（如 `http://localhost:8080`）
 - 查看浏览器控制台是否有 CORS 错误
 
 ### 3. 全文剪藏提取失败
