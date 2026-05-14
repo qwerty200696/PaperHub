@@ -1076,7 +1076,10 @@ def ingest_from_browser_clipper():
             web_dir = BASE_DIR / 'data/papers/web'
             web_dir.mkdir(parents=True, exist_ok=True)
             
-            safe_url = url.replace('://', '_').replace('/', '_') if url else article_id
+            safe_url = url.replace('://', '_').replace('/', '_').replace('#', '_').replace('?', '_').replace('&', '_') if url else article_id
+            # 移除其他可能的特殊字符
+            import re
+            safe_url = re.sub(r'[^a-zA-Z0-9_.\-]', '_', safe_url)
             html_filename = f'{article_id}_{safe_url}.html'
             html_file = web_dir / html_filename
             html_file.write_text(html_content, encoding='utf-8')
