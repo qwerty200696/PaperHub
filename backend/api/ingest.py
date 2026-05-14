@@ -1001,7 +1001,7 @@ def ingest_from_browser_clipper():
         # 检查是否已存在（基于 URL）
         if url:
             existing_article = session.query(Article).filter(
-                Article.original_url == url
+                Article.url == url
             ).first()
             
             if existing_article:
@@ -1098,16 +1098,15 @@ def ingest_from_browser_clipper():
             
             # 创建文章记录
             article = Article(
-                id=article_id,
                 title=title,
-                original_url=url,
+                url=url,
                 author=data.get('author', ''),
-                published_date=data.get('published_date'),
-                summary=data.get('description', ''),
+                published_at=data.get('published_date'),
+                content=data.get('description', ''),
                 file_path=str(html_file),
                 source='web',
                 status='unread',
-                is_starred=False
+                starred=False
             )
             
             session.add(article)
