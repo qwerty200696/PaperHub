@@ -42,7 +42,13 @@ document.addEventListener('mouseup', () => {
 // 点击其他地方隐藏工具栏
 document.addEventListener('mousedown', (e) => {
     const toolbar = document.getElementById('paperhub-floating-toolbar');
-    if (toolbar && !toolbar.contains(e.target)) {
+    if (toolbar) {
+        // 如果点击的是工具栏内部，不要隐藏
+        if (toolbar.contains(e.target)) {
+            console.log('[PaperHub Clipper] Clicked inside toolbar, keeping it visible');
+            return;
+        }
+        // 点击外部才隐藏
         hideFloatingToolbar();
     }
 });
