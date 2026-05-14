@@ -1077,7 +1077,8 @@ def ingest_from_browser_clipper():
             web_dir.mkdir(parents=True, exist_ok=True)
             
             safe_url = url.replace('://', '_').replace('/', '_') if url else article_id
-            html_file = web_dir / f'{article_id}_{safe_url}.html'
+            html_filename = f'{article_id}_{safe_url}.html'
+            html_file = web_dir / html_filename
             html_file.write_text(html_content, encoding='utf-8')
             
             # 下载图片
@@ -1125,7 +1126,7 @@ def ingest_from_browser_clipper():
                 author=data.get('author', ''),
                 published_at=published_date,
                 content=data.get('description', ''),
-                file_path=str(html_file),
+                file_path=html_filename,  # 保存相对路径
                 source='web',
                 status='unread',
                 starred=False
