@@ -12,6 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[PaperHub Clipper] Content script loaded');
 });
 
+// 立即执行的初始化（不等待 DOMContentLoaded）
+console.log('[PaperHub Clipper] Content script executing...');
+console.log('[PaperHub Clipper] Readability available:', typeof Readability !== 'undefined');
+
 // ==================== 划词选择监听 ====================
 document.addEventListener('mouseup', () => {
     const selection = window.getSelection();
@@ -344,8 +348,10 @@ function detectAcademicPage() {
 }
 
 // ==================== 导出函数供 popup 调用 ====================
+console.log('[PaperHub Clipper] Exporting PaperHubClipper...');
 window.PaperHubClipper = {
     extractFullPage,
     detectAcademicPage,
     getSelectedText: () => selectedText
 };
+console.log('[PaperHub Clipper] PaperHubClipper exported:', window.PaperHubClipper);
