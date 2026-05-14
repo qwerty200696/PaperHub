@@ -14,6 +14,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 立即执行的初始化（不等待 DOMContentLoaded）
 console.log('[PaperHub Clipper] Content script executing...');
+
+// 确保 Readability 在全局可用
+if (typeof Readability === 'undefined') {
+    console.warn('[PaperHub Clipper] Readability not found in global scope, trying to load from module...');
+    // Readability.js 可能以模块形式加载，尝试从其他位置获取
+    if (typeof module !== 'undefined' && module.exports) {
+        window.Readability = module.exports;
+    }
+}
+
 console.log('[PaperHub Clipper] Readability available:', typeof Readability !== 'undefined');
 
 // ==================== 划词选择监听 ====================
