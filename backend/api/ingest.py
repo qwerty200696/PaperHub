@@ -1097,11 +1097,25 @@ def ingest_from_browser_clipper():
                         print(f'Failed to download image: {e}')
             
             # 创建文章记录
+            # 处理发布日期（转换为 date 对象）
+            published_date = None
+            pub_date_str = data.get('published_date')
+            if pub_date_str:
+                try:
+                    from datetime import datetime as dt
+                    # 尝试解析 ISO 格式
+                    if 'T' in pub_date_str:
+                        published_date = dt.fromisoformat(pub_date_str.replace('Z', '+00:00')).date()
+                    else:
+                        published_date = dt.strptime(pub_date_str, '%Y-%m-%d').date()
+                except Exception:
+                    published_date = None
+            
             article = Article(
                 title=title,
                 url=url,
                 author=data.get('author', ''),
-                published_at=data.get('published_date'),
+                published_at=published_date,
                 content=data.get('description', ''),
                 file_path=str(html_file),
                 source='web',
