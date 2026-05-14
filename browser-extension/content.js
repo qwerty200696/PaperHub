@@ -77,13 +77,18 @@ function showFloatingToolbar(range) {
     document.body.appendChild(toolbar);
     
     // 绑定事件
-    toolbar.querySelectorAll('.toolbar-btn').forEach(btn => {
+    console.log('[PaperHub Clipper] Binding toolbar events...');
+    toolbar.querySelectorAll('.toolbar-btn').forEach((btn, index) => {
+        console.log(`[PaperHub Clipper] Binding event for button ${index}:`, btn.dataset.action);
         btn.addEventListener('click', (e) => {
+            console.log('[PaperHub Clipper] Button clicked:', btn.dataset.action);
             e.preventDefault();
+            e.stopPropagation();
             const action = btn.dataset.action;
             handleToolbarAction(action);
         });
     });
+    console.log('[PaperHub Clipper] Toolbar events bound successfully');
 }
 
 function hideFloatingToolbar() {
