@@ -52,6 +52,15 @@ def create_app(config_name='default'):
     werkzeug_logger.addFilter(ScanFilter())
 
     # CORS 配置 - 开发环境允许所有来源
+    from flask_cors import cross_origin
+    
+    @app.after_request
+    def add_cors_headers(response):
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
+    
     CORS(app, resources={r"/*": {"origins": "*"}})
 
     init_db()
