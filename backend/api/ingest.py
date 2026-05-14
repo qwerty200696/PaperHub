@@ -960,3 +960,182 @@ def ingest_web_general():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ingest/browser_clipper', methods=['POST'])
+def ingest_from_browser_clipper():
+    """
+    从浏览器插件剪藏内容
+    
+    Request Body:
+    {
+        "type": "article" | "note",
+        "title": "文章标题",
+        "url": "原文链接",
+        "author": "作者",
+        "published_date": "发布日期",
+        "content": "HTML 内容",
+        "text_content": "纯文本内容",
+        "description": "摘要",
+        "images": [图片列表],
+        "tags": [标签列表],
+        "source": "browser_clipper"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        content_type = data.get('type', 'article')
+        title = data.get('title', '').strip()
+        url = data.get('url', '')
+        
+        if not title:
+            return jsonify({'error': 'Title is required'}), 400
+        
+        session = get_session()
+        Paper, Note, Article = get_models()
+        
+        # 检查是否已存在（基于 URL）
+        if url:
+            existing_article = session.query(Article).filter(
+                Article.original_url == url
+            ).first()
+            
+            if existing_article:
+                return jsonify({
+                    'message': 'Article already exists',
+                    'article': existing_article.to_dict(),
+                    'duplicate': True
+                }), 200
+        
+        if content_type == 'note':
+            # 保存到笔记库
+            note_id = str(uuid.uuid4())[:8]
+            content_md = data.get('content', '')
+            
+            # 保存 Markdown 文件
+            notes_dir = Path('data/papers/notes')
+            notes_dir.mkdir(parents=True, exist_ok=True)
+            
+            md_file = notes_dir / f'note_{note_id}.md'
+            md_file.write_text(content_md, encoding='utf-8')
+            
+            # 创建笔记记录
+            note = Note(
+                id=note_id,
+                title=title,
+                content=content_md,
+                source=data.get('source', 'browser_clipper'),
+                source_url=url
+            )
+            
+            session.add(note)
+            session.flush()
+            
+            # 添加标签
+            tags = data.get('tags', [])
+            if tags:
+                from backend.models import Tag
+                for tag_name in tags:
+                    tag = session.query(Tag).filter(Tag.name == tag_name).first()
+                    if not tag:
+                        tag = Tag(name=tag_name)
+                        session.add(tag)
+                        session.flush()
+                    note.tags.append(tag)
+            
+            session.commit()
+            session.refresh(note)
+            
+            return jsonify({
+                'message': 'Note saved successfully',
+                'note': note.to_dict(),
+                'type': 'note'
+            }), 201
+        
+        else:
+            # 保存到文章库
+            html_content = data.get('content', '')
+            text_content = data.get('text_content', '')
+            
+            # 生成唯一 ID
+            article_id = str(uuid.uuid4())[:8]
+            
+            # 保存 HTML 文件
+            web_dir = Path('data/papers/web')
+            web_dir.mkdir(parents=True, exist_ok=True)
+            
+            safe_url = url.replace('://', '_').replace('/', '_') if url else article_id
+            html_file = web_dir / f'{article_id}_{safe_url}.html'
+            html_file.write_text(html_content, encoding='utf-8')
+            
+            # 下载图片
+            images = data.get('images', [])
+            downloaded_images = []
+            
+            if images:
+                images_dir = web_dir / f'{article_id}_{safe_url}_files'
+                images_dir.mkdir(exist_ok=True)
+                
+                import requests as req_lib
+                for img in images[:10]:  # 最多下载10张
+                    try:
+                        img_url = img.get('src', '')
+                        if not img_url.startswith(('http://', 'https://')):
+                            continue
+                        
+                        img_response = req_lib.get(img_url, timeout=10)
+                        if img_response.status_code == 200:
+                            img_filename = uuid.uuid4().hex + '.jpg'
+                            img_path = images_dir / img_filename
+                            img_path.write_bytes(img_response.content)
+                            downloaded_images.append(str(img_path))
+                    except Exception as e:
+                        print(f'Failed to download image: {e}')
+            
+            # 创建文章记录
+            article = Article(
+                id=article_id,
+                title=title,
+                original_url=url,
+                author=data.get('author', ''),
+                published_date=data.get('published_date'),
+                summary=data.get('description', ''),
+                file_path=str(html_file),
+                source='web',
+                status='unread',
+                is_starred=False
+            )
+            
+            session.add(article)
+            session.flush()
+            
+            # 添加标签
+            tags = data.get('tags', [])
+            if tags:
+                from backend.models import Tag
+                for tag_name in tags:
+                    tag = session.query(Tag).filter(Tag.name == tag_name).first()
+                    if not tag:
+                        tag = Tag(name=tag_name)
+                        session.add(tag)
+                        session.flush()
+                    article.tags.append(tag)
+            
+            session.commit()
+            session.refresh(article)
+            
+            return jsonify({
+                'message': 'Article saved successfully',
+                'article': article.to_dict(),
+                'type': 'article',
+                'downloaded_images': len(downloaded_images)
+            }), 201
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
