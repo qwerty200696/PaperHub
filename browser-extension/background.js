@@ -101,44 +101,28 @@ async function handleClipSelection(data) {
         const baseUrl = await getApiBaseUrl();
         const targetLibrary = data.target_library || 'note';
         
-        let apiUrl, payload;
-        
-        if (targetLibrary === 'note') {
-            // 保存到笔记库
-            apiUrl = `${baseUrl}/api/notes`;
-            payload = {
-                title: data.title,
-                content: data.content,
-                source_url: data.source_url,
-                source_title: data.source_title,
-                tags: data.tags || [],
-                source: 'browser_clipper'
-            };
-        } else {
-            // 保存到文章库
-            apiUrl = `${baseUrl}/api/articles`;
-            payload = {
-                title: data.title,
-                content: data.content,
-                original_url: data.source_url,
-                author: data.author,
-                published_date: data.published_date,
-                tags: data.tags || [],
-                source: 'browser_clipper'
-            };
-        }
-        
-        const response = await fetch(apiUrl, {
+        // 统一使用 browser_clipper 接口
+        const response = await fetch(`${baseUrl}/api/ingest/browser_clipper`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                type: targetLibrary === 'note' ? 'note' : 'article',
+                title: data.title,
+                content: data.content,
+                url: data.source_url || data.original_url,
+                author: data.author,
+                published_date: data.published_date,
+                tags: data.tags || [],
+                source: 'browser_clipper'
+            })
         });
         
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || '保存失败');
+            const errorText = await response.text();
+            console.error('[PaperHub Clipper] API error:', errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
         
         const result = await response.json();
@@ -146,7 +130,7 @@ async function handleClipSelection(data) {
         
         return {
             success: true,
-            message: '选择剪藏成功',
+            message: targetLibrary === 'note' ? '已保存到笔记库' : '已保存到文章库',
             data: result
         };
         
