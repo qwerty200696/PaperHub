@@ -188,6 +188,15 @@ async function clipFullPage(tabId, tags) {
     console.log('[PaperHub Clipper] Clipping full page...');
     
     try {
+        // 重新注入 Readability 和 content script，确保最新版本
+        await chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            files: ['lib/readability.js', 'content.js']
+        });
+        
+        // 等待一小段时间，让脚本初始化
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // 在页面上下文中执行提取
         const results = await chrome.scripting.executeScript({
             target: { tabId: tabId },
@@ -201,9 +210,11 @@ async function clipFullPage(tabId, tags) {
         
         const pageData = results[0]?.result;
         
-        if (!pageData) {
-            throw new Error('无法提取页面内容');
+        if (!pageData || !pageData.content) {
+            throw new Error('无法提取页面内容，请尝试选择剪藏模式');
         }
+        
+        console.log('[PaperHub Clipper] Extracted content length:', pageData.content.length);
         
         // 发送到 background script
         return await sendMessageToBackground({
