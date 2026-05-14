@@ -1129,7 +1129,7 @@ def ingest_from_browser_clipper():
                 author=data.get('author', ''),
                 published_at=published_date,
                 content=data.get('description', ''),
-                file_path=html_filename,  # 保存相对路径
+                file_path=f'web/{html_filename}',  # 保存相对路径（包含目录）
                 source='web',
                 status='unread',
                 starred=False
