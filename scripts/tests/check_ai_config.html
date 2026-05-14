@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>检查 AI 配置</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #409eff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #606266;
+            font-size: 18px;
+        }
+        .success {
+            color: #67c23a;
+            font-weight: bold;
+        }
+        .error {
+            color: #f56c6c;
+            font-weight: bold;
+        }
+        .warning {
+            color: #e6a23c;
+            font-weight: bold;
+        }
+        pre {
+            background: #f4f4f5;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+        button {
+            background: #409eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #66b1ff;
+        }
+        .info-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border-left: 3px solid #409eff;
+        }
+        .label {
+            font-weight: bold;
+            color: #606266;
+            display: inline-block;
+            width: 120px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 PaperHub AI 配置诊断工具</h1>
+    
+    <div class="card">
+        <h2>1. LocalStorage 配置检查</h2>
+        <div id="localStorage-result"></div>
+        <button onclick="checkLocalStorage()">重新检查</button>
+        <button onclick="clearLocalStorage()">清除配置</button>
+    </div>
+    
+    <div class="card">
+        <h2>2. 后端 API 配置检查</h2>
+        <div id="backend-result"></div>
+        <button onclick="checkBackendConfig()">重新检查</button>
+    </div>
+    
+    <div class="card">
+        <h2>3. 建议操作</h2>
+        <div id="suggestions"></div>
+    </div>
+
+    <script>
+        function checkLocalStorage() {
+            const resultDiv = document.getElementById('localStorage-result');
+            
+            // 检查 aiConfigs
+            const aiConfigsStr = localStorage.getItem('aiConfigs');
+            const lastProvider = localStorage.getItem('lastAiProvider');
+            
+            let html = '<div class="info-item">';
+            html += `<div><span class="label">lastAiProvider:</span> ${lastProvider || '<span class="warning">未设置</span>'}</div>`;
+            
+            if (aiConfigsStr) {
+                try {
+                    const configs = JSON.parse(aiConfigsStr);
+                    html += `<div><span class="label">aiConfigs:</span> <span class="success">✅ 已配置</span></div>`;
+                    html += `<pre>${JSON.stringify(configs, null, 2)}</pre>`;
+                    
+                    // 检查各个 provider
+                    html += '<div style="margin-top: 10px;"><strong>各提供商配置状态：</strong></div>';
+                    ['doubao', 'openai', 'qwen', 'anthropic', 'teg'].forEach(provider => {
+                        const config = configs[provider];
+                        if (config && config.api_key) {
+                            const keyLength = config.api_key.length;
+                            const maskedKey = config.api_key.substring(0, 8) + '...' + config.api_key.substring(keyLength - 4);
+                            html += `<div style="margin: 5px 0; padding: 5px; background: #e1f3d8; border-radius: 3px;">`;
+                            html += `<span class="label">${provider}:</span> <span class="success">✅ 已配置</span> (${maskedKey})`;
+                            if (config.base_url) html += ` | Base URL: ${config.base_url}`;
+                            if (config.model_id) html += ` | Model: ${config.model_id}`;
+                            html += `</div>`;
+                        } else {
+                            html += `<div style="margin: 5px 0; padding: 5px; background: #fef0f0; border-radius: 3px;">`;
+                            html += `<span class="label">${provider}:</span> <span class="error">❌ 未配置</span>`;
+                            html += `</div>`;
+                        }
+                    });
+                } catch (e) {
+                    html += `<div><span class="label">aiConfigs:</span> <span class="error">❌ 解析失败</span></div>`;
+                    html += `<pre>${aiConfigsStr}</pre>`;
+                }
+            } else {
+                html += `<div><span class="label">aiConfigs:</span> <span class="error">❌ 未找到</span></div>`;
+            }
+            html += '</div>';
+            
+            resultDiv.innerHTML = html;
+        }
+        
+        async function checkBackendConfig() {
+            const resultDiv = document.getElementById('backend-result');
+            resultDiv.innerHTML = '<div>加载中...</div>';
+            
+            try {
+                const response = await fetch('/api/ai/config');
+                const data = await response.json();
+                
+                let html = '<div class="info-item">';
+                html += `<div><span class="label">Provider:</span> ${data.provider || '未设置'}</div>`;
+                html += `<div><span class="label">Has API Key:</span> ${data.has_api_key ? '<span class="success">✅ 是</span>' : '<span class="error">❌ 否</span>'}</div>`;
+                
+                if (data.has_api_key) {
+                    const keyLength = data.api_key.length;
+                    const maskedKey = data.api_key.substring(0, 8) + '...' + data.api_key.substring(keyLength - 4);
+                    html += `<div><span class="label">API Key:</span> ${maskedKey}</div>`;
+                }
+                
+                if (data.base_url) {
+                    html += `<div><span class="label">Base URL:</span> ${data.base_url}</div>`;
+                }
+                
+                if (data.model_id) {
+                    html += `<div><span class="label">Model ID:</span> ${data.model_id}</div>`;
+                }
+                
+                html += `<div><span class="label">Temperature:</span> ${data.temperature ?? '未设置'}</div>`;
+                html += '</div>';
+                
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 请求失败: ${error.message}</div>`;
+            }
+        }
+        
+        function clearLocalStorage() {
+            if (confirm('确定要清除 localStorage 中的 AI 配置吗？')) {
+                localStorage.removeItem('aiConfigs');
+                localStorage.removeItem('lastAiProvider');
+                alert('配置已清除，请刷新页面');
+                checkLocalStorage();
+            }
+        }
+        
+        function generateSuggestions() {
+            const suggestionsDiv = document.getElementById('suggestions');
+            const aiConfigsStr = localStorage.getItem('aiConfigs');
+            
+            let html = '<div class="info-item">';
+            
+            if (!aiConfigsStr) {
+                html += '<div><strong>🔴 问题诊断：</strong></div>';
+                html += '<div style="margin: 10px 0;">您的浏览器 localStorage 中没有 AI 配置。</div>';
+                html += '<div style="margin: 10px 0;"><strong>可能原因：</strong></div>';
+                html += '<ul>';
+                html += '<li>清除了浏览器缓存/数据</li>';
+                html += '<li>使用了不同的浏览器或设备</li>';
+                html += '<li>使用了隐私/无痕模式</li>';
+                html += '<li>之前的异步加载 bug 导致配置未正确显示</li>';
+                html += '</ul>';
+                html += '<div style="margin: 10px 0;"><strong>解决方案：</strong></div>';
+                html += '<ol>';
+                html += '<li><strong>刷新页面</strong>（Ctrl+F5 / Cmd+Shift+R），刚才已修复异步加载 bug</li>';
+                html += '<li>如果仍看不到配置，点击前端「⚙️ 配置」按钮重新配置</li>';
+                html += '<li>配置会自动保存到 localStorage，下次打开即可看到</li>';
+                html += '</ol>';
+            } else {
+                html += '<div><strong>🟢 配置状态正常</strong></div>';
+                html += '<div style="margin: 10px 0;">localStorage 中有 AI 配置。</div>';
+                html += '<div style="margin: 10px 0;">如果前端仍看不到配置，请：</div>';
+                html += '<ol>';
+                html += '<li><strong>强制刷新页面</strong>（Ctrl+F5 / Cmd+Shift+R）</li>';
+                html += '<li>检查浏览器控制台是否有错误信息</li>';
+                html += '<li>确认后端服务正在运行</li>';
+                html += '</ol>';
+            }
+            
+            html += '</div>';
+            suggestionsDiv.innerHTML = html;
+        }
+        
+        // 页面加载时自动检查
+        window.onload = function() {
+            checkLocalStorage();
+            checkBackendConfig();
+            generateSuggestions();
+        };
+    </script>
+</body>
+</html>
