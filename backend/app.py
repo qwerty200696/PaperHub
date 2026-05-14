@@ -51,7 +51,8 @@ def create_app(config_name='default'):
     werkzeug_logger = logging.getLogger('werkzeug')
     werkzeug_logger.addFilter(ScanFilter())
 
-    CORS(app, origins=app.config['CORS_ORIGINS'])
+    # CORS 配置 - 开发环境允许所有来源
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
     init_db()
 
