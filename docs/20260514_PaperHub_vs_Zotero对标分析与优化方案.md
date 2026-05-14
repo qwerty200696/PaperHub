@@ -73,53 +73,299 @@ Zotero 是一款免费、开源的研究工具，帮助用户**收集、组织�
 
 ### 🔴 P0 高优先级（建议 Phase 13-15 实施）
 
-#### 1. 浏览器插件开发 - "一键剪藏"
+#### 1. 浏览器插件开发 - "智能剪藏"（对标语雀/Obsidian）
 
-**对标功能**：Zotero Connector（Chrome/Firefox/Safari）
+**对标功能**：
+- **语雀浏览器插件**：划词剪藏、全文剪藏、OCR识别、侧边栏笔记
+- **Obsidian Web Clipper**：智能裁剪、选择裁剪、Markdown速记、模板引擎
+- **Zotero Connector**：学术文献元数据自动提取
 
 **核心价值**：
-- 用户在任意网页点击插件图标，自动提取标题、作者、摘要、发布时间
-- 自动下载 PDF 附件并关联到条目
-- 支持批量选择多个文献一次性入库
+不只是论文采集，而是**全场景网页内容捕获工具**：
+
+| 剪藏模式 | 适用场景 | 目标库 | 技术实现 |
+|---------|---------|--------|----------|
+| **📄 全文剪藏** | 技术博客、新闻文章、教程 | 📰 文章库 | trafilatura/readability 提取正文 |
+| **✂️ 选择剪藏** | 精彩段落、代码片段、图表 | 📝 笔记库 | 用户手动框选区域 |
+| **🎯 智能剪藏** | AI自动识别核心内容 | 📰 文章库 / 📝 笔记库 | LLM 提取关键信息 |
+| **📚 论文剪藏** | arXiv/IEEE/ACM 等学术页面 | 📚 论文库 | 元数据解析 + PDF下载 |
+| **📝 速记笔记** | 灵感记录、临时想法 | 📝 笔记库 | Markdown 编辑器弹窗 |
+| **🖼️ OCR识别** | 图片中的文字提取 | 📝 笔记库 | Tesseract.js / PaddleOCR |
+
+**功能特性详解**：
+
+##### 1.1 全文剪藏（一键收集正文）
+```javascript
+// content.js - 智能提取网页正文
+async function extractFullPage() {
+    // 方案 A：使用 Readability.js（Mozilla 开源）
+    const article = new Readability(document.cloneNode(true)).parse();
+    
+    // 方案 B：调用后端 trafilatura API（更强大）
+    const response = await fetch('http://localhost:5000/api/web_extract', {
+        method: 'POST',
+        body: JSON.stringify({ url: window.location.href })
+    });
+    
+    return {
+        title: article.title,
+        author: article.byline,
+        content: article.content, // HTML 格式
+        text_content: article.textContent, // 纯文本
+        images: extractImages(), // 图片本地化
+        url: window.location.href,
+        published_date: extractPublishDate()
+    };
+}
+```
+
+**用户体验**：
+1. 点击插件图标 → 自动检测页面类型（论文/文章/普通网页）
+2. 显示预览面板：标题、作者、摘要、封面图
+3. 用户可选择：保存到文章库 / 笔记库 / 取消
+4. 后台自动下载图片、清理样式、生成 Markdown
+
+##### 1.2 选择剪藏（简藏功能）
+```javascript
+// content.js - 监听用户选中文本
+let selectedText = '';
+
+document.addEventListener('mouseup', () => {
+    const selection = window.getSelection();
+    selectedText = selection.toString();
+    
+    if (selectedText.length > 0) {
+        // 显示浮动工具栏（类似语雀）
+        showFloatingToolbar(selection.getRangeAt(0));
+    }
+});
+
+// 浮动工具栏功能
+function showFloatingToolbar(range) {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'paperhub-clipper-toolbar';
+    toolbar.innerHTML = `
+        <button onclick="clipToNote('selection')">✂️ 剪藏到笔记</button>
+        <button onclick="clipToArticle('selection')">📄 剪藏到文章</button>
+        <button onclick="translateText()">🌐 翻译</button>
+        <button onclick="copySelection()">📋 复制</button>
+    `;
+    
+    // 定位到选区上方
+    const rect = range.getBoundingClientRect();
+    toolbar.style.top = `${rect.top - 40}px`;
+    toolbar.style.left = `${rect.left}px`;
+    document.body.appendChild(toolbar);
+}
+```
+
+**用户体验**：
+1. 鼠标选中任意文本/图片
+2. 自动弹出浮动工具栏（类似语雀划词工具）
+3. 点击「剪藏到笔记」→ 打开笔记编辑器，预填充选中内容
+4. 支持添加个人评论、标签、关联论文
+
+##### 1.3 智能剪藏（AI 自动提取）
+```python
+# backend/services/smart_clipper.py
+from services.llm_client import LLMClient
+
+class SmartClipper:
+    def __init__(self):
+        self.llm = LLMClient()
+    
+    def extract_key_info(self, html_content: str) -> dict:
+        """AI 智能提取网页核心信息"""
+        prompt = f"""
+        请从以下网页内容中提取关键信息：
+        
+        {html_content[:5000]}  # 限制长度避免超出 token
+        
+        返回 JSON 格式：
+        {{
+            "title": "文章标题",
+            "summary": "200字以内的核心摘要",
+            "key_points": ["要点1", "要点2", "要点3"],
+            "category": "技术/产品/市场/其他",
+            "tags": ["标签1", "标签2"]
+        }}
+        """
+        
+        result = self.llm.chat(prompt)
+        return json.loads(result)
+```
+
+**用户体验**：
+1. 点击「智能剪藏」按钮
+2. 后端 AI 分析页面，提取标题、摘要、要点、分类
+3. 前端显示预览，用户可编辑修正
+4. 一键保存到文章库或笔记库
+
+##### 1.4 论文专用剪藏
+```javascript
+// content.js - 检测学术网站并提取元数据
+function detectAcademicPage() {
+    const url = window.location.href;
+    
+    // arXiv
+    if (url.includes('arxiv.org')) {
+        return extractArxivMetadata();
+    }
+    
+    // IEEE Xplore
+    if (url.includes('ieee.org')) {
+        return extractIEEEMetadata();
+    }
+    
+    // ACM Digital Library
+    if (url.includes('dl.acm.org')) {
+        return extractACMMetadata();
+    }
+    
+    return null;
+}
+
+function extractArxivMetadata() {
+    return {
+        arxiv_id: extractArxivId(),
+        title: document.querySelector('.title.mathjax')?.textContent,
+        authors: Array.from(document.querySelectorAll('.authors a')).map(a => a.textContent),
+        abstract: document.querySelector('blockquote.abstract')?.textContent,
+        pdf_url: document.querySelector('a.download-pdf')?.href,
+        categories: extractCategories()
+    };
+}
+```
+
+##### 1.5 Markdown 速记（侧边栏笔记）
+```vue
+<!-- popup.html - 快速笔记编辑器 -->
+<template>
+    <div class="quick-note-editor">
+        <h3>📝 快速笔记</h3>
+        
+        <!-- 来源信息 -->
+        <div class="source-info">
+            <span class="url">{{ currentPageUrl }}</span>
+            <span class="timestamp">{{ currentTime }}</span>
+        </div>
+        
+        <!-- Markdown 编辑器 -->
+        <textarea 
+            v-model="noteContent" 
+            placeholder="记录你的想法..."
+            @keydown.ctrl.enter="saveNote"
+        ></textarea>
+        
+        <!-- 快捷操作 -->
+        <div class="quick-actions">
+            <button @click="insertTimestamp">⏰ 插入时间</button>
+            <button @click="insertLink">🔗 插入链接</button>
+            <button @click="insertCode">💻 代码块</button>
+        </div>
+        
+        <!-- 标签选择 -->
+        <el-select v-model="selectedTags" multiple placeholder="添加标签">
+            <el-option v-for="tag in recentTags" :key="tag" :label="tag" :value="tag" />
+        </el-select>
+        
+        <!-- 保存按钮 -->
+        <el-button type="primary" @click="saveNote" :loading="saving">
+            💾 保存到笔记库
+        </el-button>
+    </div>
+</template>
+```
 
 **技术方案**：
 ```
 paperhub-extension/
-├── manifest.json          # Chrome Extension V3
-├── background.js          # 后台服务（监听右键菜单）
-├── content.js             # 内容脚本（提取页面元数据）
-├── popup.html             # 弹窗 UI（确认入库信息）
-└── icons/                 # 插件图标
+├── manifest.json              # Chrome Extension V3
+├── background.js              # 后台服务（消息路由、PDF下载）
+├── content.js                 # 内容脚本（元数据提取、DOM操作）
+├── popup.html                 # 弹窗 UI（主控制面板）
+├── popup.js                   # 弹窗逻辑（Vue 3 组件）
+├── sidebar.html               # 侧边栏笔记编辑器（可选）
+├── sidebar.js                 # 侧边栏逻辑
+├── icons/
+│   ├── icon-16.png
+│   ├── icon-48.png
+│   └── icon-128.png
+└── lib/
+    ├── readability.js         # Mozilla Readability
+    ├── turndown.js            # HTML to Markdown
+    └── tesseract.min.js       # OCR 引擎（可选）
 ```
 
-**关键 API**：
+**关键 API 对接**：
 ```javascript
-// content.js - 提取网页元数据
-function extractMetadata() {
-    return {
-        title: document.querySelector('meta[property="og:title"]')?.content,
-        author: document.querySelector('meta[name="author"]')?.content,
-        description: document.querySelector('meta[property="og:description"]')?.content,
-        url: window.location.href,
-        pdf_url: findPDFLinks() // 查找页面上的 PDF 链接
-    };
-}
-
-// background.js - 发送到 PaperHub 后端
-chrome.runtime.onMessage.addListener((request) => {
-    fetch('http://localhost:5000/api/ingest/web', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request.metadata)
-    });
+// background.js - 统一入库接口
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    switch (request.action) {
+        case 'clip_full_page':
+            // 全文剪藏 → 文章库
+            fetch('http://localhost:5000/api/ingest/web', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    url: request.data.url,
+                    title: request.data.title,
+                    content: request.data.content,
+                    target_library: 'article'  // 指定目标库
+                })
+            });
+            break;
+            
+        case 'clip_selection':
+            // 选择剪藏 → 笔记库
+            fetch('http://localhost:5000/api/notes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: `剪藏：${request.data.source_title}`,
+                    content: request.data.selected_text,
+                    source_url: request.data.source_url,
+                    tags: request.data.tags
+                })
+            });
+            break;
+            
+        case 'clip_paper':
+            // 论文剪藏 → 论文库
+            fetch('http://localhost:5000/api/papers/arxiv', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    arxiv_id: request.data.arxiv_id,
+                    download_pdf: true
+                })
+            });
+            break;
+            
+        case 'quick_note':
+            // 速记笔记 → 笔记库
+            fetch('http://localhost:5000/api/notes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: request.data.title || '快速笔记',
+                    content: request.data.content,
+                    source: 'browser_clipper',
+                    tags: request.data.tags
+                })
+            });
+            break;
+    }
 });
 ```
 
 **预期收益**：
 - 文献采集效率提升 **10 倍**（从复制 URL → 点击一键入库）
-- 用户体验对标 Zotero，降低学习成本
+- 支持多场景剪藏：全文/选择/AI智能/论文/速记
+- 用户体验对标语雀/Obsidian，降低学习成本
+- 打通浏览器与 PaperHub，实现“浏览即收录”
 
-**预估工时**：3-5 天（含测试）
+**预估工时**：**7-10 天**（含 5 种剪藏模式 + 测试）
 
 ---
 
@@ -538,17 +784,17 @@ CREATE TABLE shared_annotations (
 
 ## 四、实施路线图建议
 
-### Phase 13-15（1-2 个月）- 补齐核心短板
+### Phase 13-15（1.5-2.5 个月）- 补齐核心短板
 
 | 任务 | 优先级 | 预计工时 | 关键里程碑 |
 |------|--------|---------|-----------|
-| 浏览器插件开发 | 🔴 P0 | 3-5 天 | Chrome 插件上架 |
-| PDF 阅读器升级 | 🔴 P0 | 5-7 天 | 支持高亮/批注 |
+| 浏览器插件开发 | 🔴 P0 | 7-10 天 | Chrome 插件上架，支持 5 种剪藏模式 |
+| PDF 阅读器升级 | 🔴 P0 | 5-7 天 | 支持高亮/批注/手写 |
 | 数据备份与云同步 | 🔴 P0 | 2-3 天 | WebDAV 同步上线 |
 
 **预期成果**：
-- 文献采集效率提升 10 倍
-- 阅读体验从"浏览"升级为"标注"
+- 文献采集效率提升 10 倍，支持全场景网页内容捕获
+- 阅读体验从“浏览”升级为“标注”
 - 数据安全等级达到企业级
 
 ---
@@ -678,17 +924,19 @@ CREATE TABLE shared_annotations (
 ### 8.2 下一步行动
 
 **立即执行（本周）**：
-- [ ] 组建浏览器插件开发小组（1-2 人）
+- [ ] 调研语雀/Obsidian 插件功能，编写需求文档
+- [ ] 设计浏览器插件架构（manifest V3 + Vue 3）
+- [ ] 开发全文剪藏 MVP（Readability.js + trafilatura）
 - [ ] 调研 PDF.js 批注方案，编写技术预研报告
 - [ ] 设计 WebDAV 同步 API 接口规约
 
 **短期计划（1 个月内）**：
-- [ ] 完成浏览器插件 MVP 版本
+- [ ] 完成浏览器插件 MVP 版本（全文剪藏 + 选择剪藏）
 - [ ] 实现 PDF 高亮/批注基础功能
 - [ ] 上线数据备份/恢复功能（Phase 10 已完成，需增强为云同步）
 
 **中期计划（3 个月内）**：
-- [ ] 发布 Chrome/Firefox 插件正式版
+- [ ] 发布 Chrome/Firefox 插件正式版（支持 5 种剪藏模式）
 - [ ] PDF 阅读器支持手写批注
 - [ ] WebDAV/iCloud 同步稳定运行
 
