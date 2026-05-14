@@ -80,6 +80,8 @@ function hideFloatingToolbar() {
 }
 
 async function handleToolbarAction(action) {
+    console.log('[PaperHub Clipper] Toolbar action clicked:', action);
+    
     switch (action) {
         case 'clip_to_note':
             await clipSelectionToNote();
@@ -90,6 +92,8 @@ async function handleToolbarAction(action) {
         case 'copy':
             copySelection();
             break;
+        default:
+            console.warn('[PaperHub Clipper] Unknown action:', action);
     }
     hideFloatingToolbar();
 }
@@ -143,6 +147,8 @@ async function clipSelectionToNote() {
         return;
     }
     
+    console.log('[PaperHub Clipper] Clipping selection to note:', selectedText.substring(0, 50));
+    
     const noteData = {
         title: `剪藏：${document.title.substring(0, 50)}`,
         content: selectedText,
@@ -153,17 +159,28 @@ async function clipSelectionToNote() {
     };
     
     // 发送到 background script
-    chrome.runtime.sendMessage({
-        action: 'clip_selection',
-        data: noteData,
-        target_library: 'note'
-    }, (response) => {
-        if (response && response.success) {
-            showNotification('✅ 已保存到笔记库');
-        } else {
-            showNotification('❌ 保存失败');
-        }
-    });
+    try {
+        chrome.runtime.sendMessage({
+            action: 'clip_selection',
+            data: noteData,
+            target_library: 'note'
+        }, (response) => {
+            console.log('[PaperHub Clipper] Response received:', response);
+            if (chrome.runtime.lastError) {
+                console.error('[PaperHub Clipper] Send message error:', chrome.runtime.lastError);
+                showNotification('❌ 发送失败: ' + chrome.runtime.lastError.message);
+                return;
+            }
+            if (response && response.success) {
+                showNotification('✅ 已保存到笔记库');
+            } else {
+                showNotification('❌ 保存失败: ' + (response?.message || '未知错误'));
+            }
+        });
+    } catch (error) {
+        console.error('[PaperHub Clipper] Failed to send message:', error);
+        showNotification('❌ 发送失败');
+    }
 }
 
 /**
@@ -175,6 +192,8 @@ async function clipSelectionToArticle() {
         return;
     }
     
+    console.log('[PaperHub Clipper] Clipping selection to article:', selectedText.substring(0, 50));
+    
     const articleData = {
         title: `剪藏：${document.title.substring(0, 50)}`,
         content: `<blockquote>${selectedText.replace(/\n/g, '<br>')}</blockquote>`,
@@ -184,17 +203,28 @@ async function clipSelectionToArticle() {
         published_date: extractPublishDate()
     };
     
-    chrome.runtime.sendMessage({
-        action: 'clip_selection',
-        data: articleData,
-        target_library: 'article'
-    }, (response) => {
-        if (response && response.success) {
-            showNotification('✅ 已保存到文章库');
-        } else {
-            showNotification('❌ 保存失败');
-        }
-    });
+    try {
+        chrome.runtime.sendMessage({
+            action: 'clip_selection',
+            data: articleData,
+            target_library: 'article'
+        }, (response) => {
+            console.log('[PaperHub Clipper] Response received:', response);
+            if (chrome.runtime.lastError) {
+                console.error('[PaperHub Clipper] Send message error:', chrome.runtime.lastError);
+                showNotification('❌ 发送失败: ' + chrome.runtime.lastError.message);
+                return;
+            }
+            if (response && response.success) {
+                showNotification('✅ 已保存到文章库');
+            } else {
+                showNotification('❌ 保存失败: ' + (response?.message || '未知错误'));
+            }
+        });
+    } catch (error) {
+        console.error('[PaperHub Clipper] Failed to send message:', error);
+        showNotification('❌ 发送失败');
+    }
 }
 
 /**
