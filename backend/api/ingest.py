@@ -1017,7 +1017,10 @@ def ingest_from_browser_clipper():
             content_md = data.get('content', '')
             
             # 保存 Markdown 文件
-            from backend.config import BASE_DIR
+            try:
+                from backend.config import BASE_DIR
+            except ImportError:
+                from config import BASE_DIR
             notes_dir = BASE_DIR / 'data/papers/notes'
             notes_dir.mkdir(parents=True, exist_ok=True)
             
@@ -1066,7 +1069,10 @@ def ingest_from_browser_clipper():
             article_id = str(uuid.uuid4())[:8]
             
             # 保存 HTML 文件
-            from backend.config import BASE_DIR
+            try:
+                from backend.config import BASE_DIR
+            except ImportError:
+                from config import BASE_DIR
             web_dir = BASE_DIR / 'data/papers/web'
             web_dir.mkdir(parents=True, exist_ok=True)
             
