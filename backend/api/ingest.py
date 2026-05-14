@@ -1017,7 +1017,8 @@ def ingest_from_browser_clipper():
             content_md = data.get('content', '')
             
             # 保存 Markdown 文件
-            notes_dir = Path('data/papers/notes')
+            from backend.config import BASE_DIR
+            notes_dir = BASE_DIR / 'data/papers/notes'
             notes_dir.mkdir(parents=True, exist_ok=True)
             
             md_file = notes_dir / f'note_{note_id}.md'
@@ -1065,7 +1066,8 @@ def ingest_from_browser_clipper():
             article_id = str(uuid.uuid4())[:8]
             
             # 保存 HTML 文件
-            web_dir = Path('data/papers/web')
+            from backend.config import BASE_DIR
+            web_dir = BASE_DIR / 'data/papers/web'
             web_dir.mkdir(parents=True, exist_ok=True)
             
             safe_url = url.replace('://', '_').replace('/', '_') if url else article_id
