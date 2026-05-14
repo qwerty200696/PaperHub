@@ -204,7 +204,7 @@ class LLMClient:
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, provider: str = None, api_key: str = None, base_url: str = None, model_id: str = None, temperature: float = 0.7):
+    def __init__(self, provider: str = None, api_key: str = None, base_url: str = None, model_id: str = None, temperature: float = None):
         if self._initialized:
             return
 
@@ -213,7 +213,7 @@ class LLMClient:
         self.api_key = api_key or SecureConfig.get_api_key()
         self.base_url = base_url or SecureConfig.get_base_url()
         self.model_id = model_id or SecureConfig.get_model()
-        self.temperature = temperature
+        self.temperature = temperature if temperature is not None else SecureConfig.get_temperature()
 
         self._cache: Dict[str, Any] = {}
         self._token_usage = {
