@@ -5341,7 +5341,7 @@
                     if (!wechatUrl.value.trim()) return;
                     wechatIngesting.value = true;
                     try {
-                        await axios.post('/api/ingest/wechat', {
+                        const response = await axios.post('/api/ingest/wechat', {
                             url: wechatUrl.value,
                             extract_content_only: wechatExtractOnly.value
                         });
@@ -5350,8 +5350,18 @@
                         activeMenu.value = 'articles';
                         loadAllArticles();
                     } catch (e) {
-                        const msg = e.response?.data?.error || '入库失败';
-                        ElementPlus.ElMessage.error(msg);
+                        const statusCode = e.response?.status;
+                        const errorMsg = e.response?.data?.error || '入库失败';
+                        
+                        if (statusCode === 409) {
+                            // 文章已存在
+                            ElementPlus.ElMessage.warning({
+                                message: '⚠️ 该文章已存在于库中，无需重复导入',
+                                duration: 3000
+                            });
+                        } else {
+                            ElementPlus.ElMessage.error(errorMsg);
+                        }
                     } finally {
                         wechatIngesting.value = false;
                     }
@@ -5479,7 +5489,19 @@
                         }
                     } catch (error) {
                         console.error('导入文章失败:', error);
-                        ElementPlus.ElMessage.error('导入失败，请稍后重试');
+                        const statusCode = error.response?.status;
+                        
+                        if (statusCode === 409) {
+                            ElementPlus.ElMessage.warning({
+                                message: `⚠️ 文章「${article.title}」已存在，跳过导入`,
+                                duration: 3000
+                            });
+                            // 标记为已导入
+                            article.imported = true;
+                            await refreshArticlesStatus();
+                        } else {
+                            ElementPlus.ElMessage.error('导入失败，请稍后重试');
+                        }
                     } finally {
                         importingArticleUrls.value.delete(article.url);
                     }
@@ -5605,11 +5627,39 @@
                         return;
                     }
                     importingArticles.value = true;
+                    let successCount = 0;
+                    let duplicateCount = 0;
+                    let failCount = 0;
+                    
                     try {
                         for (const url of selectedArticles.value) {
-                            await axios.post('/api/ingest/wechat', { url, extract_content_only: wechatExtractOnly.value });
+                            try {
+                                await axios.post('/api/ingest/wechat', { 
+                                    url, 
+                                    extract_content_only: wechatExtractOnly.value 
+                                });
+                                successCount++;
+                            } catch (e) {
+                                if (e.response?.status === 409) {
+                                    duplicateCount++;
+                                } else {
+                                    failCount++;
+                                }
+                            }
                         }
-                        ElementPlus.ElMessage.success(`成功导入 ${selectedArticles.value.length} 篇文章`);
+                        
+                        // 显示汇总结果
+                        const messages = [];
+                        if (successCount > 0) messages.push(`成功 ${successCount} 篇`);
+                        if (duplicateCount > 0) messages.push(`已存在 ${duplicateCount} 篇`);
+                        if (failCount > 0) messages.push(`失败 ${failCount} 篇`);
+                        
+                        ElementPlus.ElMessage({
+                            message: messages.join('，'),
+                            type: failCount > 0 ? 'warning' : 'success',
+                            duration: 3000
+                        });
+                        
                         selectedArticles.value = [];
                         await refreshArticlesStatus();
                         await loadAllArticles();
