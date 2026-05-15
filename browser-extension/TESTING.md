@@ -15,7 +15,7 @@
 
 ```bash
 cd /Users/wanglijie/PycharmProjects/claude_code_project/PaperHub/backend
-/opt/anaconda3/envs/py38/bin/python app.py
+python3 app.py
 ```
 
 确认服务运行在 `http://localhost:5000`
@@ -80,7 +80,7 @@ cd /Users/wanglijie/PycharmProjects/claude_code_project/PaperHub/backend
 ls -la browser-extension/icon-*.png
 
 # 如果缺失，重新生成
-/opt/anaconda3/envs/py38/bin/python browser-extension/generate_icons.py
+python3 browser-extension/generate_icons.py
 ```
 
 ### 问题 2：点击插件图标无反应
@@ -125,7 +125,7 @@ curl http://localhost:5000/api/papers?page=1&per_page=1
 
 # 如果返回 404/500，重启后端
 cd backend
-/opt/anaconda3/envs/py38/bin/python app.py
+python3 app.py
 ```
 
 ### 问题 6：CORS 错误

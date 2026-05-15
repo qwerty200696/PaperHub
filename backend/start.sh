@@ -8,8 +8,8 @@ echo "   PaperHub - Backend Server"
 echo "========================================="
 echo ""
 
-# 使用指定的 Python 解释器
-PYTHON="/opt/anaconda3/envs/py38/bin/python"
+# 使用 python3
+PYTHON="python3"
 
 echo "Using Python: $PYTHON"
 echo ""

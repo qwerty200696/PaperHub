@@ -3,8 +3,15 @@
 ---
 
 ### ⚠️ 开发环境配置
-**Python 解释器路径**: `/opt/anaconda3/envs/py38/bin/python`
-> 执行 Python 命令时请始终使用该解释器
+**Python 解释器路径**: `python3`
+> 执行 Python 命令时请使用 python3
+> 
+> **注意**: 如果使用 conda 环境，请在环境中创建软链接:
+> ```bash
+> ln -s /opt/anaconda3/envs/py38/bin/python ~/bin/python3
+> # 或者将 conda 环境的 bin 目录添加到 PATH
+> export PATH="/opt/anaconda3/envs/py38/bin:$PATH"
+> ```
 
 ---
 

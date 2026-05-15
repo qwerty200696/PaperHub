@@ -8,8 +8,8 @@ echo    PaperHub - Backend Server
 echo =========================================
 echo.
 
-REM 使用指定的 Python 解释器
-set PYTHON=C:\opt\anaconda3\envs\py38\python.exe
+REM 使用 python3
+set PYTHON=python
 
 echo Using Python: %PYTHON%
 echo.

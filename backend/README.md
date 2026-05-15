@@ -4,15 +4,22 @@
 
 ## ⚠️ Python 解释器配置
 
-**必须使用**: `/opt/anaconda3/envs/py38/bin/python`
+**推荐使用**: `python3`
 
-> 所有 Python 命令都必须使用此解释器，不要使用系统默认的 python3
+> 所有 Python 命令都应使用 python3，不要使用系统默认的 python
+>
+> **注意**: 如果使用 conda 环境，请在环境中创建软链接:
+> ```bash
+> ln -s /opt/anaconda3/envs/py38/bin/python ~/bin/python3
+> # 或者将 conda 环境的 bin 目录添加到 PATH
+> export PATH="/opt/anaconda3/envs/py38/bin:$PATH"
+> ```
 
 ### 验证方法
 
 ```bash
-/opt/anaconda3/envs/py38/bin/python --version
-# 输出应该是 Python 3.8.x
+python3 --version
+# 输出应该是 Python 3.8.x 或更高版本
 ```
 
 ### 快速启动
@@ -33,7 +40,7 @@ start.bat
 
 ```bash
 cd backend
-/opt/anaconda3/envs/py38/bin/python app.py 5799
+python3 app.py 5799
 ```
 
 启动后访问: **http://localhost:5799**
@@ -68,7 +75,7 @@ backend/
 ## 依赖安装
 
 ```bash
-/opt/anaconda3/envs/py38/bin/python -m pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
 ---
