@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 知乎 Cookie 自动获取工具（Chrome DevTools Protocol）
 
