@@ -316,7 +316,8 @@ def _extract_published_at_only(url):
             if 1700000000 < ts < int(datetime.now().timestamp() - 3600):
                 timestamps.append(ts)
         if timestamps:
-            estimated_ts = sorted(timestamps)[len(timestamps) // 3]
+            # 使用最大的有效时间戳（最近的时间）作为发布时间
+            estimated_ts = max(timestamps)
             published_at = datetime.fromtimestamp(estimated_ts)
     
     return published_at
@@ -416,7 +417,8 @@ def fetch_wechat_article(url, extract_content_only=False):
             if 1700000000 < ts < int(datetime.now().timestamp() - 3600):
                 timestamps.append(ts)
         if timestamps:
-            estimated_ts = sorted(timestamps)[len(timestamps) // 3]
+            # 使用最大的有效时间戳（最近的时间）作为发布时间
+            estimated_ts = max(timestamps)
             published_at = datetime.fromtimestamp(estimated_ts)
     
     account_elem = soup.find(class_='wx_follow_nickname') or soup.find(id='js_name')
