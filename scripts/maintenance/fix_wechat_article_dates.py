@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime
 
 # 添加backend路径
-backend_path = Path(__file__).parent.parent.parent / 'backend'
+backend_path = Path(__file__).resolve().parent.parent.parent / 'backend'
 sys.path.insert(0, str(backend_path))
 
 import sqlite3

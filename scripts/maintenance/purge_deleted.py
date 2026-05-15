@@ -8,7 +8,7 @@ def table_has_column(cursor, table_name, column_name):
     columns = [row[1] for row in cursor.fetchall()]
     return column_name in columns
 
-db_path = Path(__file__).parent.parent.parent / 'data' / 'db' / 'paperhub.db'
+db_path = Path(__file__).resolve().parent.parent.parent / 'data' / 'db' / 'paperhub.db'
 conn = sqlite3.connect(str(db_path))
 cursor = conn.cursor()
 

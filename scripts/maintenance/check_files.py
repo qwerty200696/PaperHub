@@ -7,8 +7,8 @@ def table_has_column(cursor, table_name, column_name):
     columns = [row[1] for row in cursor.fetchall()]
     return column_name in columns
 
-db_path = Path(__file__).parent.parent.parent / 'data' / 'db' / 'paperhub.db'
-data_dir = Path(__file__).parent.parent.parent / 'data'
+db_path = Path(__file__).resolve().parent.parent.parent / 'data' / 'db' / 'paperhub.db'
+data_dir = Path(__file__).resolve().parent.parent.parent / 'data'
 
 conn = sqlite3.connect(str(db_path))
 cursor = conn.cursor()
@@ -49,7 +49,7 @@ for table, label in tables_config:
             fp = Path(file_path)
             if not fp.is_absolute():
                 if str(fp).startswith('data/'):
-                    fp = Path(__file__).parent.parent.parent / fp
+                    fp = Path(__file__).resolve().parent.parent.parent / fp
                 else:
                     fp = data_dir / fp
             if not fp.exists():

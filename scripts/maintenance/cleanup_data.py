@@ -30,7 +30,7 @@ from pathlib import Path
 API_BASE = "http://localhost:5899/api"
 
 # 数据目录配置
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 PAPERS_BASE_DIR = DATA_DIR.parent  # PaperHub 根目录
 
 
