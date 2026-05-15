@@ -7,13 +7,13 @@ import random
 import time
 from pathlib import Path
 
-backend_path = Path(__file__).parent.parent.parent / 'backend'
+backend_path = Path(__file__).resolve().parent.parent.parent / 'backend'
 sys.path.insert(0, str(backend_path))
 
 import sqlite3
 from services.wechat_parser import fetch_wechat_article_new
 
-db_path = Path(__file__).parent.parent.parent / 'data' / 'db' / 'paperhub.db'
+db_path = Path(__file__).resolve().parent.parent.parent / 'data' / 'db' / 'paperhub.db'
 conn = sqlite3.connect(str(db_path))
 cursor = conn.cursor()
 

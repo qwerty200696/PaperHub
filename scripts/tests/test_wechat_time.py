@@ -5,7 +5,7 @@
 import sys
 from pathlib import Path
 
-backend_path = Path(__file__).parent.parent.parent / 'backend'
+backend_path = Path(__file__).resolve().parent.parent.parent / 'backend'
 sys.path.insert(0, str(backend_path))
 
 from services.wechat_parser import fetch_wechat_article, fetch_wechat_article_new

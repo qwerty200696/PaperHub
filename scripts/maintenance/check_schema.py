@@ -2,7 +2,7 @@
 import sqlite3
 from pathlib import Path
 
-db_path = Path(__file__).parent.parent.parent / 'data' / 'db' / 'paperhub.db'
+db_path = Path(__file__).resolve().parent.parent.parent / 'data' / 'db' / 'paperhub.db'
 conn = sqlite3.connect(str(db_path))
 cursor = conn.cursor()
 

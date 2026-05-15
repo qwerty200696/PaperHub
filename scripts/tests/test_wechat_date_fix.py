@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 # 添加backend路径
-backend_path = Path(__file__).parent.parent.parent / 'backend'
+backend_path = Path(__file__).resolve().parent.parent.parent / 'backend'
 sys.path.insert(0, str(backend_path))
 
 from services.wechat_parser import _extract_published_at_only
