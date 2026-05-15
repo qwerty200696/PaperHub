@@ -145,6 +145,40 @@ def get_subscriptions():
     return jsonify(result)
 
 
+@bp.route('/wechat/proxy_image', methods=['GET'])
+def proxy_wechat_image():
+    """代理微信图片，绕过防盗链限制"""
+    from flask import Response
+    
+    image_url = request.args.get('url')
+    if not image_url:
+        return jsonify({'error': '缺少 url 参数'}), 400
+    
+    try:
+        # 下载图片并转发
+        headers = {
+            'User-Agent': USER_AGENT,
+            'Referer': 'https://mp.weixin.qq.com/'
+        }
+        response = requests.get(image_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            # 获取内容类型
+            content_type = response.headers.get('Content-Type', 'image/jpeg')
+            return Response(
+                response.content,
+                mimetype=content_type,
+                headers={
+                    'Cache-Control': 'public, max-age=86400',  # 缓存1天
+                    'Access-Control-Allow-Origin': '*'
+                }
+            )
+        else:
+            return jsonify({'error': f'图片加载失败: {response.status_code}'}), 502
+    except Exception as e:
+        return jsonify({'error': f'代理失败: {str(e)}'}), 500
+
+
 @bp.route('/wechat/search_account', methods=['GET'])
 def search_account():
     """搜索微信公众号（使用第三方API）"""
@@ -160,12 +194,16 @@ def search_account():
     
     result = []
     for account in accounts:
+        avatar_url = account.get('round_head_img', '')
+        # 如果有头像，转换为代理URL
+        proxy_avatar = f'/api/wechat/proxy_image?url={avatar_url}' if avatar_url else ''
+        
         result.append({
             'name': account.get('nickname', ''),
             'id': account.get('fakeid', ''),
             'alias': account.get('alias', ''),
             'desc': account.get('signature', ''),
-            'avatar': account.get('round_head_img', '')
+            'avatar': proxy_avatar
         })
     
     if error:
