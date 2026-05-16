@@ -10,7 +10,7 @@
 >
 > **注意**: 如果使用 conda 环境，请在环境中创建软链接:
 > ```bash
-> ln -s /opt/anaconda3/envs/py38/bin/python ~/bin/python3
+> ln -s /opt/anaconda3/envs/py38/bin/python python3
 > # 或者将 conda 环境的 bin 目录添加到 PATH
 > export PATH="/opt/anaconda3/envs/py38/bin:$PATH"
 > ```
