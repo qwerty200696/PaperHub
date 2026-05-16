@@ -834,10 +834,22 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <el-button @click="viewingNote = null">返回笔记库</el-button>
                         <div style="display: flex; gap: 8px;">
+                            <el-button size="small" type="info" @click="openAIConfig" title="AI 设置">
+                                ⚙️ 配置
+                            </el-button>
+                            <el-button type="success" size="small" @click="loadNoteAISummaryAndNote" :loading="noteAiSummaryLoading">
+                                🤖 AI 解读
+                            </el-button>
                             <el-button @click="showNoteEditor(viewingNote)">编辑</el-button>
                             <el-button type="danger" @click="deleteNote(viewingNote.id)">删除</el-button>
                         </div>
                     </div>
+
+                    <!-- AI 解读完成提示（笔记库） -->
+                    <div v-if="noteAiSummary" style="margin-bottom: 16px; background: #f0f9eb; border: 1px solid #e1f3d8; border-radius: 6px; padding: 12px 16px; color: #67C23A; font-size: 13px;">
+                        ✅ AI 解读已完成，笔记「AI解读：{{ viewingNote?.title || '无标题笔记' }}」已保存到笔记库
+                    </div>
+
                     <el-card>
                         <template #header>
                             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1160,7 +1172,18 @@
                                     </el-input>
                                 </span>
                                 <el-button type="success" size="small" @click="showArticleNoteEditor(null)">📝 写笔记</el-button>
+                                <el-button size="small" type="info" @click="openAIConfig" title="AI 设置">
+                                    ⚙️ 配置
+                                </el-button>
+                                <el-button type="success" size="small" @click="loadArticleAISummaryAndNote" :loading="articleAiSummaryLoading">
+                                    🤖 AI 解读
+                                </el-button>
                             </span>
+                        </div>
+
+                        <!-- AI 解读完成提示（文章库） -->
+                        <div v-if="articleAiSummary" style="margin-top: 16px; background: #f0f9eb; border: 1px solid #e1f3d8; border-radius: 6px; padding: 12px 16px; color: #67C23A; font-size: 13px;">
+                            ✅ AI 解读已完成，笔记「AI解读：{{ viewingArticle?.title }}」已保存到笔记库
                         </div>
 
                         <div v-if="viewingArticle.content" style="margin-bottom: 20px; color: #606266; line-height: 1.7; max-height: 120px; overflow: hidden;">
@@ -2699,6 +2722,16 @@
                 const aiSummaryError = ref('');
                 const aiConfigDialogVisible = ref(false);
 
+                // 文章库 AI 解读状态
+                const articleAiSummary = ref('');
+                const articleAiSummaryLoading = ref(false);
+                const articleAiSummaryError = ref('');
+
+                // 笔记库 AI 解读状态
+                const noteAiSummary = ref('');
+                const noteAiSummaryLoading = ref(false);
+                const noteAiSummaryError = ref('');
+
                 // ============ 备份/恢复状态 ============
                 const backupName = ref('');
                 const backupList = ref([]);
@@ -3307,37 +3340,67 @@
                 // ============ AI 解读功能（生成解读并自动创建笔记） ============
                 async function loadAISummaryAndNote() {
                     if (!selectedPaper.value) return;
+                    await doAISummary(selectedPaper.value, 'paper');
+                }
 
-                    const paper = selectedPaper.value;
-                    aiSummaryLoading.value = true;
-                    aiSummaryError.value = '';
-                    aiSummary.value = '';
+                async function loadArticleAISummaryAndNote() {
+                    if (!viewingArticle.value) return;
+                    await doAISummary(viewingArticle.value, 'article');
+                }
+
+                async function loadNoteAISummaryAndNote() {
+                    if (!viewingNote.value) return;
+                    await doAISummary(viewingNote.value, 'note');
+                }
+
+                async function doAISummary(item, source) {
+                    const isPaper = source === 'paper';
+                    const isArticle = source === 'article';
+                    const isNote = source === 'note';
+
+                    const loadingRef = isPaper ? aiSummaryLoading : isArticle ? articleAiSummaryLoading : noteAiSummaryLoading;
+                    const errorRef = isPaper ? aiSummaryError : isArticle ? articleAiSummaryError : noteAiSummaryError;
+                    const summaryRef = isPaper ? aiSummary : isArticle ? articleAiSummary : noteAiSummary;
+
+                    loadingRef.value = true;
+                    errorRef.value = '';
+                    summaryRef.value = '';
 
                     try {
-                        // 1. 生成 AI 解读
                         const response = await axios.post('/api/ai/summary', {
-                            paper_id: paper.id,
-                            source: 'paper'
+                            paper_id: item.id,
+                            source: source
                         });
-                        aiSummary.value = response.data.summary;
+                        summaryRef.value = response.data.summary;
 
-                        // 2. 自动创建笔记
-                        const noteTitle = `AI解读：${paper.title}`;
-                        const noteResponse = await axios.post('/api/notes', {
+                        const noteTitle = `AI解读：${item.title}`;
+                        const notePayload = {
                             title: noteTitle,
-                            content: aiSummary.value,
-                            paper_id: paper.id,
+                            content: summaryRef.value,
                             source: 'AI解读',
                             status: 'completed',
                             starred: false
-                        });
+                        };
+
+                        if (isPaper) {
+                            notePayload.paper_id = item.id;
+                        } else if (isArticle) {
+                            notePayload.article_id = item.id;
+                        }
+
+                        const noteResponse = await axios.post('/api/notes', notePayload);
 
                         if (noteResponse.data.success) {
-                            // 刷新笔记列表
                             if (loadAllNotes) {
                                 await loadAllNotes();
                             }
-                            loadPaperNotes();
+                            if (isPaper) {
+                                loadPaperNotes();
+                            } else if (isArticle) {
+                                await viewArticleDetail(item);
+                            } else if (isNote) {
+                                await viewNoteDetail(item);
+                            }
                         } else if (noteResponse.data.duplicate) {
                             ElementPlus.ElMessage.info('AI解读笔记已存在，无需重复生成');
                         }
@@ -3346,17 +3409,17 @@
                             ElementPlus.ElMessage.info('AI解读笔记已存在，无需重复生成');
                         } else if (e.response?.data?.error) {
                             if (e.response.data.error.includes('API key')) {
-                                aiSummaryError.value = '请先配置 API Key';
+                                errorRef.value = '请先配置 API Key';
                                 aiConfigDialogVisible.value = true;
                             } else {
-                                aiSummaryError.value = e.response.data.error;
+                                errorRef.value = e.response.data.error;
                             }
                         } else {
-                            aiSummaryError.value = 'AI 解读失败，请重试';
+                            errorRef.value = 'AI 解读失败，请重试';
                         }
-                        aiSummary.value = '';
+                        summaryRef.value = '';
                     } finally {
-                        aiSummaryLoading.value = false;
+                        loadingRef.value = false;
                     }
                 }
 
@@ -6129,9 +6192,12 @@
 
                     // ============ AI 解读 =============
                     aiSummary, aiSummaryLoading, aiSummaryError,
+                    articleAiSummary, articleAiSummaryLoading, articleAiSummaryError,
+                    noteAiSummary, noteAiSummaryLoading, noteAiSummaryError,
                     aiConfigDialogVisible, aiProvider, aiConfigs,
                     editApiKey, editBaseUrl, editModelId, editTemperature,
-                    loadAISummaryAndNote, saveAIConfig, loadAIConfig, openAIConfig, closeAIConfig,
+                    loadAISummaryAndNote, loadArticleAISummaryAndNote, loadNoteAISummaryAndNote,
+                    saveAIConfig, loadAIConfig, openAIConfig, closeAIConfig,
 
                     // ============ 备份/恢复 =============
                     backupName, backupList, backupLoading, backupLoadingText,
