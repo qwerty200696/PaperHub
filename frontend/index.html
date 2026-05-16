@@ -2243,7 +2243,7 @@
                         </el-card>
                     </div>
 
-                    <!-- 数据导出（占位功能） -->
+                    <!-- 数据导出 -->
                     <div v-if="activeIngestView === 'data-export'">
                         <el-card>
                             <template #header>
@@ -2253,21 +2253,21 @@
                                 将您的论文、文章、笔记数据导出为常用格式
                             </el-alert>
                             <div class="export-options">
-                                <div class="export-option" @click="handleComingSoon('JSON 导出')">
+                                <div class="export-option" @click="openExportDialog('json')">
                                     <span class="export-icon">📋</span>
                                     <div class="export-info">
                                         <div class="export-name">JSON 导出</div>
                                         <div class="export-desc">导出完整数据结构，兼容各种应用</div>
                                     </div>
                                 </div>
-                                <div class="export-option" @click="handleComingSoon('CSV 导出')">
+                                <div class="export-option" @click="openExportDialog('csv')">
                                     <span class="export-icon">📊</span>
                                     <div class="export-info">
                                         <div class="export-name">CSV 导出</div>
                                         <div class="export-desc">导出为表格格式，便于在 Excel 中分析</div>
                                     </div>
                                 </div>
-                                <div class="export-option" @click="handleComingSoon('Markdown 导出')">
+                                <div class="export-option" @click="openExportDialog('markdown')">
                                     <span class="export-icon">📝</span>
                                     <div class="export-info">
                                         <div class="export-name">Markdown 导出</div>
@@ -2277,6 +2277,69 @@
                             </div>
                         </el-card>
                     </div>
+
+                    <!-- 数据导出对话框 -->
+                    <el-dialog v-model="exportDialogVisible" title="导出数据" width="600px">
+                        <div v-if="exportFormat === 'json'">
+                            <el-alert type="info" :closable="false" style="margin-bottom: 16px;">
+                                将导出完整的 JSON 数据结构，包含所有元数据和关系
+                            </el-alert>
+                            <el-form label-width="100px">
+                                <el-form-item label="导出数据类型">
+                                    <el-checkbox-group v-model="exportTypes">
+                                        <el-checkbox label="papers">论文</el-checkbox>
+                                        <el-checkbox label="articles">文章</el-checkbox>
+                                        <el-checkbox label="notes">笔记</el-checkbox>
+                                    </el-checkbox-group>
+                                </el-form-item>
+                            </el-form>
+                        </div>
+                        
+                        <div v-else-if="exportFormat === 'csv'">
+                            <el-alert type="info" :closable="false" style="margin-bottom: 16px;">
+                                将导出为 CSV 表格格式，可在 Excel 中打开
+                            </el-alert>
+                            <el-form label-width="100px">
+                                <el-form-item label="数据类型">
+                                    <el-radio-group v-model="exportCsvType">
+                                        <el-radio label="papers">论文</el-radio>
+                                        <el-radio label="articles">文章</el-radio>
+                                        <el-radio label="notes">笔记</el-radio>
+                                    </el-radio-group>
+                                </el-form-item>
+                            </el-form>
+                        </div>
+                        
+                        <div v-else-if="exportFormat === 'markdown'">
+                            <el-alert type="info" :closable="false" style="margin-bottom: 16px;">
+                                将导出为 Markdown 格式，适合导入到笔记工具
+                            </el-alert>
+                            <el-form label-width="100px">
+                                <el-form-item label="导出数据类型">
+                                    <el-checkbox-group v-model="exportTypes">
+                                        <el-checkbox label="papers">论文</el-checkbox>
+                                        <el-checkbox label="articles">文章</el-checkbox>
+                                        <el-checkbox label="notes">笔记</el-checkbox>
+                                    </el-checkbox-group>
+                                </el-form-item>
+                                <el-form-item label="文件组织">
+                                    <el-radio-group v-model="exportMarkdownSeparate">
+                                        <el-radio :label="false">单个文件</el-radio>
+                                        <el-radio :label="true">分离文件 (ZIP)</el-radio>
+                                    </el-radio-group>
+                                </el-form-item>
+                            </el-form>
+                        </div>
+                        
+                        <template #footer>
+                            <span class="dialog-footer">
+                                <el-button @click="exportDialogVisible = false">取消</el-button>
+                                <el-button type="primary" @click="confirmExport" :loading="exportLoading">
+                                    开始导出
+                                </el-button>
+                            </span>
+                        </template>
+                    </el-dialog>
 
                     <!-- 精选第三方信息源详情页 -->
                     <div v-if="activeIngestView === 'external-sources'">
@@ -2644,6 +2707,14 @@
                 const backupExporting = ref(false);
                 const backupImporting = ref(false);
                 const selectedBackupFile = ref(null);
+
+                // ============ 数据导出状态 ============
+                const exportLoading = ref(false);
+                const exportDialogVisible = ref(false);
+                const exportFormat = ref('json'); // json, csv, markdown
+                const exportTypes = ref(['papers', 'articles', 'notes']);
+                const exportCsvType = ref('papers'); // papers, articles, notes
+                const exportMarkdownSeparate = ref(false);
 
                 // ============ 论文编辑状态 ============
                 const editPaperModalVisible = ref(false);
@@ -3555,6 +3626,103 @@
                         if (e !== 'cancel') {
                             ElementPlus.ElMessage.error('删除失败: ' + (e.response?.data?.error || e.message));
                         }
+                    }
+                }
+
+                // ============ 数据导出函数 ============
+                function openExportDialog(format) {
+                    exportFormat.value = format;
+                    exportDialogVisible.value = true;
+                    
+                    // 重置选项
+                    if (format === 'json' || format === 'markdown') {
+                        exportTypes.value = ['papers', 'articles', 'notes'];
+                    }
+                    if (format === 'csv') {
+                        exportCsvType.value = 'papers';
+                    }
+                    if (format === 'markdown') {
+                        exportMarkdownSeparate.value = false;
+                    }
+                }
+
+                async function confirmExport() {
+                    exportLoading.value = true;
+
+                    try {
+                        let endpoint = '';
+                        let requestData = {};
+                        let fileExtension = exportFormat.value;
+
+                        if (exportFormat.value === 'json') {
+                            endpoint = '/api/export/json';
+                            requestData = {
+                                types: exportTypes.value,
+                                include_tags: true,
+                                include_content: true
+                            };
+                        } else if (exportFormat.value === 'csv') {
+                            endpoint = '/api/export/csv';
+                            requestData = {
+                                type: exportCsvType.value
+                            };
+                        } else if (exportFormat.value === 'markdown') {
+                            endpoint = '/api/export/markdown';
+                            requestData = {
+                                types: exportTypes.value,
+                                separate_files: exportMarkdownSeparate.value
+                            };
+                            if (exportMarkdownSeparate.value) {
+                                fileExtension = 'zip';
+                            }
+                        }
+
+                        const res = await axios.post(endpoint, requestData, {
+                            responseType: 'blob',
+                            validateStatus: (status) => status < 500
+                        });
+
+                        // 检查是否返回了错误（HTTP 4xx 错误会被当作 blob 返回）
+                        if (res.status >= 400) {
+                            let errorMsg = '导出失败';
+                            try {
+                                const errorText = await res.data.text();
+                                const errorJson = JSON.parse(errorText);
+                                errorMsg = errorJson.error || errorMsg;
+                            } catch {
+                                errorMsg = `导出失败 (HTTP ${res.status})`;
+                            }
+                            ElementPlus.ElMessage.error(errorMsg);
+                            return;
+                        }
+
+                        // 处理下载
+                        const blob = new Blob([res.data]);
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+
+                        // 从响应头获取文件名
+                        let filename = `paperhub_export.${fileExtension}`;
+                        const contentDisposition = res.headers['content-disposition'];
+                        if (contentDisposition) {
+                            const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                            if (match) filename = match[1].replace(/['"]/g, '');
+                        }
+
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+
+                        ElementPlus.ElMessage.success('导出成功');
+                        exportDialogVisible.value = false;
+                    } catch (e) {
+                        console.error('导出错误:', e);
+                        ElementPlus.ElMessage.error('导出失败: ' + (e.message || '网络错误'));
+                    } finally {
+                        exportLoading.value = false;
                     }
                 }
 
@@ -5970,6 +6138,11 @@
                     backupExporting, backupImporting, selectedBackupFile,
                     handleIngestTabChange, loadBackupList, exportBackup, handleBackupFileChange,
                     importBackup, downloadBackup, deleteBackup,
+
+                    // ============ 数据导出 =============
+                    exportLoading, exportDialogVisible, exportFormat, exportTypes,
+                    exportCsvType, exportMarkdownSeparate,
+                    openExportDialog, confirmExport,
 
                     // ============ 论文编辑 =============
                     editPaperModalVisible, editPaperForm,

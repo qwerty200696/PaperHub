@@ -139,9 +139,9 @@ def create_app(config_name='default'):
 
 def register_routes(app):
     try:
-        from backend.api import papers, ingest, notes, articles, ai, wechat_subscription, wechat_subscriptions, search, note_images, web_extract, backup
+        from backend.api import papers, ingest, notes, articles, ai, wechat_subscription, wechat_subscriptions, search, note_images, web_extract, backup, export
     except ImportError:
-        from api import papers, ingest, notes, articles, ai, wechat_subscription, wechat_subscriptions, search, note_images, web_extract, backup
+        from api import papers, ingest, notes, articles, ai, wechat_subscription, wechat_subscriptions, search, note_images, web_extract, backup, export
 
     app.register_blueprint(papers.bp, url_prefix='/api')
     app.register_blueprint(ingest.bp, url_prefix='/api')
@@ -151,6 +151,7 @@ def register_routes(app):
     app.register_blueprint(note_images.bp)
     app.register_blueprint(web_extract.bp, url_prefix='/api')
     app.register_blueprint(backup.bp, url_prefix='/api')
+    app.register_blueprint(export.bp, url_prefix='/api')
     notes.get_note_routes(app)
     articles.get_article_routes(app)
     wechat_subscriptions.get_subscription_routes(app)
