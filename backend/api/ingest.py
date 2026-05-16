@@ -1130,7 +1130,7 @@ def ingest_from_browser_clipper():
                 content=data.get('description', ''),
                 file_path=f'web/{html_filename}',  # 保存相对路径（包含目录）
                 source='web',
-                status='unread',
+                status='pending',
                 starred=False
             )
             
