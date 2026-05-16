@@ -418,7 +418,7 @@ def check_new_articles():
         'message': f'检查完成，发现 {total} 篇文章',
         'articles': new_articles,
         'total': total,
-        'offset': offset,
+        'offset': offset + size,
         'size': size,
         'has_more': has_more
     }
