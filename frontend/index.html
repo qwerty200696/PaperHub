@@ -5576,7 +5576,7 @@
                     try {
                         const response = await axios.post('/api/wechat/subscriptions/check', {
                             subscription_ids: [selectedSubscription.value],
-                            offset: articleOffset.value + 5,
+                            offset: articleOffset.value,
                             size: 20,
                             api_key: wechatApiKey.value || null
                         });
