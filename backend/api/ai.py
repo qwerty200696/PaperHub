@@ -89,7 +89,7 @@ def generate_summary():
         return jsonify({'error': 'paper_id or title is required'}), 400
 
     if paper_id:
-        Paper, _, _, _ = get_models()
+        Paper, _, Article, Note = get_models()
         session = get_session()
         try:
             if content_source == 'article':

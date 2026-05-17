@@ -2251,17 +2251,166 @@
                             </div>
                         </div>
                     </div>
-                    <!-- AI 解读（占位功能） -->
+                    <!-- AI 解读详情页 -->
                     <div v-if="activeIngestView === 'ai-insight'">
                         <el-card>
-                            <el-alert type="info" :closable="false" style="margin-bottom: 20px;">
-                                <h3 style="margin: 0 0 8px 0;">🤖 AI 解读功能</h3>
-                                <p style="margin: 0;">支持对论文库、文章库、笔记库中的内容进行 AI 解读分析。</p>
-                                <p style="margin: 8px 0 0 0;">功能开发中，敬请期待！</p>
-                            </el-alert>
-                            <div style="text-align: center; padding: 40px; color: #909399;">
-                                <p>该功能正在开发中...</p>
-                                <p>预计支持：摘要生成、翻译、要点提取、关联分析等</p>
+                            <template #header>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600;">🤖 AI 解读中心</span>
+                                    <el-button size="small" type="info" @click="openAIConfig" title="AI 设置">⚙️ 配置</el-button>
+                                </div>
+                            </template>
+
+                            <!-- 解读模式切换 -->
+                            <el-radio-group v-model="aiInsightMode" size="large" style="margin-bottom: 20px;">
+                                <el-radio-button label="single">单篇解读</el-radio-button>
+                                <el-radio-button label="multi">综合分析</el-radio-button>
+                            </el-radio-group>
+
+                            <!-- ====== 单篇解读模式 ====== -->
+                            <div v-if="aiInsightMode === 'single'">
+                                <el-form label-position="top">
+                                    <el-form-item label="选择内容类型">
+                                        <el-select v-model="singleInsightType" placeholder="请选择类型" style="width: 200px;">
+                                            <el-option label="📚 论文" value="paper"></el-option>
+                                            <el-option label="📰 文章" value="article"></el-option>
+                                            <el-option label="📝 笔记" value="note"></el-option>
+                                        </el-select>
+                                    </el-form-item>
+
+                                    <el-form-item label="选择内容">
+                                        <el-select
+                                            v-model="singleInsightId"
+                                            filterable
+                                            remote
+                                            :remote-method="searchSingleInsightItems"
+                                            :loading="singleInsightSearchLoading"
+                                            placeholder="搜索标题..."
+                                            style="width: 100%;"
+                                            clearable
+                                        >
+                                            <el-option
+                                                v-for="item in singleInsightOptions"
+                                                :key="item.id"
+                                                :label="item.title || '无标题'"
+                                                :value="item.id"
+                                            >
+                                                <span style="display: flex; justify-content: space-between; width: 100%;">
+                                                    <span>{{ item.title || '无标题' }}</span>
+                                                    <span style="color: #909399; font-size: 12px;">{{ item.source }}</span>
+                                                </span>
+                                            </el-option>
+                                        </el-select>
+                                    </el-form-item>
+
+                                    <el-form-item>
+                                        <el-button type="success" @click="runSingleInsight" :loading="singleInsightLoading" :disabled="!singleInsightId">
+                                            🤖 开始解读
+                                        </el-button>
+                                    </el-form-item>
+                                </el-form>
+
+                                <!-- 单篇解读结果 -->
+                                <div v-if="singleInsightResult" style="margin-top: 20px; padding: 16px; background: #f5f7fa; border-radius: 8px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                        <h4 style="margin: 0;">📋 解读结果</h4>
+                                        <el-button size="small" type="primary" @click="saveSingleInsightToNote">保存为笔记</el-button>
+                                    </div>
+                                    <div style="white-space: pre-wrap; line-height: 1.8; color: #303133;">{{ singleInsightResult }}</div>
+                                </div>
+                            </div>
+
+                            <!-- ====== 综合分析模式 ====== -->
+                            <div v-if="aiInsightMode === 'multi'">
+                                <el-alert type="info" :closable="false" style="margin-bottom: 16px;">
+                                    <p style="margin: 0;">选择多篇内容（论文/文章/笔记），AI 将进行关联分析和综合解读。</p>
+                                </el-alert>
+
+                                <!-- 已选内容列表 -->
+                                <div style="margin-bottom: 16px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                        <span style="font-weight: 600;">已选内容 ({{ multiInsightSelected.length }})</span>
+                                        <el-button size="small" text type="danger" @click="clearMultiInsight" :disabled="multiInsightSelected.length === 0">清空</el-button>
+                                    </div>
+                                    <el-tag
+                                        v-for="(item, index) in multiInsightSelected"
+                                        :key="item.id + '-' + item.type"
+                                        closable
+                                        @close="removeMultiInsightItem(index)"
+                                        style="margin: 4px;"
+                                        :type="item.type === 'paper' ? 'primary' : item.type === 'article' ? 'success' : 'warning'"
+                                    >
+                                        {{ item.type === 'paper' ? '📚' : item.type === 'article' ? '📰' : '📝' }} {{ item.title || '无标题' }}
+                                    </el-tag>
+                                    <div v-if="multiInsightSelected.length === 0" style="color: #909399; font-size: 13px; padding: 8px 0;">尚未选择任何内容</div>
+                                </div>
+
+                                <!-- 添加内容 -->
+                                <el-divider content-position="left">添加内容</el-divider>
+                                <el-form label-position="top">
+                                    <el-form-item label="选择内容类型">
+                                        <el-radio-group v-model="multiInsightAddType" size="small">
+                                            <el-radio-button label="paper">📚 论文</el-radio-button>
+                                            <el-radio-button label="article">📰 文章</el-radio-button>
+                                            <el-radio-button label="note">📝 笔记</el-radio-button>
+                                        </el-radio-group>
+                                    </el-form-item>
+
+                                    <el-form-item label="搜索并选择">
+                                        <el-select
+                                            v-model="multiInsightTempId"
+                                            filterable
+                                            remote
+                                            :remote-method="searchMultiInsightItems"
+                                            :loading="multiInsightSearchLoading"
+                                            placeholder="搜索标题..."
+                                            style="width: 100%;"
+                                            clearable
+                                        >
+                                            <el-option
+                                                v-for="item in multiInsightOptions"
+                                                :key="item.id"
+                                                :label="item.title || '无标题'"
+                                                :value="item.id"
+                                            >
+                                                <span style="display: flex; justify-content: space-between; width: 100%;">
+                                                    <span>{{ item.title || '无标题' }}</span>
+                                                    <span style="color: #909399; font-size: 12px;">{{ item.source }}</span>
+                                                </span>
+                                            </el-option>
+                                        </el-select>
+                                    </el-form-item>
+
+                                    <el-form-item>
+                                        <el-button type="primary" size="small" @click="addMultiInsightItem" :disabled="!multiInsightTempId">
+                                            + 添加到分析列表
+                                        </el-button>
+                                    </el-form-item>
+                                </el-form>
+
+                                <!-- 综合分析按钮 -->
+                                <el-divider></el-divider>
+                                <div style="text-align: center;">
+                                    <el-button
+                                        type="success"
+                                        size="large"
+                                        @click="runMultiInsight"
+                                        :loading="multiInsightLoading"
+                                        :disabled="multiInsightSelected.length < 2"
+                                    >
+                                        🤖 综合分析 ({{ multiInsightSelected.length }} 篇)
+                                    </el-button>
+                                    <div v-if="multiInsightSelected.length < 2" style="color: #909399; font-size: 12px; margin-top: 8px;">请至少选择 2 篇内容进行综合分析</div>
+                                </div>
+
+                                <!-- 综合分析结果 -->
+                                <div v-if="multiInsightResult" style="margin-top: 20px; padding: 16px; background: #f5f7fa; border-radius: 8px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                        <h4 style="margin: 0;">📋 综合分析结果</h4>
+                                        <el-button size="small" type="primary" @click="saveMultiInsightToNote">保存为笔记</el-button>
+                                    </div>
+                                    <div style="white-space: pre-wrap; line-height: 1.8; color: #303133;">{{ multiInsightResult }}</div>
+                                </div>
                             </div>
                         </el-card>
                     </div>
@@ -2731,6 +2880,24 @@
                 const noteAiSummary = ref('');
                 const noteAiSummaryLoading = ref(false);
                 const noteAiSummaryError = ref('');
+
+                // ============ AI 解读中心状态 ============
+                const aiInsightMode = ref('single');
+                // 单篇解读
+                const singleInsightType = ref('paper');
+                const singleInsightId = ref(null);
+                const singleInsightOptions = ref([]);
+                const singleInsightSearchLoading = ref(false);
+                const singleInsightLoading = ref(false);
+                const singleInsightResult = ref('');
+                // 综合分析
+                const multiInsightAddType = ref('paper');
+                const multiInsightTempId = ref(null);
+                const multiInsightOptions = ref([]);
+                const multiInsightSearchLoading = ref(false);
+                const multiInsightSelected = ref([]);
+                const multiInsightLoading = ref(false);
+                const multiInsightResult = ref('');
 
                 // ============ 备份/恢复状态 ============
                 const backupName = ref('');
@@ -3420,6 +3587,190 @@
                         summaryRef.value = '';
                     } finally {
                         loadingRef.value = false;
+                    }
+                }
+
+                // ============ AI 解读中心功能 ============
+                async function searchSingleInsightItems(query) {
+                    if (!query || query.length < 1) {
+                        singleInsightOptions.value = [];
+                        return;
+                    }
+                    singleInsightSearchLoading.value = true;
+                    try {
+                        let res;
+                        if (singleInsightType.value === 'paper') {
+                            res = await axios.get('/api/papers', { params: { q: query, per_page: 20 } });
+                            singleInsightOptions.value = (res.data.papers || []).map(p => ({ id: p.id, title: p.title, source: p.source || '论文' }));
+                        } else if (singleInsightType.value === 'article') {
+                            res = await axios.get('/api/articles', { params: { q: query, per_page: 20 } });
+                            singleInsightOptions.value = (res.data.articles || []).map(a => ({ id: a.id, title: a.title, source: a.source || '文章' }));
+                        } else {
+                            res = await axios.get('/api/notes', { params: { q: query, per_page: 20 } });
+                            singleInsightOptions.value = (res.data.notes || []).map(n => ({ id: n.id, title: n.title || '无标题笔记', source: n.source || '笔记' }));
+                        }
+                    } catch (e) {
+                        console.error('搜索失败:', e);
+                        singleInsightOptions.value = [];
+                    } finally {
+                        singleInsightSearchLoading.value = false;
+                    }
+                }
+
+                async function runSingleInsight() {
+                    if (!singleInsightId.value) return;
+                    const item = singleInsightOptions.value.find(i => i.id === singleInsightId.value);
+                    if (!item) return;
+                    singleInsightLoading.value = true;
+                    singleInsightResult.value = '';
+                    try {
+                        const response = await axios.post('/api/ai/summary', {
+                            paper_id: singleInsightId.value,
+                            source: singleInsightType.value
+                        });
+                        singleInsightResult.value = response.data.summary;
+                    } catch (e) {
+                        if (e.response?.data?.error) {
+                            ElementPlus.ElMessage.error(e.response.data.error);
+                        } else {
+                            ElementPlus.ElMessage.error('AI 解读失败');
+                        }
+                    } finally {
+                        singleInsightLoading.value = false;
+                    }
+                }
+
+                async function saveSingleInsightToNote() {
+                    if (!singleInsightResult.value) return;
+                    const item = singleInsightOptions.value.find(i => i.id === singleInsightId.value);
+                    const title = item ? `AI解读：${item.title || '无标题'}` : 'AI解读';
+                    const payload = { title, content: singleInsightResult.value, source: 'AI解读', status: 'completed', starred: false };
+                    if (singleInsightType.value === 'paper') payload.paper_id = singleInsightId.value;
+                    else if (singleInsightType.value === 'article') payload.article_id = singleInsightId.value;
+                    try {
+                        await axios.post('/api/notes', payload);
+                        ElementPlus.ElMessage.success('已保存到笔记库');
+                        if (loadAllNotes) await loadAllNotes();
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('保存失败');
+                    }
+                }
+
+                async function searchMultiInsightItems(query) {
+                    if (!query || query.length < 1) {
+                        multiInsightOptions.value = [];
+                        return;
+                    }
+                    multiInsightSearchLoading.value = true;
+                    try {
+                        let res;
+                        if (multiInsightAddType.value === 'paper') {
+                            res = await axios.get('/api/papers', { params: { q: query, per_page: 20 } });
+                            multiInsightOptions.value = (res.data.papers || []).map(p => ({ id: p.id, title: p.title, source: p.source || '论文', type: 'paper' }));
+                        } else if (multiInsightAddType.value === 'article') {
+                            res = await axios.get('/api/articles', { params: { q: query, per_page: 20 } });
+                            multiInsightOptions.value = (res.data.articles || []).map(a => ({ id: a.id, title: a.title, source: a.source || '文章', type: 'article' }));
+                        } else {
+                            res = await axios.get('/api/notes', { params: { q: query, per_page: 20 } });
+                            multiInsightOptions.value = (res.data.notes || []).map(n => ({ id: n.id, title: n.title || '无标题笔记', source: n.source || '笔记', type: 'note' }));
+                        }
+                    } catch (e) {
+                        console.error('搜索失败:', e);
+                        multiInsightOptions.value = [];
+                    } finally {
+                        multiInsightSearchLoading.value = false;
+                    }
+                }
+
+                function addMultiInsightItem() {
+                    if (!multiInsightTempId.value) return;
+                    const item = multiInsightOptions.value.find(i => i.id === multiInsightTempId.value);
+                    if (!item) return;
+                    const exists = multiInsightSelected.value.some(s => s.id === item.id && s.type === item.type);
+                    if (exists) {
+                        ElementPlus.ElMessage.warning('该内容已在列表中');
+                        return;
+                    }
+                    multiInsightSelected.value.push({ id: item.id, title: item.title, type: item.type });
+                    multiInsightTempId.value = null;
+                    multiInsightOptions.value = [];
+                }
+
+                function removeMultiInsightItem(index) {
+                    multiInsightSelected.value.splice(index, 1);
+                }
+
+                function clearMultiInsight() {
+                    multiInsightSelected.value = [];
+                    multiInsightResult.value = '';
+                }
+
+                async function runMultiInsight() {
+                    if (multiInsightSelected.value.length < 2) return;
+                    multiInsightLoading.value = true;
+                    multiInsightResult.value = '';
+                    try {
+                        const contents = [];
+                        for (const item of multiInsightSelected.value) {
+                            let res;
+                            if (item.type === 'paper') {
+                                res = await axios.get(`/api/papers/${item.id}`);
+                                const p = res.data.paper || res.data;
+                                contents.push({ type: '论文', title: p.title, abstract: p.abstract || '', content: (p.content || '').substring(0, 2000) });
+                            } else if (item.type === 'article') {
+                                res = await axios.get(`/api/articles/${item.id}`);
+                                const a = res.data.article || res.data;
+                                contents.push({ type: '文章', title: a.title, abstract: '', content: (a.content || '').substring(0, 2000) });
+                            } else {
+                                res = await axios.get(`/api/notes/${item.id}`);
+                                const n = res.data.note || res.data;
+                                contents.push({ type: '笔记', title: n.title || '无标题', abstract: '', content: (n.content || '').substring(0, 2000) });
+                            }
+                        }
+
+                        const promptText = contents.map((c, i) =>
+                            `【内容${i + 1}】类型：${c.type}，标题：${c.title}\n摘要：${c.abstract || '无'}\n正文节选：${c.content || '无'}\n`
+                        ).join('\n---\n');
+
+                        const messages = [
+                            { role: 'system', content: '你是一位知识管理专家，擅长对多篇内容进行关联分析和综合解读。请用中文回复。' },
+                            { role: 'user', content: `请对以下${contents.length}篇内容进行综合分析：\n\n${promptText}\n\n请从以下角度进行分析：\n1. 各篇内容的核心观点总结\n2. 内容之间的关联性和共同点\n3. 知识脉络和演进关系\n4. 对读者的综合启发和建议\n\n请用结构化的方式输出分析结果。` }
+                        ];
+
+                        const response = await axios.post('/api/ai/summary', {
+                            title: '综合分析',
+                            abstract: '',
+                            content: promptText,
+                            source: 'multi'
+                        });
+                        multiInsightResult.value = response.data.summary;
+                    } catch (e) {
+                        if (e.response?.data?.error) {
+                            ElementPlus.ElMessage.error(e.response.data.error);
+                        } else {
+                            ElementPlus.ElMessage.error('综合分析失败');
+                        }
+                    } finally {
+                        multiInsightLoading.value = false;
+                    }
+                }
+
+                async function saveMultiInsightToNote() {
+                    if (!multiInsightResult.value) return;
+                    const titles = multiInsightSelected.value.map(s => s.title || '无标题').join('、');
+                    const title = `AI综合分析：${titles.substring(0, 50)}${titles.length > 50 ? '...' : ''}`;
+                    try {
+                        await axios.post('/api/notes', {
+                            title,
+                            content: multiInsightResult.value,
+                            source: 'AI解读',
+                            status: 'completed',
+                            starred: false
+                        });
+                        ElementPlus.ElMessage.success('已保存到笔记库');
+                        if (loadAllNotes) await loadAllNotes();
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('保存失败');
                     }
                 }
 
@@ -6198,6 +6549,13 @@
                     editApiKey, editBaseUrl, editModelId, editTemperature,
                     loadAISummaryAndNote, loadArticleAISummaryAndNote, loadNoteAISummaryAndNote,
                     saveAIConfig, loadAIConfig, openAIConfig, closeAIConfig,
+
+                    // ============ AI 解读中心 =============
+                    aiInsightMode,
+                    singleInsightType, singleInsightId, singleInsightOptions, singleInsightSearchLoading, singleInsightLoading, singleInsightResult,
+                    searchSingleInsightItems, runSingleInsight, saveSingleInsightToNote,
+                    multiInsightAddType, multiInsightTempId, multiInsightOptions, multiInsightSearchLoading, multiInsightSelected, multiInsightLoading, multiInsightResult,
+                    searchMultiInsightItems, addMultiInsightItem, removeMultiInsightItem, clearMultiInsight, runMultiInsight, saveMultiInsightToNote,
 
                     // ============ 备份/恢复 =============
                     backupName, backupList, backupLoading, backupLoadingText,
