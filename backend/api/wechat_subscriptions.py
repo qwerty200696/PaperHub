@@ -5,8 +5,28 @@
 import json
 from pathlib import Path
 from flask import Blueprint, request, jsonify
+from datetime import datetime
 
 bp = Blueprint('wechat_subscriptions', __name__, url_prefix='/api/wechat-subscriptions')
+
+
+def parse_publish_time(time_str):
+    """解析发布时间字符串，支持多种格式"""
+    if not time_str:
+        return datetime.min
+    formats = [
+        '%Y-%m-%dT%H:%M:%S',
+        '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%dT%H:%M:%S.%f',
+        '%Y-%m-%d %H:%M',
+        '%Y-%m-%d',
+    ]
+    for fmt in formats:
+        try:
+            return datetime.strptime(time_str, fmt)
+        except ValueError:
+            continue
+    return datetime.min
 
 
 def get_subscriptions_dir():
@@ -88,6 +108,90 @@ def get_articles():
         'offset': offset,
         'limit': limit,
         'has_more': offset + limit < total
+    }), 200
+
+
+@bp.route('/backup', methods=['POST'])
+def backup_article():
+    """
+    备份文章到精选公众号TXT文件
+    POST /api/wechat-subscriptions/backup
+    Body: { "subscription_name": "宝玉AI", "article": { "title": "...", "url": "...", ... } }
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '请求体不能为空'}), 400
+
+    subscription_name = data.get('subscription_name', '').strip()
+    article = data.get('article')
+
+    if not subscription_name:
+        return jsonify({'error': 'subscription_name 不能为空'}), 400
+    if not article or not isinstance(article, dict):
+        return jsonify({'error': 'article 不能为空且必须为对象'}), 400
+    if not article.get('title') or not article.get('url'):
+        return jsonify({'error': 'article 必须包含 title 和 url'}), 400
+
+    txt_file = get_subscription_file(subscription_name)
+    subs_dir = get_subscriptions_dir()
+    subs_dir.mkdir(parents=True, exist_ok=True)
+
+    # 读取现有内容
+    existing_lines = []
+    existing_urls = set()
+    if txt_file.exists():
+        with open(txt_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    existing_lines.append(line)
+                    try:
+                        existing_article = json.loads(line)
+                        existing_urls.add(existing_article.get('url', ''))
+                    except json.JSONDecodeError:
+                        pass
+
+    article_url = article.get('url', '')
+    if article_url in existing_urls:
+        return jsonify({
+            'message': '文章已存在，跳过备份',
+            'subscription_name': subscription_name,
+            'skipped': True
+        }), 200
+
+    # 确保文章数据包含必要字段
+    article_to_save = {
+        'publish_time': article.get('publish_time') or article.get('published_at', ''),
+        'id': article.get('id', ''),
+        'title': article.get('title', ''),
+        'url': article.get('url', ''),
+        'summary': article.get('summary') or article.get('digest', ''),
+        'cover': article.get('cover', '')
+    }
+
+    # 将所有文章（现有+新增）解析后按发布时间倒序排列
+    all_articles = [article_to_save]
+    for line in existing_lines:
+        try:
+            all_articles.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+    # 按发布时间倒序排列（最新的在最前面）
+    all_articles.sort(
+        key=lambda a: parse_publish_time(a.get('publish_time', '')),
+        reverse=True
+    )
+
+    with open(txt_file, 'w', encoding='utf-8') as f:
+        for article_data in all_articles:
+            f.write(json.dumps(article_data, ensure_ascii=False) + '\n')
+
+    return jsonify({
+        'message': '备份成功',
+        'subscription_name': subscription_name,
+        'article_count': len(updated_lines),
+        'skipped': False
     }), 200
 
 
