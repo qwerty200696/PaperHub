@@ -190,7 +190,7 @@ def backup_article():
     return jsonify({
         'message': '备份成功',
         'subscription_name': subscription_name,
-        'article_count': len(updated_lines),
+        'article_count': len(all_articles),
         'skipped': False
     }), 200
 

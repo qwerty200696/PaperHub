@@ -1843,7 +1843,7 @@
                                             @click="toggleSelectAllArticles"
                                             size="small"
                                         >
-                                            {{ allArticlesSelected ? '✓ 取消全选' : '○ 全选未导入' }}
+                                            {{ allArticlesSelected ? '取消全选 (' + selectedArticles.length + '/' + selectableArticleCount + ')' : '全选 (' + selectedArticles.length + '/' + selectableArticleCount + ')' }}
                                         </el-button>
                                     </div>
                                 </div>
@@ -1859,13 +1859,10 @@
                                         }"
                                         @click="toggleArticleSelection(article.url)"
                                     >
-                                        <div class="article-checkbox-area">
+                                        <div class="article-checkbox-area" @click.stop="toggleArticleSelection(article.url)">
                                             <el-checkbox
-                                                v-model="selectedArticles"
-                                                :value="article.url"
-                                                :disabled="article.imported"
+                                                :model-value="selectedArticles.includes(article.url)"
                                                 class="custom-checkbox"
-                                                @click.stop
                                             ></el-checkbox>
                                             <div class="article-info">
                                                 <div class="article-title">{{ article.title }}</div>
@@ -6193,28 +6190,26 @@
                     if (allArticlesSelected.value) {
                         selectedArticles.value = [];
                     } else {
-                        selectedArticles.value = wechatArticles.value
-                            .filter(a => !a.imported)
-                            .map(a => a.url);
+                        selectedArticles.value = wechatArticles.value.map(a => a.url);
                     }
                 }
 
                 function toggleArticleSelection(url) {
                     const index = selectedArticles.value.indexOf(url);
                     if (index > -1) {
-                        selectedArticles.value.splice(index, 1);
+                        selectedArticles.value = selectedArticles.value.filter(u => u !== url);
                     } else {
-                        const article = wechatArticles.value.find(a => a.url === url);
-                        if (article && !article.imported) {
-                            selectedArticles.value.push(url);
-                        }
+                        selectedArticles.value = [...selectedArticles.value, url];
                     }
                 }
 
+                const selectableArticleCount = computed(() => {
+                    return wechatArticles.value.length;
+                });
+
                 const allArticlesSelected = computed(() => {
-                    const nonImported = wechatArticles.value.filter(a => !a.imported);
-                    if (nonImported.length === 0) return false;
-                    return nonImported.every(a => selectedArticles.value.includes(a.url));
+                    if (wechatArticles.value.length === 0) return false;
+                    return wechatArticles.value.every(a => selectedArticles.value.includes(a.url));
                 });
 
                 async function importSelectedArticles() {
@@ -6768,7 +6763,7 @@
                     subscriptionSearchKeyword, subscriptionSearchResults, searchingSubscription, searched,
                     loadSubscriptions, searchSubscriptions, selectSubscriptionAccount, clearSubscriptionSearch,
                     checkNewArticles, loadMoreArticles,
-                    toggleSelectAllArticles, toggleArticleSelection, allArticlesSelected, refreshArticlesStatus, importSelectedArticles,
+                    toggleSelectAllArticles, toggleArticleSelection, allArticlesSelected, selectableArticleCount, refreshArticlesStatus, importSelectedArticles,
                     openApiKeyWebsite, openArticleUrl, importSingleArticle, formatArticleDate, backupToFeatured, backupSelectedToFeatured,
 
                     // ============ 详情 =============
