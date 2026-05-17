@@ -1826,14 +1826,26 @@
                                         <span class="count-icon">📚</span>
                                         <span>共找到 <strong>{{ articleTotal }}</strong> 篇文章</span>
                                     </div>
-                                    <el-button 
-                                        type="text" 
-                                        class="btn-select-all"
-                                        @click="toggleSelectAllArticles" 
-                                        size="small"
-                                    >
-                                        {{ allArticlesSelected ? '✓ 取消全选' : '○ 全选未导入' }}
-                                    </el-button>
+                                    <div class="articles-header-actions">
+                                        <el-button
+                                            type="text"
+                                            class="btn-backup-featured-header"
+                                            @click="backupSelectedToFeatured"
+                                            :loading="backupFeaturedBatchLoading"
+                                            :disabled="selectedArticles.length === 0"
+                                            size="small"
+                                        >
+                                            ✨ 批量备份到精选公众号 ({{ selectedArticles.length }})
+                                        </el-button>
+                                        <el-button
+                                            type="text"
+                                            class="btn-select-all"
+                                            @click="toggleSelectAllArticles"
+                                            size="small"
+                                        >
+                                            {{ allArticlesSelected ? '✓ 取消全选' : '○ 全选未导入' }}
+                                        </el-button>
+                                    </div>
                                 </div>
                                 
                                 <div class="articles-list">
@@ -1865,8 +1877,8 @@
                                             </div>
                                         </div>
                                         <div class="article-actions">
-                                            <el-button 
-                                                type="text" 
+                                            <el-button
+                                                type="text"
                                                 class="btn-view-original"
                                                 @click.stop="openArticleUrl(article.url)"
                                             >
@@ -1877,11 +1889,11 @@
                                             <el-tag v-if="article.imported" type="success" class="status-tag">
                                                 ✓ 已导入
                                             </el-tag>
-                                            <el-button 
-                                                v-else 
+                                            <el-button
+                                                v-else
                                                 type="text"
                                                 class="btn-import-status"
-                                                :class="{ 
+                                                :class="{
                                                     'btn-import-selected': selectedArticles.includes(article.url),
                                                     'btn-import-unselected': !selectedArticles.includes(article.url)
                                                 }"
@@ -3141,6 +3153,8 @@
                 const loadingMore = ref(false);
                 const showAddSubscription = ref(false);
                 const importingArticleUrls = ref(new Set());
+                const backupFeaturedLoading = ref(new Set());
+                const backupFeaturedBatchLoading = ref(false);
                 const newSubscription = ref({ name: '', id: '' });
                 const wechatApiKey = ref(localStorage.getItem('wechat_api_key') || '');
                 const subscriptionSearchKeyword = ref('');
@@ -6212,13 +6226,13 @@
                     let successCount = 0;
                     let duplicateCount = 0;
                     let failCount = 0;
-                    
+
                     try {
                         for (const url of selectedArticles.value) {
                             try {
-                                await axios.post('/api/ingest/wechat', { 
-                                    url, 
-                                    extract_content_only: wechatExtractOnly.value 
+                                await axios.post('/api/ingest/wechat', {
+                                    url,
+                                    extract_content_only: wechatExtractOnly.value
                                 });
                                 successCount++;
                             } catch (e) {
@@ -6229,19 +6243,19 @@
                                 }
                             }
                         }
-                        
+
                         // 显示汇总结果
                         const messages = [];
                         if (successCount > 0) messages.push(`成功 ${successCount} 篇`);
                         if (duplicateCount > 0) messages.push(`已存在 ${duplicateCount} 篇`);
                         if (failCount > 0) messages.push(`失败 ${failCount} 篇`);
-                        
+
                         ElementPlus.ElMessage({
                             message: messages.join('，'),
                             type: failCount > 0 ? 'warning' : 'success',
                             duration: 3000
                         });
-                        
+
                         selectedArticles.value = [];
                         await refreshArticlesStatus();
                         await loadAllArticles();
@@ -6250,6 +6264,95 @@
                         ElementPlus.ElMessage.error(msg);
                     } finally {
                         importingArticles.value = false;
+                    }
+                }
+
+                async function backupToFeatured(article) {
+                    if (!article || !article.url) return;
+
+                    const subscriptionName = article.subscription_name;
+                    if (!subscriptionName) {
+                        ElementPlus.ElMessage.warning('无法获取公众号名称');
+                        return;
+                    }
+
+                    backupFeaturedLoading.value.add(article.url);
+                    try {
+                        const response = await axios.post('/api/wechat-subscriptions/backup', {
+                            subscription_name: subscriptionName,
+                            article: article
+                        });
+
+                        if (response.data.skipped) {
+                            ElementPlus.ElMessage.info(response.data.message);
+                        } else {
+                            ElementPlus.ElMessage.success(
+                                `「${article.title}」已备份到 ✨ 精选公众号「${subscriptionName}」`
+                            );
+                        }
+                    } catch (e) {
+                        const msg = e.response?.data?.error || '备份失败';
+                        ElementPlus.ElMessage.error(msg);
+                    } finally {
+                        backupFeaturedLoading.value.delete(article.url);
+                    }
+                }
+
+                async function backupSelectedToFeatured() {
+                    if (selectedArticles.value.length === 0) {
+                        ElementPlus.ElMessage.warning('请先选择要备份的文章');
+                        return;
+                    }
+
+                    backupFeaturedBatchLoading.value = true;
+                    let successCount = 0;
+                    let skipCount = 0;
+                    let failCount = 0;
+
+                    try {
+                        const articlesToBackup = wechatArticles.value.filter(
+                            a => selectedArticles.value.includes(a.url)
+                        );
+
+                        for (const article of articlesToBackup) {
+                            const subscriptionName = article.subscription_name;
+                            if (!subscriptionName) {
+                                failCount++;
+                                continue;
+                            }
+
+                            try {
+                                const response = await axios.post('/api/wechat-subscriptions/backup', {
+                                    subscription_name: subscriptionName,
+                                    article: article
+                                });
+
+                                if (response.data.skipped) {
+                                    skipCount++;
+                                } else {
+                                    successCount++;
+                                }
+                            } catch (e) {
+                                failCount++;
+                            }
+                        }
+
+                        const messages = [];
+                        if (successCount > 0) messages.push(`成功 ${successCount} 篇`);
+                        if (skipCount > 0) messages.push(`已存在 ${skipCount} 篇`);
+                        if (failCount > 0) messages.push(`失败 ${failCount} 篇`);
+
+                        ElementPlus.ElMessage({
+                            message: messages.join('，'),
+                            type: failCount > 0 ? 'warning' : 'success',
+                            duration: 3000
+                        });
+
+                        selectedArticles.value = [];
+                    } catch (e) {
+                        ElementPlus.ElMessage.error('批量备份失败');
+                    } finally {
+                        backupFeaturedBatchLoading.value = false;
                     }
                 }
 
@@ -6660,13 +6763,13 @@
                     // ============ 公众号订阅 =============
                     subscriptions, selectedSubscription, wechatArticles, selectedArticles,
                     articleTotal, articleOffset, hasMoreArticles, checkingArticles,
-                    importingArticles, importingArticleUrls, loadingMore, showAddSubscription, newSubscription,
+                    importingArticles, importingArticleUrls, backupFeaturedLoading, backupFeaturedBatchLoading, loadingMore, showAddSubscription, newSubscription,
                     wechatApiKey,
                     subscriptionSearchKeyword, subscriptionSearchResults, searchingSubscription, searched,
                     loadSubscriptions, searchSubscriptions, selectSubscriptionAccount, clearSubscriptionSearch,
                     checkNewArticles, loadMoreArticles,
                     toggleSelectAllArticles, toggleArticleSelection, allArticlesSelected, refreshArticlesStatus, importSelectedArticles,
-                    openApiKeyWebsite, openArticleUrl, importSingleArticle, formatArticleDate,
+                    openApiKeyWebsite, openArticleUrl, importSingleArticle, formatArticleDate, backupToFeatured, backupSelectedToFeatured,
 
                     // ============ 详情 =============
                     pdfUrl, displayAuthors, statusText, statusType,
