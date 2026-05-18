@@ -1841,9 +1841,11 @@
                                             type="text"
                                             class="btn-select-all"
                                             @click="toggleSelectAllArticles"
+                                            :loading="selectAllLoading"
+                                            :disabled="false"
                                             size="small"
                                         >
-                                            {{ allArticlesSelected ? '取消全选 (' + selectedArticles.length + '/' + selectableArticleCount + ')' : '全选 (' + selectedArticles.length + '/' + selectableArticleCount + ')' }}
+                                            全选 ({{ selectedArticles.length }})
                                         </el-button>
                                     </div>
                                 </div>
@@ -1865,7 +1867,7 @@
                                                 class="custom-checkbox"
                                             ></el-checkbox>
                                             <div class="article-info">
-                                                <div class="article-title">{{ article.title }}</div>
+                                                <div class="article-title" :title="article.title">{{ article.title.length > 80 ? article.title.substring(0, 80) + '...' : article.title }}</div>
                                                 <div class="article-meta">
                                                     <span class="meta-source">{{ article.subscription_name }}</span>
                                                     <span class="meta-divider">·</span>
@@ -2752,7 +2754,7 @@
         // 这里直接嵌入核心逻辑，但保持模块化结构的概念
         console.log('Vue app setup starting');
 
-        const { createApp, ref, computed, onMounted, onUnmounted, watch } = Vue;
+        const { createApp, ref, computed, onMounted, onUnmounted, watch, nextTick } = Vue;
 
         // 直接在这里重新实现，因为 ES Modules 在 file:// 协议下有跨域限制
         // 但保留模块化的代码组织思想
@@ -3158,6 +3160,13 @@
                 const subscriptionSearchResults = ref([]);
                 const searchingSubscription = ref(false);
                 const searched = ref(false);
+                const selectAllLoading = ref(false);
+
+
+                // 强制让 Vue 追踪数组替换的响应性（修复 CDN 版不刷新）
+                function refreshRefArray(refArr) {
+                    refArr.value = [...refArr.value];
+                }
 
                 watch(wechatExtractOnly, (newVal) => {
                     ElementPlus.ElMessage({
@@ -6186,13 +6195,40 @@
                     }
                 }
 
-                function toggleSelectAllArticles() {
-                    if (allArticlesSelected.value) {
-                        selectedArticles.value = [];
-                    } else {
-                        selectedArticles.value = wechatArticles.value.map(a => a.url);
+                async function toggleSelectAllArticles() {
+                    // 防止重复点击
+                    if (selectAllLoading.value) return;
+                    selectAllLoading.value = true;
+
+                    console.log('===== 开始执行全选/取消全选 =====');
+                    console.log('执行前选中：', selectedArticles.value.length);
+
+                    try {
+                        const total = wechatArticles.value.length;
+                        const selected = selectedArticles.value.length;
+
+                        if (selected === total) {
+                            console.log('→ 取消全选');
+                            // ✅ 正确写法（你这个 Vue 版本唯一能用）
+                            selectedArticles.value.splice(0); // 清空数组，不破坏响应式
+                        } else {
+                            console.log('→ 全选');
+                            selectedArticles.value.splice(0); // 先清空
+                            const urls = wechatArticles.value.map(a => a.url);
+                            selectedArticles.value.push(...urls); // 用 push 添加，不破坏响应式
+                        }
+                    } finally {
+                        // 无论如何都关闭 loading
+                        selectAllLoading.value = false;
                     }
+                    console.log('执行后选中：', selectedArticles.value.length);
+                    // ✨ 强制刷新！！！专治按钮文案不同步！
+                    nextTick(() => {
+                        selectedArticles.value = [...selectedArticles.value];
+                    });
                 }
+
+                
 
                 function toggleArticleSelection(url) {
                     const index = selectedArticles.value.indexOf(url);
@@ -6203,14 +6239,7 @@
                     }
                 }
 
-                const selectableArticleCount = computed(() => {
-                    return wechatArticles.value.length;
-                });
 
-                const allArticlesSelected = computed(() => {
-                    if (wechatArticles.value.length === 0) return false;
-                    return wechatArticles.value.every(a => selectedArticles.value.includes(a.url));
-                });
 
                 async function importSelectedArticles() {
                     if (selectedArticles.value.length === 0) {
@@ -6763,9 +6792,11 @@
                     subscriptionSearchKeyword, subscriptionSearchResults, searchingSubscription, searched,
                     loadSubscriptions, searchSubscriptions, selectSubscriptionAccount, clearSubscriptionSearch,
                     checkNewArticles, loadMoreArticles,
-                    toggleSelectAllArticles, toggleArticleSelection, allArticlesSelected, selectableArticleCount, refreshArticlesStatus, importSelectedArticles,
+                    toggleSelectAllArticles, toggleArticleSelection, refreshArticlesStatus, importSelectedArticles,
                     openApiKeyWebsite, openArticleUrl, importSingleArticle, formatArticleDate, backupToFeatured, backupSelectedToFeatured,
+                    selectAllLoading,
 
+                    
                     // ============ 详情 =============
                     pdfUrl, displayAuthors, statusText, statusType,
                     formatDateTime, getCurrentDateTime, extractTitleFromContent,
