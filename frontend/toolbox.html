@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaperHub - 工具箱</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+    <link rel="stylesheet" href="src/css/style.css">
+    <link rel="icon" href="data:,">
+    <style>
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            padding: 20px;
+        }
+        .tool-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+            text-decoration: none;
+            display: block;
+        }
+        .tool-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+            border-color: #e2e8f0;
+        }
+        .tool-card-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+        .tool-card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        .tool-card-desc {
+            font-size: 14px;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        .tool-card-arrow {
+            font-size: 20px;
+            color: #94a3b8;
+            transition: transform 0.2s ease;
+        }
+        .tool-card:hover .tool-card-arrow {
+            transform: translateX(4px);
+            color: #409eff;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <h1>🛠️ PaperHub 工具箱</h1>
+                <el-button @click="goBack" style="background: rgba(255,255,255,0.2); border: none; color: white;">
+                    ← 返回主页面
+                </el-button>
+            </div>
+        </div>
+
+        <div class="main-container">
+            <div class="content">
+                <div style="padding: 20px;">
+                    <h2 style="margin-bottom: 8px; color: #1e293b;">可用工具</h2>
+                    <p style="color: #64748b; margin-bottom: 24px;">点击卡片进入对应工具页面</p>
+
+                    <div class="tools-grid">
+                        <a href="/toolbox/weread" class="tool-card">
+                            <div class="tool-card-icon" style="background: linear-gradient(135deg, #07c160 0%, #10b981 100%);">📚</div>
+                            <div class="tool-card-title">微信读书搜索</div>
+                            <div class="tool-card-desc">搜索微信读书中的书籍，查看书籍详情、优质点评和热门划线</div>
+                            <div class="tool-card-arrow">→</div>
+                        </a>
+
+                        <a href="/toolbox/feishu" class="tool-card">
+                            <div class="tool-card-icon" style="background: linear-gradient(135deg, #00b42a 0%, #10b981 100%);">💬</div>
+                            <div class="tool-card-title">飞书消息</div>
+                            <div class="tool-card-desc">拉取飞书群聊消息，支持按群组离线保存和查看</div>
+                            <div class="tool-card-arrow">→</div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            setup() {
+                const goBack = () => {
+                    window.location.href = '/';
+                };
+
+                return {
+                    goBack
+                };
+            }
+        }).use(ElementPlus).mount('#app');
+    </script>
+</body>
+</html>

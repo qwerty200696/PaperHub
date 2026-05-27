@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaperHub - 微信读书搜索</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+    <link rel="stylesheet" href="/src/css/style.css">
+    <link rel="icon" href="data:,">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .weread-detail-header { display: flex; gap: 24px; margin-bottom: 30px; padding: 20px; background: #f8fafc; border-radius: 12px; }
+        .weread-detail-cover { width: 150px; height: 200px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 48px; overflow: hidden; }
+        .weread-detail-cover img { width: 100%; height: 100%; object-fit: cover; }
+        .weread-detail-info { flex: 1; }
+        .weread-detail-title { font-size: 24px; font-weight: 600; margin-bottom: 8px; color: #1e293b; }
+        .weread-detail-author { font-size: 16px; color: #64748b; margin-bottom: 16px; }
+        .weread-detail-stats { display: flex; gap: 24px; }
+        .stat-item { display: flex; align-items: center; gap: 8px; }
+        .stat-icon { font-size: 18px; }
+        .stat-value { font-size: 14px; color: #374151; }
+        .weread-section { margin-bottom: 30px; }
+        .weread-section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        .weread-review-card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px; border: 1px solid #e2e8f0; }
+        .weread-review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .weread-review-author { font-weight: 500; color: #374151; }
+        .weread-review-stars { color: #f59e0b; }
+        .weread-review-content-short, .weread-review-content-full { color: #64748b; line-height: 1.6; }
+        .weread-review-expand-btn { background: none; border: none; color: #409eff; cursor: pointer; font-size: 13px; padding: 4px 0; margin-top: 4px; }
+        .weread-review-expand-btn:hover { text-decoration: underline; }
+        .weread-review-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #9ca3af; margin-top: 8px; }
+        .weread-review-share-btn { background: none; border: none; color: #07c160; cursor: pointer; font-size: 12px; padding: 2px 8px; border-radius: 4px; }
+        .weread-review-share-btn:hover { background: #f0fdf4; }
+        .weread-highlight-card { background: #ecfdf5; border-radius: 8px; padding: 16px; margin-bottom: 12px; border-left: 4px solid #10b981; }
+        .weread-highlight-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .weread-highlight-chapter { color: #059669; font-weight: 500; }
+        .weread-highlight-count { font-size: 12px; color: #64748b; }
+        .weread-highlight-text { font-size: 15px; color: #374151; font-style: italic; line-height: 1.6; }
+        .weread-thoughts { margin-top: 12px; padding-top: 12px; border-top: 1px solid #d1fae5; }
+        .weread-thought { background: #d1fae5; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+        .weread-thought-author { font-size: 12px; color: #059669; font-weight: 500; margin-bottom: 4px; }
+        .weread-thought-content { font-size: 13px; color: #374151; }
+
+        /* 分享弹窗 - 左右布局 */
+        .weread-share-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; }
+        .weread-share-modal.active { display: flex; }
+        .weread-share-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #f5f7fa;
+            overflow: hidden;
+        }
+        .weread-share-preview {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+            overflow-y: auto;
+        }
+        .weread-share-preview canvas {
+            max-height: 85vh;
+            width: auto;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .weread-share-editor {
+            width: 420px;
+            min-width: 420px;
+            background: #fff;
+            padding: 32px 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .weread-share-editor h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 0 0 4px 0;
+        }
+        .editor-section {
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 20px;
+        }
+        .editor-section:last-of-type {
+            border-bottom: none;
+        }
+        .layout-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .layout-option { cursor: pointer; border: 2px solid #e2e8f0; border-radius: 10px; padding: 10px 6px; text-align: center; transition: all 0.2s; background: #fff; }
+        .layout-option:hover { border-color: #409eff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(64,158,255,0.15); }
+        .layout-option.active { border-color: #409eff; background: #eff6ff; box-shadow: 0 4px 12px rgba(64,158,255,0.2); }
+        .layout-preview { width: 100%; height: 70px; border-radius: 6px; margin-bottom: 8px; position: relative; overflow: hidden; }
+        .layout-preview::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 28px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 2px;
+        }
+        .layout-name { font-size: 12px; color: #475569; font-weight: 500; }
+        .layout-option.active .layout-name { color: #409eff; }
+
+        .editor-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: auto;
+            padding-top: 10px;
+        }
+        .editor-actions button {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-save {
+            background: linear-gradient(135deg, #07c160 0%, #10b981 100%);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(7,193,96,0.3);
+        }
+        .btn-save:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(7,193,96,0.4); }
+        .btn-save:disabled { background: #d1d5db; box-shadow: none; cursor: not-allowed; transform: none; }
+        .btn-close {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+        .btn-close:hover { background: #e2e8f0; }
+
+        @media (max-width: 900px) {
+            .weread-share-container { flex-direction: column; }
+            .weread-share-preview { padding: 20px; min-height: 50vh; }
+            .weread-share-preview canvas { max-height: 50vh; }
+            .weread-share-editor { width: 100%; min-width: auto; padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <h1>📚 微信读书搜索</h1>
+                <el-button @click="goBack" style="background: rgba(255,255,255,0.2); border: none; color: white;">
+                    ← 返回工具箱
+                </el-button>
+            </div>
+        </div>
+
+        <div class="main-container">
+            <div class="content">
+                <div class="tool-section">
+                    <div class="api-key-section">
+                        <div class="api-key-label">
+                            <span>🔑</span>
+                            <span>微信读书 API Key</span>
+                            <el-tag v-if="wereadApiKey" size="small" type="success" style="margin-left: 8px;">已配置</el-tag>
+                        </div>
+                        <div class="api-key-input-wrapper">
+                            <el-input
+                                v-model="wereadApiKey"
+                                type="password"
+                                placeholder="请输入 WEREAD_API_KEY"
+                                class="api-key-input"
+                                @keyup.enter="saveWereadApiKey"
+                            ></el-input>
+                            <el-button @click="saveWereadApiKey" type="primary" size="small">💾 保存</el-button>
+                            <el-button @click="clearWereadApiKey" type="text" style="color: #909399;">清除</el-button>
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <el-button @click="openWereadSkillsPage" type="info" size="small" text>
+                                🔗 获取微信读书 SKILL APIKEY →
+                            </el-button>
+                        </div>
+                        <p style="font-size: 12px; color: #92400e; margin-top: 8px;">
+                            💡 提示：API Key 保存在浏览器 localStorage 中
+                        </p>
+                    </div>
+
+                    <div class="search-section">
+                        <div style="display: flex; gap: 12px;">
+                            <el-input
+                                v-model="wereadKeyword"
+                                placeholder="请输入书名或作者进行搜索"
+                                style="flex: 1;"
+                                @keyup.enter="searchWereadBooks"
+                            >
+                                <template #append>
+                                    <el-button @click="searchWereadBooks" type="primary">搜索</el-button>
+                                </template>
+                            </el-input>
+                        </div>
+                    </div>
+
+                    <div v-if="wereadLoading" class="loading-state">
+                        <el-icon class="is-loading" style="font-size: 24px;"><Loading /></el-icon>
+                        <span style="margin-left: 8px;">正在搜索...</span>
+                    </div>
+
+                    <div v-else-if="wereadBooks.length === 0 && !wereadKeyword" class="empty-state">
+                        <div class="empty-icon">🔍</div>
+                        <h3 class="empty-title">开始搜索书籍</h3>
+                        <p class="empty-desc">在上方搜索框中输入书名或作者，即可搜索微信读书中的书籍</p>
+                    </div>
+
+                    <div v-else-if="wereadBooks.length === 0 && wereadKeyword" class="empty-state">
+                        <div class="empty-icon">📚</div>
+                        <h3 class="empty-title">未找到相关书籍</h3>
+                        <p class="empty-desc">请尝试其他关键词</p>
+                    </div>
+
+                    <div v-else>
+                        <div style="margin-bottom: 16px; font-size: 14px; color: #606266;">
+                            找到 {{ wereadBooks.length }} 本相关书籍
+                        </div>
+                        <div class="weread-books-grid">
+                            <el-card
+                                v-for="book in wereadBooks"
+                                :key="book.bookId"
+                                class="weread-book-card"
+                                @click="selectWereadBook(book)"
+                            >
+                                <div style="display: flex; gap: 16px;">
+                                    <div v-if="book.cover" class="book-cover">
+                                        <img :src="book.cover" :alt="book.title" @error="$event.target.style.display='none'" />
+                                    </div>
+                                    <div v-else class="book-cover-placeholder">📖</div>
+                                    <div style="flex: 1; min-width: 0;">
+                                        <h4 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: #303133;">
+                                            {{ book.title }}
+                                        </h4>
+                                        <p style="font-size: 13px; color: #606266; margin-bottom: 8px;">
+                                            作者：{{ book.author }}
+                                        </p>
+                                        <div style="display: flex; align-items: center; gap: 16px; font-size: 12px;">
+                                            <span style="color: #f59e0b;">⭐ {{ book.rating }}</span>
+                                            <span style="color: #64748b;">👥 {{ formatNumber(book.ratingCount) }} 评分</span>
+                                            <span style="color: #64748b;">📖 {{ formatNumber(book.readingCount) }} 在读</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p style="margin-top: 12px; font-size: 13px; color: #909399; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                    {{ book.intro }}
+                                </p>
+                            </el-card>
+                        </div>
+                    </div>
+
+                    <div v-if="selectedWereadBook" class="weread-book-detail">
+                        <el-card style="margin-top: 20px;">
+                            <template #header>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3>{{ selectedWereadBook.title }}</h3>
+                                    <el-button @click="selectedWereadBook = null" size="small">返回列表</el-button>
+                                </div>
+                            </template>
+                            <div v-if="wereadBookDetailLoading" class="loading-state">
+                                <el-icon class="is-loading" style="font-size: 24px;"><Loading /></el-icon>
+                                <span style="margin-left: 8px;">正在获取书籍详情...</span>
+                            </div>
+                            <div v-else-if="bookDetail">
+                                <div class="weread-detail-header">
+                                    <div class="weread-detail-cover">
+                                        <img v-if="selectedWereadBook.cover" :src="selectedWereadBook.cover" :alt="selectedWereadBook.title" @error="$event.target.style.display='none'">
+                                        <span v-else>📖</span>
+                                    </div>
+                                    <div class="weread-detail-info">
+                                        <div class="weread-detail-title">{{ selectedWereadBook.title }}</div>
+                                        <div class="weread-detail-author">作者：{{ selectedWereadBook.author }}</div>
+                                        <div class="weread-detail-stats">
+                                            <div class="stat-item"><span class="stat-icon">⭐</span><span class="stat-value">{{ formatRating(selectedWereadBook.rating) }}</span></div>
+                                            <div class="stat-item"><span class="stat-icon">👥</span><span class="stat-value">{{ formatNumber(selectedWereadBook.ratingCount || 0) }} 人评分</span></div>
+                                            <div class="stat-item"><span class="stat-icon">📖</span><span class="stat-value">{{ formatNumber(selectedWereadBook.readingCount || 0) }} 人在读</span></div>
+                                        </div>
+                                        <p style="margin-top: 16px; color: #64748b; line-height: 1.6;">{{ selectedWereadBook.intro || '' }}</p>
+                                    </div>
+                                </div>
+
+                                <div class="weread-section">
+                                    <div class="weread-section-title">💬 优质点评</div>
+                                    <div v-for="(review, idx) in bookDetail.reviews" :key="idx" class="weread-review-card">
+                                        <div class="weread-review-header">
+                                            <span class="weread-review-author">{{ review.author || '匿名用户' }}</span>
+                                            <span class="weread-review-stars">{{ review.star || '' }}</span>
+                                        </div>
+                                        <div v-if="!review.expanded" class="weread-review-content-short">{{ truncateText(review.content, 120) }}</div>
+                                        <div v-else class="weread-review-content-full">{{ review.content }}</div>
+                                        <button v-if="(review.content || '').length > 120" class="weread-review-expand-btn" @click="toggleReview(idx)">
+                                            {{ review.expanded ? '收起' : '展开全部' }}
+                                        </button>
+                                        <div class="weread-review-meta">
+                                            <span>{{ review.createTime || '' }} · 👍 {{ review.likesCount || 0 }}</span>
+                                            <button class="weread-review-share-btn" @click="openShareModal('review', review)">📤 分享</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="weread-section">
+                                    <div class="weread-section-title">🔥 热门划线</div>
+                                    <div v-for="(highlight, idx) in bookDetail.highlights" :key="'h-'+idx" class="weread-highlight-card">
+                                        <div class="weread-highlight-header">
+                                            <span class="weread-highlight-chapter">📖 {{ highlight.chapterTitle }}</span>
+                                            <span class="weread-highlight-count">👥 {{ formatNumber(highlight.totalCount || 0) }}</span>
+                                        </div>
+                                        <div class="weread-highlight-text">「{{ highlight.text }}」</div>
+                                        <div style="margin-top: 8px; text-align: right;">
+                                            <button class="weread-review-share-btn" @click="openShareModal('highlight', highlight)">📤 分享划线</button>
+                                        </div>
+                                        <div v-if="highlight.top2Thoughts && highlight.top2Thoughts.length > 0" class="weread-thoughts">
+                                            <div style="font-size: 13px; color: #059669; margin-bottom: 8px; font-weight: 500;">💡 热门想法</div>
+                                            <div v-for="(thought, tidx) in highlight.top2Thoughts" :key="tidx" class="weread-thought">
+                                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                    <div class="weread-thought-author">{{ thought.author }}</div>
+                                                    <button class="weread-review-share-btn" @click="openShareModal('thought', thought, highlight.text)">📤</button>
+                                                </div>
+                                                <div class="weread-thought-content">{{ thought.content }} · 👍 {{ thought.likesCount || 0 }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </el-card>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分享弹窗 - 左右布局 -->
+        <div v-if="shareModalVisible" class="weread-share-modal active">
+            <div class="weread-share-container">
+                <!-- 左侧预览 -->
+                <div class="weread-share-preview">
+                    <canvas ref="shareCanvasRef"></canvas>
+                </div>
+                <!-- 右侧编辑区 -->
+                <div class="weread-share-editor">
+                    <div class="editor-section">
+                        <h3>选择板式</h3>
+                        <div class="layout-selector">
+                            <div 
+                                v-for="layout in layouts" 
+                                :key="layout.id"
+                                class="layout-option"
+                                :class="{ active: selectedLayout === layout.id }"
+                                @click="selectLayout(layout.id)"
+                            >
+                                <div class="layout-preview" :style="{ background: layout.preview }"></div>
+                                <div class="layout-name">{{ layout.name }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="editor-section">
+                        <h3>编辑内容</h3>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div>
+                                <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">书名</label>
+                                <el-input v-model="shareData.editTitle" size="default" placeholder="书名" @input="renderShareCanvas"></el-input>
+                            </div>
+                            <div>
+                                <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">作者</label>
+                                <el-input v-model="shareData.editAuthor" size="default" placeholder="作者" @input="renderShareCanvas"></el-input>
+                            </div>
+                            <div>
+                                <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">点评人</label>
+                                <el-input v-model="shareData.editReviewer" size="default" placeholder="点评人" @input="renderShareCanvas"></el-input>
+                            </div>
+                            <div>
+                                <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">内容</label>
+                                <el-input v-model="shareData.editContent" size="default" type="textarea" :rows="4" placeholder="点评/划线内容" @input="renderShareCanvas"></el-input>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="editor-actions">
+                        <button class="btn-save" @click="downloadShareImage" :disabled="savingImage">
+                            {{ savingImage ? '⏳ 生成中...' : '💾 保存图片' }}
+                        </button>
+                        <button class="btn-close" @click="closeShareModal">关闭</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+        const { ElMessage } = ElementPlus;
+
+        createApp({
+            setup() {
+                const wereadApiKey = ref('');
+                const wereadKeyword = ref('');
+                const wereadBooks = ref([]);
+                const wereadLoading = ref(false);
+                const selectedWereadBook = ref(null);
+                const wereadBookDetailLoading = ref(false);
+                const bookDetail = ref(null);
+                const shareModalVisible = ref(false);
+                const shareData = ref({ author: '', content: '', typeLabel: '优质点评', highlightText: '', editTitle: '', editAuthor: '', editReviewer: '', editContent: '' });
+                const shareCanvasRef = ref(null);
+                const savingImage = ref(false);
+                const selectedLayout = ref(0);
+                const coverImageCache = ref(null);
+                
+                const layouts = [
+                    { id: 0, name: '经典卡片', preview: 'linear-gradient(135deg, #faf9f5, #e8e6dc)' },
+                    { id: 1, name: '杂志封面', preview: 'linear-gradient(135deg, #8B4513, #d97757)' },
+                    { id: 2, name: '便签手账', preview: 'linear-gradient(135deg, #fff, #fef3c7)' },
+                    { id: 3, name: '海报电影', preview: 'linear-gradient(135deg, #1a1a2e, #16213e)' },
+                    { id: 4, name: '极简留白', preview: 'linear-gradient(135deg, #fff, #f5f5f5)' },
+                    { id: 5, name: '复古藏书票', preview: 'linear-gradient(135deg, #f5f0e8, #e8e4e0)' },
+                ];
+
+                const goBack = () => {
+                    window.location.href = '/toolbox';
+                };
+
+                const openWereadSkillsPage = () => {
+                    window.open('https://weread.qq.com/r/weread-skills', '_blank');
+                };
+
+                const loadWereadApiKey = () => {
+                    const saved = localStorage.getItem('weread_api_key');
+                    if (saved) {
+                        wereadApiKey.value = saved;
+                    }
+                };
+
+                const saveWereadApiKey = () => {
+                    localStorage.setItem('weread_api_key', wereadApiKey.value);
+                    if (wereadApiKey.value) {
+                        ElMessage.success('API Key 已保存');
+                    } else {
+                        ElMessage.warning('API Key 已清除');
+                    }
+                };
+
+                const clearWereadApiKey = () => {
+                    wereadApiKey.value = '';
+                    localStorage.removeItem('weread_api_key');
+                    ElMessage.warning('API Key 已清除');
+                };
+
+                const searchWereadBooks = async () => {
+                    if (!wereadKeyword.value.trim()) {
+                        ElMessage.warning('请输入搜索关键词');
+                        return;
+                    }
+
+                    if (!wereadApiKey.value) {
+                        ElMessage.warning('请先配置 API Key');
+                        return;
+                    }
+
+                    wereadLoading.value = true;
+                    wereadBooks.value = [];
+
+                    try {
+                        const response = await fetch('/api/weread/search', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ keyword: wereadKeyword.value, api_key: wereadApiKey.value })
+                        });
+                        const data = await response.json();
+                        if (data.error) {
+                            ElMessage.error(data.error);
+                        } else {
+                            wereadBooks.value = data.books || [];
+                        }
+                    } catch (error) {
+                        console.error('搜索失败:', error);
+                        ElMessage.error('搜索失败，请重试');
+                    } finally {
+                        wereadLoading.value = false;
+                    }
+                };
+
+                const selectWereadBook = async (book) => {
+                    selectedWereadBook.value = book;
+                    wereadBookDetailLoading.value = true;
+                    bookDetail.value = null;
+
+                    try {
+                        const response = await fetch('/api/weread/detail', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ bookId: book.bookId, api_key: wereadApiKey.value })
+                        });
+                        const detail = await response.json();
+                        if (detail.error) {
+                            ElMessage.error(detail.error);
+                        } else {
+                            if (detail.reviews) {
+                                detail.reviews.forEach(r => r.expanded = false);
+                            }
+                            bookDetail.value = detail;
+                        }
+                    } catch (error) {
+                        console.error('获取详情失败:', error);
+                        ElMessage.error('获取详情失败');
+                    } finally {
+                        wereadBookDetailLoading.value = false;
+                    }
+                };
+
+                const toggleReview = (idx) => {
+                    if (bookDetail.value && bookDetail.value.reviews) {
+                        bookDetail.value.reviews[idx].expanded = !bookDetail.value.reviews[idx].expanded;
+                    }
+                };
+
+                const truncateText = (text, maxLen) => {
+                    if (!text) return '';
+                    if (text.length <= maxLen) return text;
+                    return text.substring(0, maxLen) + '...';
+                };
+
+                const openShareModal = (type, data, highlightText = '') => {
+                    let typeLabel = '优质点评';
+                    let content = '';
+                    let author = '';
+                    
+                    if (type === 'review') {
+                        typeLabel = '优质点评';
+                        content = data.content || '';
+                        author = data.author || '匿名用户';
+                    } else if (type === 'highlight') {
+                        typeLabel = '热门划线';
+                        content = data.text || '';
+                        author = '微信读书';
+                    } else if (type === 'thought') {
+                        typeLabel = '热门想法';
+                        content = data.content || '';
+                        author = data.author || '匿名用户';
+                    }
+                    
+                    shareData.value = {
+                        typeLabel,
+                        content,
+                        author,
+                        highlightText,
+                        editTitle: selectedWereadBook.value?.title || '',
+                        editAuthor: selectedWereadBook.value?.author || '',
+                        editReviewer: author,
+                        editContent: content
+                    };
+                    coverImageCache.value = null;
+                    shareModalVisible.value = true;
+                    savingImage.value = false;
+                    selectedLayout.value = 0;
+                    setTimeout(() => renderShareCanvas(), 100);
+                };
+
+                const selectLayout = (id) => {
+                    selectedLayout.value = id;
+                    renderShareCanvas();
+                };
+
+                const closeShareModal = () => {
+                    shareModalVisible.value = false;
+                };
+
+                // ========== 加载封面图片 ==========
+                const loadCoverImage = (url) => {
+                    return new Promise((resolve) => {
+                        if (!url) { resolve(null); return; }
+                        if (coverImageCache.value && coverImageCache.value.src === url) {
+                            resolve(coverImageCache.value);
+                            return;
+                        }
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = () => { coverImageCache.value = img; resolve(img); };
+                        img.onerror = () => resolve(null);
+                        img.src = url;
+                    });
+                };
+
+                // ========== 测量文字排版高度 ==========
+                const measureTextHeight = (ctx, text, maxWidth, lineHeight) => {
+                    if (!text) return 0;
+                    const chars = text.split('');
+                    let line = '';
+                    let lines = 1;
+                    for (let i = 0; i < chars.length; i++) {
+                        const testLine = line + chars[i];
+                        const metrics = ctx.measureText(testLine);
+                        if (metrics.width > maxWidth && i > 0) {
+                            line = chars[i];
+                            lines++;
+                        } else {
+                            line = testLine;
+                        }
+                    }
+                    return lines * lineHeight;
+                };
+
+                // ========== 自适应字号计算 ==========
+                const calcAdaptiveFontSize = (text, maxWidth, baseSize, minSize, maxSize) => {
+                    const len = text ? text.length : 0;
+                    if (len <= 20) return Math.min(maxSize, baseSize * 1.4);
+                    if (len <= 50) return Math.min(maxSize, baseSize * 1.2);
+                    if (len <= 100) return baseSize;
+                    if (len <= 200) return Math.max(minSize, baseSize * 0.9);
+                    if (len <= 400) return Math.max(minSize, baseSize * 0.8);
+                    return Math.max(minSize, baseSize * 0.7);
+                };
+
+                const renderShareCanvas = async () => {
+                    const canvas = shareCanvasRef.value;
+                    if (!canvas) return;
+                    const ctx = canvas.getContext('2d');
+                    const W = 1080;
+
+                    const bookTitle = shareData.value.editTitle || '书名';
+                    const bookAuthor = shareData.value.editAuthor || '作者';
+                    const reviewer = shareData.value.editReviewer || '书友';
+                    const quote = shareData.value.editContent || '';
+                    const coverColor = selectedWereadBook.value?.coverColor || '#8B4513';
+                    const coverUrl = selectedWereadBook.value?.cover || '';
+
+                    // 加载封面图
+                    const coverImg = await loadCoverImage(coverUrl);
+
+                    // 计算各板式所需高度
+                    let H = 1600;
+                    switch(selectedLayout.value) {
+                        case 0: H = calcClassicHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                        case 1: H = calcMagazineHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                        case 2: H = calcStickyHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                        case 3: H = calcPosterHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                        case 4: H = calcMinimalHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                        case 5: H = calcVintageHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                    }
+                    H = Math.max(1200, Math.min(2400, H));
+
+                    const displayScale = Math.min(420 / W, 750 / H);
+                    canvas.width = W * displayScale;
+                    canvas.height = H * displayScale;
+                    ctx.scale(displayScale, displayScale);
+
+                    switch(selectedLayout.value) {
+                        case 0: drawClassicCard(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                        case 1: drawMagazineCover(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                        case 2: drawStickyNote(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                        case 3: drawPosterCinema(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                        case 4: drawMinimalWhite(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                        case 5: drawVintageExLibris(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                    }
+                };
+
+                // ========== 1. 经典卡片式 ==========
+                const calcClassicHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
+                    const quoteFontSize = calcAdaptiveFontSize(quote, 440, 26, 20, 32);
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    const quoteH = measureTextHeight(ctx, quote, 440, quoteFontSize * 1.5);
+                    return 200 + 560 + 80 + quoteH + 200;
+                };
+
+                const drawClassicCard = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
+                    ctx.fillStyle = '#faf9f5';
+                    ctx.fillRect(0, 0, W, H);
+                    ctx.fillStyle = '#d97757';
+                    ctx.fillRect(0, 0, W, 8);
+
+                    const bookW = 420, bookH = 560, bookX = 80, bookY = 140;
+                    
+                    // 阴影
+                    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+                    roundRect(ctx, bookX + 12, bookY + 12, bookW, bookH, 8);
+                    ctx.fill();
+                    
+                    if (coverImg) {
+                        // 绘制真实封面图
+                        roundRect(ctx, bookX, bookY, bookW, bookH, 8);
+                        ctx.save();
+                        ctx.clip();
+                        const imgRatio = coverImg.width / coverImg.height;
+                        const boxRatio = bookW / bookH;
+                        let sx, sy, sw, sh;
+                        if (imgRatio > boxRatio) {
+                            sh = coverImg.height;
+                            sw = sh * boxRatio;
+                            sx = (coverImg.width - sw) / 2;
+                            sy = 0;
+                        } else {
+                            sw = coverImg.width;
+                            sh = sw / boxRatio;
+                            sx = 0;
+                            sy = (coverImg.height - sh) / 2;
+                        }
+                        ctx.drawImage(coverImg, sx, sy, sw, sh, bookX, bookY, bookW, bookH);
+                        ctx.restore();
+                        // 书脊效果
+                        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                        roundRect(ctx, bookX, bookY, 12, bookH, 8, 0, 0, 8);
+                        ctx.fill();
+                    } else {
+                        ctx.fillStyle = coverColor;
+                        roundRect(ctx, bookX, bookY, bookW, bookH, 8);
+                        ctx.fill();
+                        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                        roundRect(ctx, bookX, bookY, 12, bookH, 8, 0, 0, 8);
+                        ctx.fill();
+                        ctx.fillStyle = '#fff';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.font = 'bold 42px "Noto Serif SC", serif';
+                        wrapText(ctx, bookTitle, bookX + bookW/2, bookY + bookH/2 - 30, bookW - 60, 50);
+                        ctx.font = '18px "Noto Sans SC", sans-serif';
+                        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                        ctx.fillText(bookAuthor, bookX + bookW/2, bookY + bookH/2 + 40);
+                    }
+
+                    const infoX = bookX + bookW + 60;
+                    const infoY = bookY + 40;
+
+                    ctx.fillStyle = '#d97757';
+                    roundRect(ctx, infoX, infoY, 100, 36, 18);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '14px "Noto Sans SC", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('正在读', infoX + 50, infoY + 18);
+
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.font = 'bold 48px "Noto Serif SC", serif';
+                    wrapText(ctx, bookTitle, infoX, infoY + 70, 440, 56);
+
+                    ctx.fillStyle = '#8a8a8a';
+                    ctx.font = '22px "Noto Sans SC", sans-serif';
+                    ctx.fillText(bookAuthor, infoX, infoY + 170);
+
+                    ctx.strokeStyle = '#e8e6dc';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(infoX, infoY + 220);
+                    ctx.lineTo(infoX + 440, infoY + 220);
+                    ctx.stroke();
+
+                    const quoteFontSize = calcAdaptiveFontSize(quote, 440, 26, 20, 32);
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    wrapText(ctx, quote, infoX, infoY + 260, 440, quoteFontSize * 1.5);
+
+                    ctx.fillStyle = '#d97757';
+                    ctx.font = '72px "Noto Serif SC", serif';
+                    ctx.fillText('"', infoX - 10, infoY + 250);
+
+                    const bottomY = H - 120;
+                    ctx.fillStyle = '#8a8a8a';
+                    ctx.font = '20px "Noto Sans SC", sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('—— ' + reviewer + ' 的读书笔记', 80, bottomY);
+
+                    ctx.textAlign = 'right';
+                    ctx.fillText('微信读书', W - 80, bottomY);
+
+                    ctx.strokeStyle = '#d97757';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(80, H - 60);
+                    ctx.lineTo(W - 80, H - 60);
+                    ctx.stroke();
+                };
+
+                // ========== 2. 杂志封面式 ==========
+                const calcMagazineHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 160, 28, 20, 34);
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    const quoteH = measureTextHeight(ctx, quote, W - 160, quoteFontSize * 1.6);
+                    return 900 + quoteH + 200;
+                };
+
+                const drawMagazineCover = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
+                    if (coverImg) {
+                        // 封面图作为上半部分背景
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.rect(0, 0, W, H * 0.55);
+                        ctx.clip();
+                        const imgRatio = coverImg.width / coverImg.height;
+                        const boxRatio = W / (H * 0.55);
+                        let sx, sy, sw, sh;
+                        if (imgRatio > boxRatio) {
+                            sh = coverImg.height;
+                            sw = sh * boxRatio;
+                            sx = (coverImg.width - sw) / 2;
+                            sy = 0;
+                        } else {
+                            sw = coverImg.width;
+                            sh = sw / boxRatio;
+                            sx = 0;
+                            sy = (coverImg.height - sh) / 2;
+                        }
+                        ctx.drawImage(coverImg, sx, sy, sw, sh, 0, 0, W, H * 0.55);
+                        // 暗化遮罩保证文字可读
+                        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+                        ctx.fillRect(0, 0, W, H * 0.55);
+                        ctx.restore();
+                    } else {
+                        ctx.fillStyle = coverColor;
+                        ctx.fillRect(0, 0, W, H * 0.55);
+                    }
+
+                    const grad = ctx.createLinearGradient(0, H * 0.45, 0, H * 0.55);
+                    grad.addColorStop(0, coverImg ? 'rgba(0,0,0,0.3)' : coverColor);
+                    grad.addColorStop(1, '#faf9f5');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, H * 0.45, W, H * 0.1);
+
+                    ctx.fillStyle = '#faf9f5';
+                    ctx.fillRect(0, H * 0.55, W, H * 0.45);
+
+                    ctx.fillStyle = '#fff';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    const titleFontSize = calcAdaptiveFontSize(bookTitle, W - 160, 68, 48, 80);
+                    ctx.font = 'bold ' + titleFontSize + 'px "Noto Serif SC", serif';
+                    wrapText(ctx, bookTitle, W/2, H * 0.25, W - 160, titleFontSize * 1.15);
+
+                    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                    ctx.font = '24px "Noto Sans SC", sans-serif';
+                    ctx.fillText(bookAuthor, W/2, H * 0.32);
+
+                    ctx.fillStyle = '#d97757';
+                    roundRect(ctx, W/2 - 60, H * 0.37, 120, 36, 18);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '13px "Noto Sans SC", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText("EDITOR'S PICK", W/2, H * 0.37 + 18);
+
+                    const contentY = H * 0.58;
+
+                    ctx.fillStyle = '#d97757';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.font = '15px "Noto Sans SC", sans-serif';
+                    ctx.fillText('读书笔记', 80, contentY);
+
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 160, 28, 20, 34);
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    wrapText(ctx, quote, 80, contentY + 45, W - 160, quoteFontSize * 1.6);
+
+                    ctx.fillStyle = '#d97757';
+                    ctx.font = '90px "Noto Serif SC", serif';
+                    ctx.fillText('"', 55, contentY + 25);
+
+                    const barY = H - 160;
+                    ctx.strokeStyle = '#1a1a1a';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(60, barY);
+                    ctx.lineTo(W - 60, barY);
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#8a8a8a';
+                    ctx.font = '18px "Noto Sans SC", sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(reviewer, 80, barY + 45);
+
+                    ctx.textAlign = 'right';
+                    ctx.fillText('微信读书 · 分享', W - 80, barY + 45);
+
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#d97757';
+                    ctx.font = '13px "Noto Sans SC", sans-serif';
+                    ctx.fillText('VOL.01', W/2, barY + 45);
+                };
+
+                // ========== 3. 便签/手账式 ==========
+                const calcStickyHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 24, 18, 30);
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    const quoteH = measureTextHeight(ctx, quote, W - 300, quoteFontSize * 1.6);
+                    return 200 + 200 + quoteH + 200;
+                };
+
+                const drawStickyNote = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
+                    ctx.fillStyle = '#f5f3ee';
+                    ctx.fillRect(0, 0, W, H);
+
+                    ctx.strokeStyle = 'rgba(200,200,190,0.25)';
+                    ctx.lineWidth = 1;
+                    for(let x = 0; x < W; x += 40) {
+                        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+                    }
+                    for(let y = 0; y < H; y += 40) {
+                        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+                    }
+
+                    const padX = 100, padY = 100, padW = W - 200;
+                    const padH = H - 200;
+
+                    ctx.fillStyle = 'rgba(0,0,0,0.06)';
+                    roundRect(ctx, padX + 8, padY + 8, padW, padH, 4);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#fffdf5';
+                    roundRect(ctx, padX, padY, padW, padH, 4);
+                    ctx.fill();
+
+                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                    roundRect(ctx, padX + padW/2 - 80, padY - 15, 160, 40, 2);
+                    ctx.fill();
+
+                    ctx.strokeStyle = 'rgba(200,195,180,0.4)';
+                    ctx.lineWidth = 1;
+                    for(let i = 0; i < 25; i++) {
+                        const y = padY + 100 + i * 55;
+                        if(y < padY + padH - 40) {
+                            ctx.beginPath();
+                            ctx.moveTo(padX + 40, y);
+                            ctx.lineTo(padX + padW - 40, y);
+                            ctx.stroke();
+                        }
+                    }
+
+                    // 封面区域
+                    const coverW = 100, coverH = 130, coverX = padX + 40, coverY = padY + 40;
+                    if (coverImg) {
+                        roundRect(ctx, coverX, coverY, coverW, coverH, 4);
+                        ctx.save();
+                        ctx.clip();
+                        const imgRatio = coverImg.width / coverImg.height;
+                        const boxRatio = coverW / coverH;
+                        let sx, sy, sw, sh;
+                        if (imgRatio > boxRatio) {
+                            sh = coverImg.height;
+                            sw = sh * boxRatio;
+                            sx = (coverImg.width - sw) / 2;
+                            sy = 0;
+                        } else {
+                            sw = coverImg.width;
+                            sh = sw / boxRatio;
+                            sx = 0;
+                            sy = (coverImg.height - sh) / 2;
+                        }
+                        ctx.drawImage(coverImg, sx, sy, sw, sh, coverX, coverY, coverW, coverH);
+                        ctx.restore();
+                    } else {
+                        ctx.fillStyle = coverColor;
+                        roundRect(ctx, coverX, coverY, coverW, coverH, 4);
+                        ctx.fill();
+                        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+                        roundRect(ctx, coverX, coverY, 8, coverH, 4, 0, 0, 4);
+                        ctx.fill();
+                    }
+
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.font = 'bold 32px "Noto Serif SC", serif';
+                    ctx.fillText(bookTitle, padX + 160, padY + 45);
+
+                    ctx.fillStyle = '#8a8a8a';
+                    ctx.font = '16px "Noto Sans SC", sans-serif';
+                    ctx.fillText(bookAuthor, padX + 160, padY + 90);
+
+                    const quoteFontSize = calcAdaptiveFontSize(quote, padW - 100, 24, 18, 30);
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    wrapText(ctx, quote, padX + 50, padY + 200, padW - 100, quoteFontSize * 1.6);
+
+                    ctx.fillStyle = 'rgba(255,235,100,0.5)';
+                    roundRect(ctx, padX + 45, padY + 200 + quoteFontSize * 1.6 * 2, 280, 30, 3);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#d97757';
+                    ctx.textAlign = 'right';
+                    ctx.textBaseline = 'bottom';
+                    ctx.font = '24px "Noto Sans SC", sans-serif';
+                    ctx.fillText('—— ' + reviewer, padX + padW - 50, padY + padH - 50);
+
+                    ctx.fillStyle = '#8a8a8a';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    ctx.font = '14px "Noto Sans SC", sans-serif';
+                    ctx.fillText('微信读书', W/2, H - 60);
+                };
+
+                // ========== 4. 海报电影感 ==========
+                const calcPosterHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 200, 28, 20, 34);
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    const quoteH = measureTextHeight(ctx, quote, W - 200, quoteFontSize * 1.7);
+                    return 600 + quoteH + 200;
+                };
+
+                const drawPosterCinema = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
+                    if (coverImg) {
+                        // 全背景封面图
+                        ctx.save();
+                        const imgRatio = coverImg.width / coverImg.height;
+                        const boxRatio = W / H;
+                        let sx, sy, sw, sh;
+                        if (imgRatio > boxRatio) {
+                            sh = coverImg.height;
+                            sw = sh * boxRatio;
+                            sx = (coverImg.width - sw) / 2;
+                            sy = 0;
+                        } else {
+                            sw = coverImg.width;
+                            sh = sw / boxRatio;
+                            sx = 0;
+                            sy = (coverImg.height - sh) / 2;
+                        }
+                        ctx.drawImage(coverImg, sx, sy, sw, sh, 0, 0, W, H);
+                        ctx.restore();
+                        // 深色遮罩
+                        ctx.fillStyle = 'rgba(10,10,25,0.82)';
+                        ctx.fillRect(0, 0, W, H);
+                    } else {
+                        const c = hexToRgb(coverColor);
+                        ctx.fillStyle = `rgb(${Math.round(c.r * 0.25)}, ${Math.round(c.g * 0.25)}, ${Math.round(c.b * 0.28)})`;
+                        ctx.fillRect(0, 0, W, H);
+                        ctx.fillStyle = `rgba(${Math.round(c.r * 0.4)}, ${Math.round(c.g * 0.4)}, ${Math.round(c.b * 0.45)}, 0.4)`;
+                        ctx.fillRect(0, H * 0.6, W, H * 0.4);
+                    }
+
+                    ctx.fillStyle = '#d97757';
+                    ctx.fillRect(60, H * 0.38, 6, 360);
+
+                    ctx.fillStyle = '#fff';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    const titleFontSize = calcAdaptiveFontSize(bookTitle, W - 200, 84, 56, 100);
+                    ctx.font = 'bold ' + titleFontSize + 'px "Noto Serif SC", serif';
+                    wrapText(ctx, bookTitle, 100, 140, W - 200, titleFontSize * 1.15);
+
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                    ctx.font = '13px "Noto Sans SC", sans-serif';
+                    ctx.fillText('A NOVEL BY ' + bookAuthor.toUpperCase(), 100, 280);
+
+                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                    ctx.font = '22px "Noto Sans SC", sans-serif';
+                    ctx.fillText(bookAuthor, 100, 320);
+
+                    ctx.strokeStyle = '#d97757';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(100, 390);
+                    ctx.lineTo(300, 390);
+                    ctx.stroke();
+
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 200, 28, 20, 34);
+                    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    wrapText(ctx, quote, 100, H * 0.48, W - 200, quoteFontSize * 1.7);
+
+                    ctx.fillStyle = '#d97757';
+                    ctx.font = '110px "Noto Serif SC", serif';
+                    ctx.fillText('"', 75, H * 0.45);
+
+                    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                    ctx.font = '16px "Noto Sans SC", sans-serif';
+                    ctx.fillText(reviewer + '  |  微信读书', 100, H - 100);
+
+                    ctx.fillStyle = '#d97757';
+                    ctx.fillRect(W - 120, H - 120, 60, 60);
+                    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                    ctx.fillRect(W - 100, H - 100, 60, 60);
+                };
+
+                // ========== 5. 极简留白式 ==========
+                const calcMinimalHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 26, 20, 32);
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    const quoteH = measureTextHeight(ctx, quote, W - 300, quoteFontSize * 1.7);
+                    return 600 + quoteH + 200;
+                };
+
+                const drawMinimalWhite = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
+                    ctx.fillStyle = '#faf9f5';
+                    ctx.fillRect(0, 0, W, H);
+
+                    ctx.strokeStyle = '#1a1a1a';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(60, 60, W - 120, H - 120);
+
+                    ctx.strokeStyle = '#8a8a8a';
+                    ctx.lineWidth = 0.5;
+                    ctx.strokeRect(80, 80, W - 160, H - 160);
+
+                    // 封面小图在顶部
+                    if (coverImg) {
+                        const cw = 120, ch = 160, cx = W/2 - cw/2, cy = 110;
+                        roundRect(ctx, cx, cy, cw, ch, 4);
+                        ctx.save();
+                        ctx.clip();
+                        const imgRatio = coverImg.width / coverImg.height;
+                        const boxRatio = cw / ch;
+                        let sx, sy, sw, sh;
+                        if (imgRatio > boxRatio) {
+                            sh = coverImg.height;
+                            sw = sh * boxRatio;
+                            sx = (coverImg.width - sw) / 2;
+                            sy = 0;
+                        } else {
+                            sw = coverImg.width;
+                            sh = sw / boxRatio;
+                            sx = 0;
+                            sy = (coverImg.height - sh) / 2;
+                        }
+                        ctx.drawImage(coverImg, sx, sy, sw, sh, cx, cy, cw, ch);
+                        ctx.restore();
+                    }
+
+                    ctx.fillStyle = '#8a8a8a';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.font = '12px "Noto Sans SC", sans-serif';
+                    ctx.fillText('WECHAT READING', W/2, coverImg ? 290 : 110);
+
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.textBaseline = 'middle';
+                    const titleFontSize = calcAdaptiveFontSize(bookTitle, W - 200, 60, 40, 72);
+                    ctx.font = 'bold ' + titleFontSize + 'px "Noto Serif SC", serif';
+                    const titleY = coverImg ? 340 : 300;
+                    wrapText(ctx, bookTitle, W/2, titleY, W - 200, titleFontSize * 1.15);
+
+                    ctx.fillStyle = '#8a8a8a';
+                    ctx.font = '17px "Noto Sans SC", sans-serif';
+                    ctx.fillText(bookAuthor, W/2, titleY + titleFontSize * 1.15 + 30);
+
+                    ctx.strokeStyle = '#1a1a1a';
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(W/2 - 100, titleY + titleFontSize * 1.15 + 70);
+                    ctx.lineTo(W/2 + 100, titleY + titleFontSize * 1.15 + 70);
+                    ctx.stroke();
+
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 26, 20, 32);
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    const quoteY = titleY + titleFontSize * 1.15 + 110;
+                    wrapText(ctx, quote, W/2, quoteY, W - 300, quoteFontSize * 1.7);
+
+                    const quoteH = measureTextHeight(ctx, quote, W - 300, quoteFontSize * 1.7);
+                    ctx.fillStyle = '#8a8a8a';
+                    ctx.font = '15px "Noto Sans SC", sans-serif';
+                    ctx.fillText('—— ' + reviewer, W/2, quoteY + quoteH + 40);
+
+                    ctx.fillStyle = '#d97757';
+                    ctx.beginPath();
+                    ctx.arc(W/2, H - 80, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                };
+
+                // ========== 6. 复古藏书票式 ==========
+                const calcVintageHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 24, 18, 30);
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    const quoteH = measureTextHeight(ctx, quote, W - 300, quoteFontSize * 1.7);
+                    return 700 + quoteH + 200;
+                };
+
+                const drawVintageExLibris = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
+                    ctx.fillStyle = '#f5f0e8';
+                    ctx.fillRect(0, 0, W, H);
+
+                    ctx.strokeStyle = '#1a1a1a';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(80, 80, W - 160, H - 160);
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(90, 90, W - 180, H - 180);
+
+                    drawCorner(ctx, 90, 90, 1, 1);
+                    drawCorner(ctx, W - 90, 90, -1, 1);
+                    drawCorner(ctx, 90, H - 90, 1, -1);
+                    drawCorner(ctx, W - 90, H - 90, -1, -1);
+
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.font = '13px "Noto Serif SC", serif';
+                    ctx.fillText('EX  LIBRIS', W/2, 120);
+
+                    ctx.strokeStyle = '#1a1a1a';
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(W/2 - 80, 150);
+                    ctx.lineTo(W/2 + 80, 150);
+                    ctx.stroke();
+
+                    // 封面区域
+                    const coverW = 300, coverH = 380, coverX = W/2 - coverW/2, coverY = 180;
+                    if (coverImg) {
+                        roundRect(ctx, coverX, coverY, coverW, coverH, 4);
+                        ctx.save();
+                        ctx.clip();
+                        const imgRatio = coverImg.width / coverImg.height;
+                        const boxRatio = coverW / coverH;
+                        let sx, sy, sw, sh;
+                        if (imgRatio > boxRatio) {
+                            sh = coverImg.height;
+                            sw = sh * boxRatio;
+                            sx = (coverImg.width - sw) / 2;
+                            sy = 0;
+                        } else {
+                            sw = coverImg.width;
+                            sh = sw / boxRatio;
+                            sx = 0;
+                            sy = (coverImg.height - sh) / 2;
+                        }
+                        ctx.drawImage(coverImg, sx, sy, sw, sh, coverX, coverY, coverW, coverH);
+                        ctx.restore();
+                        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(coverX + 10, coverY + 10, coverW - 20, coverH - 20);
+                    } else {
+                        const c = hexToRgb(coverColor);
+                        ctx.fillStyle = `rgb(${Math.round(c.r * 0.8)}, ${Math.round(c.g * 0.8)}, ${Math.round(c.b * 0.8)})`;
+                        ctx.fillRect(coverX, coverY, coverW, coverH);
+                        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(coverX + 10, coverY + 10, coverW - 20, coverH - 20);
+                        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(coverX + 30, coverY + 80); ctx.lineTo(coverX + coverW - 30, coverY + 80); ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(coverX + 30, coverY + 120); ctx.lineTo(coverX + coverW - 30, coverY + 120); ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(coverX + 30, coverY + 160); ctx.lineTo(coverX + coverW - 30, coverY + 160); ctx.stroke();
+                        ctx.fillStyle = '#fff';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.font = 'bold 32px "Noto Serif SC", serif';
+                        wrapText(ctx, bookTitle, W/2, coverY + coverH/2 - 10, 260, 40);
+                        ctx.font = '15px "Noto Sans SC", sans-serif';
+                        ctx.fillText(bookAuthor, W/2, coverY + coverH/2 + 50);
+                    }
+
+                    ctx.strokeStyle = '#1a1a1a';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(W/2 - 60, coverY + coverH + 30);
+                    ctx.lineTo(W/2 + 60, coverY + coverH + 30);
+                    ctx.stroke();
+                    ctx.fillStyle = '#d97757';
+                    ctx.beginPath();
+                    ctx.arc(W/2, coverY + coverH + 30, 5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 24, 18, 30);
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    const quoteY = coverY + coverH + 70;
+                    wrapText(ctx, quote, W/2, quoteY, W - 300, quoteFontSize * 1.7);
+
+                    const quoteH = measureTextHeight(ctx, quote, W - 300, quoteFontSize * 1.7);
+                    ctx.fillStyle = '#8a8a8a';
+                    ctx.font = '15px "Noto Sans SC", sans-serif';
+                    ctx.fillText(reviewer + ' 藏书', W/2, quoteY + quoteH + 40);
+
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.font = '11px "Noto Sans SC", sans-serif';
+                    ctx.fillText('2024', W/2, H - 130);
+                };
+
+                // 辅助函数
+                const roundRect = (ctx, x, y, w, h, r1, r2, r3, r4) => {
+                    const r = [r1 || 0, r2 || 0, r3 || 0, r4 || 0];
+                    ctx.beginPath();
+                    ctx.moveTo(x + r[0], y);
+                    ctx.lineTo(x + w - r[1], y);
+                    ctx.quadraticCurveTo(x + w, y, x + w, y + r[1]);
+                    ctx.lineTo(x + w, y + h - r[2]);
+                    ctx.quadraticCurveTo(x + w, y + h, x + w - r[2], y + h);
+                    ctx.lineTo(x + r[3], y + h);
+                    ctx.quadraticCurveTo(x, y + h, x, y + h - r[3]);
+                    ctx.lineTo(x, y + r[0]);
+                    ctx.quadraticCurveTo(x, y, x + r[0], y);
+                    ctx.closePath();
+                };
+
+                const wrapText = (ctx, text, x, y, maxWidth, lineHeight) => {
+                    if (!text) return y;
+                    const chars = text.split('');
+                    let line = '';
+                    let lineY = y;
+                    for(let i = 0; i < chars.length; i++) {
+                        const testLine = line + chars[i];
+                        const metrics = ctx.measureText(testLine);
+                        if(metrics.width > maxWidth && i > 0) {
+                            ctx.fillText(line, x, lineY);
+                            line = chars[i];
+                            lineY += lineHeight;
+                        } else {
+                            line = testLine;
+                        }
+                    }
+                    ctx.fillText(line, x, lineY);
+                    return lineY + lineHeight;
+                };
+
+                const hexToRgb = (hex) => {
+                    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                    return result ? {
+                        r: parseInt(result[1], 16),
+                        g: parseInt(result[2], 16),
+                        b: parseInt(result[3], 16)
+                    } : { r: 139, g: 69, b: 19 };
+                };
+
+                const drawCorner = (ctx, x, y, sx, sy) => {
+                    const size = 30;
+                    ctx.strokeStyle = '#1a1a1a';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y + sy * size);
+                    ctx.lineTo(x, y);
+                    ctx.lineTo(x + sx * size, y);
+                    ctx.stroke();
+                    ctx.fillStyle = '#d97757';
+                    ctx.beginPath();
+                    ctx.arc(x + sx * size * 0.3, y + sy * size * 0.3, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                };
+
+                const downloadShareImage = async () => {
+                    if (!shareCanvasRef.value || savingImage.value) return;
+                    savingImage.value = true;
+                    
+                    try {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const W = 1080;
+
+                        const bookTitle = shareData.value.editTitle || '书名';
+                        const bookAuthor = shareData.value.editAuthor || '作者';
+                        const reviewer = shareData.value.editReviewer || '书友';
+                        const quote = shareData.value.editContent || '';
+                        const coverColor = selectedWereadBook.value?.coverColor || '#8B4513';
+                        const coverUrl = selectedWereadBook.value?.cover || '';
+
+                        const coverImg = await loadCoverImage(coverUrl);
+
+                        let H = 1600;
+                        switch(selectedLayout.value) {
+                            case 0: H = calcClassicHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                            case 1: H = calcMagazineHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                            case 2: H = calcStickyHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                            case 3: H = calcPosterHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                            case 4: H = calcMinimalHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                            case 5: H = calcVintageHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
+                        }
+                        H = Math.max(1200, Math.min(2400, H));
+
+                        canvas.width = W;
+                        canvas.height = H;
+
+                        switch(selectedLayout.value) {
+                            case 0: drawClassicCard(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                            case 1: drawMagazineCover(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                            case 2: drawStickyNote(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                            case 3: drawPosterCinema(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                            case 4: drawMinimalWhite(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                            case 5: drawVintageExLibris(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
+                        }
+
+                        const link = document.createElement('a');
+                        link.download = 'weread-share-' + layouts.find(l => l.id === selectedLayout.value)?.name + '.png';
+                        link.href = canvas.toDataURL('image/png');
+                        link.click();
+                        ElMessage.success('图片已保存');
+                    } catch (err) {
+                        console.error('保存图片失败:', err);
+                        ElMessage.error('保存图片失败');
+                    } finally {
+                        savingImage.value = false;
+                    }
+                };
+
+                const getAvatarColor = (name) => {
+                    const colors = ['#07c160', '#409eff', '#e6a23c', '#f56c6c', '#909399', '#67c23a'];
+                    if (!name) return colors[0];
+                    return colors[name.charCodeAt(0) % colors.length];
+                };
+
+                const formatRating = (rating) => {
+                    let r = rating;
+                    if (r > 10) {
+                        r = Math.round(r / 10);
+                    }
+                    return r > 0 ? r.toFixed(1) + ' 分' : '暂无评分';
+                };
+
+                const formatNumber = (num) => {
+                    if (num >= 10000) {
+                        return (num / 10000).toFixed(1) + '万';
+                    }
+                    return num.toString();
+                };
+
+                onMounted(() => {
+                    loadWereadApiKey();
+                });
+
+                return {
+                    wereadApiKey,
+                    wereadKeyword,
+                    wereadBooks,
+                    wereadLoading,
+                    selectedWereadBook,
+                    wereadBookDetailLoading,
+                    bookDetail,
+                    shareModalVisible,
+                    shareData,
+                    shareCanvasRef,
+                    savingImage,
+                    selectedLayout,
+                    layouts,
+                    goBack,
+                    openWereadSkillsPage,
+                    saveWereadApiKey,
+                    clearWereadApiKey,
+                    searchWereadBooks,
+                    selectWereadBook,
+                    toggleReview,
+                    truncateText,
+                    openShareModal,
+                    closeShareModal,
+                    downloadShareImage,
+                    selectLayout,
+                    renderShareCanvas,
+                    getAvatarColor,
+                    formatRating,
+                    formatNumber
+                };
+            }
+        }).use(ElementPlus).mount('#app');
+    </script>
+</body>
+</html>

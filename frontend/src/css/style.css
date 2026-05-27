@@ -1716,3 +1716,149 @@ body {
     margin-right: 8px;
     vertical-align: middle;
 }
+
+/* ========================================
+   🛠️ 工具箱页面样式
+   ======================================== */
+
+/* 工具区域 */
+.tool-section {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* 书籍卡片网格 */
+.weread-books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 16px;
+}
+
+/* 书籍卡片 */
+.weread-book-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid #e4e7ed;
+}
+
+.weread-book-card:hover {
+    border-color: #07c160;
+    box-shadow: 0 4px 12px rgba(7, 193, 96, 0.15);
+    transform: translateY(-2px);
+}
+
+/* 书籍封面 */
+.book-cover {
+    width: 80px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.book-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.book-cover-placeholder {
+    width: 80px;
+    height: 100px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #07c160, #10b981);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    flex-shrink: 0;
+}
+
+/* 书籍详情 */
+.weread-book-detail {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 飞书消息容器 */
+.feishu-messages-container {
+    max-height: 500px;
+    overflow-y: auto;
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 16px;
+}
+
+/* 飞书消息项 */
+.feishu-message-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s ease;
+}
+
+.feishu-message-item:hover {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+/* 消息头像 */
+.message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00b42a, #10b981);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #fff;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+/* 消息内容 */
+.message-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.message-sender {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 14px;
+}
+
+.message-time {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.message-body {
+    font-size: 14px;
+    color: #475569;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+/* 搜索区域 */
+.search-section {
+    margin: 16px 0;
+}
