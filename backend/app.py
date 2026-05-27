@@ -98,6 +98,19 @@ def create_app(config_name='default'):
     def modular():
         return send_from_directory(app.static_folder, 'index_modular.html')
 
+    @app.route('/toolbox')
+    @app.route('/toolbox.html')
+    def toolbox():
+        return send_from_directory(app.static_folder, 'toolbox.html')
+
+    @app.route('/toolbox/weread')
+    def toolbox_weread():
+        return send_from_directory(app.static_folder, 'toolbox_weread.html')
+
+    @app.route('/toolbox/feishu')
+    def toolbox_feishu():
+        return send_from_directory(app.static_folder, 'toolbox_feishu.html')
+
     @app.route('/health')
     def health():
         return jsonify({'status': 'ok'})
@@ -139,9 +152,9 @@ def create_app(config_name='default'):
 
 def register_routes(app):
     try:
-        from backend.api import papers, ingest, notes, articles, ai, wechat_subscription, wechat_subscriptions, search, note_images, web_extract, backup, export
+        from backend.api import papers, ingest, notes, articles, ai, wechat_subscription, wechat_subscriptions, search, note_images, web_extract, backup, export, weread
     except ImportError:
-        from api import papers, ingest, notes, articles, ai, wechat_subscription, wechat_subscriptions, search, note_images, web_extract, backup, export
+        from api import papers, ingest, notes, articles, ai, wechat_subscription, wechat_subscriptions, search, note_images, web_extract, backup, export, weread
 
     app.register_blueprint(papers.bp, url_prefix='/api')
     app.register_blueprint(ingest.bp, url_prefix='/api')
@@ -152,6 +165,7 @@ def register_routes(app):
     app.register_blueprint(web_extract.bp, url_prefix='/api')
     app.register_blueprint(backup.bp, url_prefix='/api')
     app.register_blueprint(export.bp, url_prefix='/api')
+    app.register_blueprint(weread.bp, url_prefix='/api')
     notes.get_note_routes(app)
     articles.get_article_routes(app)
     wechat_subscriptions.get_subscription_routes(app)

@@ -9,7 +9,7 @@ echo "========================================="
 echo ""
 
 # 使用 python3
-PYTHON="python3"
+PYTHON="/opt/anaconda3/envs/py38/bin/python"
 
 echo "Using Python: $PYTHON"
 echo ""

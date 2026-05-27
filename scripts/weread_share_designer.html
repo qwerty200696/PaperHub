@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信读书分享卡片设计器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --dark: #1a1a1a;
+            --light: #faf9f5;
+            --mid-gray: #b0aea5;
+            --light-gray: #e8e6dc;
+            --orange: #d97757;
+            --blue: #6a9bcc;
+            --green: #788c5d;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, var(--light) 0%, #f5f3ee 100%);
+            min-height: 100vh;
+            color: var(--dark);
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .sidebar {
+            width: 360px;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(20, 20, 19, 0.1);
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-height: 100vh;
+        }
+
+        .sidebar h1 {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 4px;
+        }
+
+        .sidebar .subtitle {
+            color: var(--mid-gray);
+            font-size: 13px;
+            margin-bottom: 24px;
+            line-height: 1.4;
+        }
+
+        .control-section {
+            margin-bottom: 24px;
+        }
+
+        .control-section h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-section h3::before {
+            content: '•';
+            color: var(--orange);
+            font-weight: bold;
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .layout-btn {
+            padding: 10px 8px;
+            border: 2px solid var(--light-gray);
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            text-align: center;
+            transition: all 0.2s ease;
+            color: var(--dark);
+        }
+
+        .layout-btn:hover {
+            border-color: var(--orange);
+            color: var(--orange);
+        }
+
+        .layout-btn.active {
+            border-color: var(--orange);
+            background: rgba(217, 119, 87, 0.08);
+            color: var(--orange);
+        }
+
+        .control-group {
+            margin-bottom: 16px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--dark);
+            margin-bottom: 6px;
+        }
+
+        .control-group input[type="text"],
+        .control-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: 'Noto Sans SC', sans-serif;
+            background: var(--light);
+            transition: all 0.2s ease;
+        }
+
+        .control-group input[type="text"]:focus,
+        .control-group textarea:focus {
+            outline: none;
+            border-color: var(--orange);
+            box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.1);
+            background: white;
+        }
+
+        .control-group textarea {
+            resize: vertical;
+            min-height: 60px;
+            line-height: 1.6;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: var(--light-gray);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--orange);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .value-display {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: var(--mid-gray);
+            min-width: 50px;
+            text-align: right;
+        }
+
+        .color-group {
+            margin-bottom: 12px;
+        }
+
+        .color-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--mid-gray);
+            margin-bottom: 4px;
+        }
+
+        .color-picker-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .color-picker-container input[type="color"] {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: none;
+            padding: 0;
+        }
+
+        .color-value {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: var(--mid-gray);
+        }
+
+        .button {
+            background: var(--orange);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .button:hover {
+            background: #c86641;
+            transform: translateY(-1px);
+        }
+
+        .button.secondary {
+            background: var(--blue);
+        }
+
+        .button.secondary:hover {
+            background: #5a8bb8;
+        }
+
+        .button.tertiary {
+            background: var(--green);
+        }
+
+        .button.tertiary:hover {
+            background: #6b7b52;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .button-row .button {
+            flex: 1;
+        }
+
+        .canvas-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        #canvas-container {
+            width: 100%;
+            max-width: 480px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(20, 20, 19, 0.15);
+            background: white;
+        }
+
+        #canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        .hint {
+            font-size: 11px;
+            color: var(--mid-gray);
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                max-height: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>微信读书分享卡片设计器</h1>
+            <div class="subtitle">设计精美的书籍分享图片，支持多种板式切换</div>
+
+            <div class="control-section">
+                <h3>板式选择</h3>
+                <div class="layout-grid">
+                    <div class="layout-btn active" onclick="setLayout(0)" id="layout-0">经典卡片</div>
+                    <div class="layout-btn" onclick="setLayout(1)" id="layout-1">杂志封面</div>
+                    <div class="layout-btn" onclick="setLayout(2)" id="layout-2">便签手账</div>
+                    <div class="layout-btn" onclick="setLayout(3)" id="layout-3">海报电影</div>
+                    <div class="layout-btn" onclick="setLayout(4)" id="layout-4">极简留白</div>
+                    <div class="layout-btn" onclick="setLayout(5)" id="layout-5">复古藏书票</div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>书籍信息</h3>
+                <div class="control-group">
+                    <label>书名</label>
+                    <input type="text" id="bookTitle" value="百年孤独" oninput="updateContent()">
+                </div>
+                <div class="control-group">
+                    <label>作者</label>
+                    <input type="text" id="bookAuthor" value="加西亚·马尔克斯" oninput="updateContent()">
+                </div>
+                <div class="control-group">
+                    <label>点评人</label>
+                    <input type="text" id="reviewer" value="书友小明" oninput="updateContent()">
+                </div>
+                <div class="control-group">
+                    <label>点评/划线内容</label>
+                    <textarea id="quote" rows="4" oninput="updateContent()">多年以后，面对行刑队，奥雷里亚诺·布恩迪亚上校将会回想起父亲带他去见识冰块的那个遥远的下午。</textarea>
+                </div>
+                <div class="control-group">
+                    <label>书封颜色（用于纯色替代）</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="coverColor" value="#8B4513" onchange="updateContent()">
+                        <span class="color-value" id="coverColor-value">#8B4513</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>样式参数</h3>
+                <div class="control-group">
+                    <label>背景色</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="bgColor" value="#faf9f5" onchange="updateContent()">
+                        <span class="color-value" id="bgColor-value">#faf9f5</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>主文字色</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="textColor" value="#1a1a1a" onchange="updateContent()">
+                        <span class="color-value" id="textColor-value">#1a1a1a</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>辅助文字色</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="subTextColor" value="#8a8a8a" onchange="updateContent()">
+                        <span class="color-value" id="subTextColor-value">#8a8a8a</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>强调色</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="accentColor" value="#d97757" onchange="updateContent()">
+                        <span class="color-value" id="accentColor-value">#d97757</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>装饰元素透明度</label>
+                    <div class="slider-container">
+                        <input type="range" id="decoOpacity" min="0" max="100" value="30" oninput="updateParam('decoOpacity', this.value)">
+                        <span class="value-display" id="decoOpacity-value">30</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>操作</h3>
+                <div class="button-row">
+                    <button class="button" onclick="downloadImage()">下载图片</button>
+                    <button class="button secondary" onclick="randomizeStyle()">随机风格</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-area">
+            <div id="canvas-container">
+                <div style="padding:40px;text-align:center;color:#b0aea5;">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentLayout = 0;
+        let canvas;
+        const W = 1080;
+        const H = 1920;
+
+        let content = {
+            bookTitle: "百年孤独",
+            bookAuthor: "加西亚·马尔克斯",
+            reviewer: "书友小明",
+            quote: "多年以后，面对行刑队，奥雷里亚诺·布恩迪亚上校将会回想起父亲带他去见识冰块的那个遥远的下午。",
+            coverColor: "#8B4513",
+            bgColor: "#faf9f5",
+            textColor: "#1a1a1a",
+            subTextColor: "#8a8a8a",
+            accentColor: "#d97757",
+            decoOpacity: 30
+        };
+
+        function setup() {
+            canvas = createCanvas(W, H);
+            canvas.parent('canvas-container');
+            noLoop();
+            drawCard();
+        }
+
+        function drawCard() {
+            switch(currentLayout) {
+                case 0: drawClassicCard(); break;
+                case 1: drawMagazineCover(); break;
+                case 2: drawStickyNote(); break;
+                case 3: drawPosterCinema(); break;
+                case 4: drawMinimalWhite(); break;
+                case 5: drawVintageExLibris(); break;
+            }
+        }
+
+        // ========== 1. 经典卡片式 ==========
+        function drawClassicCard() {
+            background(content.bgColor);
+
+            let c = color(content.coverColor);
+            let r = red(c), g = green(c), b = blue(c);
+
+            // 顶部装饰条
+            fill(content.accentColor);
+            noStroke();
+            rect(0, 0, W, 8);
+
+            // 书封区域 - 左侧大色块模拟书封
+            let bookW = 420;
+            let bookH = 560;
+            let bookX = 80;
+            let bookY = 200;
+
+            // 书封阴影
+            fill(0, 0, 0, 15);
+            rect(bookX + 12, bookY + 12, bookW, bookH, 8);
+
+            // 书封主体
+            fill(r, g, b);
+            rect(bookX, bookY, bookW, bookH, 8);
+
+            // 书封上的装饰线条
+            stroke(255, 40);
+            strokeWeight(2);
+            for(let i = 0; i < 5; i++) {
+                let y = bookY + 80 + i * 40;
+                line(bookX + 40, y, bookX + bookW - 40, y);
+            }
+
+            // 书脊效果
+            fill(0, 0, 0, 20);
+            rect(bookX, bookY, 12, bookH, 8, 0, 0, 8);
+
+            // 书名（书封上）
+            fill(255);
+            noStroke();
+            textAlign(CENTER, CENTER);
+            textFont('Noto Serif SC');
+            textSize(42);
+            text(content.bookTitle, bookX + bookW/2, bookY + bookH/2 - 30);
+
+            textSize(18);
+            textFont('Noto Sans SC');
+            fill(255, 200);
+            text(content.bookAuthor, bookX + bookW/2, bookY + bookH/2 + 30);
+
+            // 右侧信息区
+            let infoX = bookX + bookW + 60;
+            let infoY = bookY + 40;
+
+            // "正在读"标签
+            fill(content.accentColor);
+            rect(infoX, infoY, 100, 36, 18);
+            fill(255);
+            textAlign(CENTER, CENTER);
+            textSize(14);
+            textFont('Noto Sans SC');
+            text("正在读", infoX + 50, infoY + 18);
+
+            // 书名大字
+            fill(content.textColor);
+            textAlign(LEFT, TOP);
+            textFont('Noto Serif SC');
+            textSize(52);
+            textLeading(64);
+            text(content.bookTitle, infoX, infoY + 70);
+
+            // 作者
+            fill(content.subTextColor);
+            textFont('Noto Sans SC');
+            textSize(24);
+            text(content.bookAuthor, infoX, infoY + 170);
+
+            // 分隔线
+            stroke(content.lightGray || '#e8e6dc');
+            strokeWeight(1);
+            line(infoX, infoY + 230, infoX + 400, infoY + 230);
+
+            // 点评区域
+            fill(content.textColor);
+            textAlign(LEFT, TOP);
+            textFont('Noto Serif SC');
+            textSize(28);
+            textLeading(48);
+            let quoteY = infoY + 280;
+            let quoteW = 440;
+            text(content.quote, infoX, quoteY, quoteW, 600);
+
+            // 引号装饰
+            fill(content.accentColor);
+            textSize(80);
+            textFont('Noto Serif SC');
+            text("\"", infoX - 10, quoteY - 30);
+
+            // 底部点评人信息
+            let bottomY = H - 200;
+            fill(content.subTextColor);
+            textAlign(LEFT, CENTER);
+            textFont('Noto Sans SC');
+            textSize(22);
+            text("—— " + content.reviewer + " 的读书笔记", 80, bottomY);
+
+            // 微信读书 logo 区域
+            fill(content.subTextColor);
+            textAlign(RIGHT, CENTER);
+            textSize(18);
+            text("微信读书", W - 80, bottomY);
+
+            // 底部装饰线
+            stroke(content.accentColor);
+            strokeWeight(3);
+            line(80, H - 120, W - 80, H - 120);
+        }
+
+        // ========== 2. 杂志封面式 ==========
+        function drawMagazineCover() {
+            background(content.bgColor);
+
+            let c = color(content.coverColor);
+            let r = red(c), g = green(c), b = blue(c);
+
+            // 顶部大色块背景（模拟书封大图）
+            fill(r * 0.9, g * 0.9, b * 0.9);
+            rect(0, 0, W, H * 0.55);
+
+            // 渐变过渡
+            for(let y = H * 0.45; y < H * 0.55; y++) {
+                let t = map(y, H * 0.45, H * 0.55, 0, 1);
+                let col = lerpColor(color(r * 0.9, g * 0.9, b * 0.9), color(content.bgColor), t);
+                stroke(col);
+                line(0, y, W, y);
+            }
+
+            // 书封上的书名（大号）
+            fill(255);
+            textAlign(CENTER, CENTER);
+            textFont('Noto Serif SC');
+            textSize(72);
+            text(content.bookTitle, W/2, H * 0.25);
+
+            // 作者
+            fill(255, 220);
+            textFont('Noto Sans SC');
+            textSize(26);
+            text(content.bookAuthor, W/2, H * 0.32);
+
+            // 杂志风格标签
+            fill(content.accentColor);
+            noStroke();
+            rect(W/2 - 60, H * 0.38, 120, 36, 18);
+            fill(255);
+            textSize(14);
+            text("EDITOR'S PICK", W/2, H * 0.38 + 18);
+
+            // 底部内容区
+            let contentY = H * 0.58;
+
+            // 点评标题
+            fill(content.accentColor);
+            textAlign(LEFT, TOP);
+            textFont('Noto Sans SC');
+            textSize(16);
+            text("读书笔记", 80, contentY);
+
+            // 点评内容
+            fill(content.textColor);
+            textFont('Noto Serif SC');
+            textSize(32);
+            textLeading(56);
+            text(content.quote, 80, contentY + 50, W - 160, 500);
+
+            // 装饰引号
+            fill(content.accentColor);
+            textSize(100);
+            text("\"", 60, contentY + 30);
+
+            // 底部信息条
+            let barY = H - 160;
+            fill(content.textColor);
+            rect(60, barY, W - 120, 1);
+
+            fill(content.subTextColor);
+            textAlign(LEFT, CENTER);
+            textFont('Noto Sans SC');
+            textSize(20);
+            text(content.reviewer, 80, barY + 50);
+
+            textAlign(RIGHT, CENTER);
+            text("微信读书 · 分享", W - 80, barY + 50);
+
+            // 页码风格装饰
+            fill(content.accentColor);
+            textAlign(CENTER, CENTER);
+            textSize(14);
+            text("VOL.01", W/2, barY + 50);
+        }
+
+        // ========== 3. 便签/手账式 ==========
+        function drawStickyNote() {
+            background(content.bgColor);
+
+            // 背景网格纹理
+            stroke(200, 200, 190, 40);
+            strokeWeight(1);
+            for(let x = 0; x < W; x += 40) {
+                line(x, 0, x, H);
+            }
+            for(let y = 0; y < H; y += 40) {
+                line(0, y, W, y);
+            }
+
+            // 主便签纸
+            let padX = 100;
+            let padY = 140;
+            let padW = W - 200;
+            let padH = H - 280;
+
+            // 便签阴影
+            fill(0, 0, 0, 10);
+            noStroke();
+            rect(padX + 8, padY + 8, padW, padH, 4);
+
+            // 便签纸
+            fill(255, 252, 240);
+            rect(padX, padY, padW, padH, 4);
+
+            // 胶带效果 - 顶部
+            fill(255, 255, 255, 180);
+            rect(padX + padW/2 - 80, padY - 15, 160, 40, 2);
+            // 胶带纹理
+            stroke(220, 220, 210, 100);
+            strokeWeight(1);
+            for(let i = 0; i < 8; i++) {
+                line(padX + padW/2 - 75 + i * 20, padY - 12, padX + padW/2 - 65 + i * 20, padY + 20);
+            }
+
+            // 便签横线
+            stroke(200, 195, 180, 60);
+            strokeWeight(1);
+            for(let i = 0; i < 25; i++) {
+                let y = padY + 100 + i * 55;
+                if(y < padY + padH - 40) {
+                    line(padX + 40, y, padX + padW - 40, y);
+                }
+            }
+
+            // 书封小图（左上角）
+            let c = color(content.coverColor);
+            fill(red(c), green(c), blue(c));
+            noStroke();
+            rect(padX + 40, padY + 40, 100, 130, 4);
+            fill(255, 80);
+            rect(padX + 40, padY + 40, 8, 130, 4, 0, 0, 4);
+
+            // 书名和作者（便签顶部）
+            fill(content.textColor);
+            textAlign(LEFT, TOP);
+            textFont('Noto Serif SC');
+            textSize(36);
+            text(content.bookTitle, padX + 160, padY + 45);
+
+            fill(content.subTextColor);
+            textFont('Noto Sans SC');
+            textSize(18);
+            text(content.bookAuthor, padX + 160, padY + 95);
+
+            // 点评内容（写在横线上）
+            fill(content.textColor);
+            textAlign(LEFT, TOP);
+            textFont('Noto Serif SC');
+            textSize(28);
+            textLeading(55);
+            text(content.quote, padX + 50, padY + 200, padW - 100, 800);
+
+            // 荧光笔标记效果
+            noStroke();
+            fill(255, 235, 100, 80);
+            let highlightY = padY + 200 + 55 * 2;
+            rect(padX + 45, highlightY, 300, 30, 3);
+
+            // 底部手绘风格签名
+            fill(content.accentColor);
+            textAlign(RIGHT, BOTTOM);
+            textFont('Ma Shan Zheng');
+            textSize(32);
+            text("—— " + content.reviewer, padX + padW - 50, padY + padH - 50);
+
+            // 小装饰：星星
+            fill(content.accentColor);
+            drawStar(padX + padW - 60, padY + 60, 12, 5);
+            drawStar(padX + padW - 100, padY + 90, 8, 5);
+
+            // 微信读书小标记
+            fill(content.subTextColor);
+            textAlign(CENTER, BOTTOM);
+            textFont('Noto Sans SC');
+            textSize(16);
+            text("微信读书", W/2, H - 60);
+        }
+
+        function drawStar(x, y, r, n) {
+            beginShape();
+            for(let i = 0; i < n * 2; i++) {
+                let angle = PI/2 + i * PI / n;
+                let radius = i % 2 === 0 ? r : r * 0.4;
+                vertex(x + cos(angle) * radius, y + sin(angle) * radius);
+            }
+            endShape(CLOSE);
+        }
+
+        // ========== 4. 海报电影感 ==========
+        function drawPosterCinema() {
+            let c = color(content.coverColor);
+            let r = red(c), g = green(c), b = blue(c);
+
+            // 深色背景
+            background(r * 0.3, g * 0.3, b * 0.35);
+
+            // 大色块几何装饰
+            noStroke();
+            fill(r * 0.5, g * 0.5, b * 0.55, 100);
+            rect(0, H * 0.6, W, H * 0.4);
+
+            fill(content.accentColor);
+            rect(60, H * 0.45, 6, 400);
+
+            // 书名 - 超大字号
+            fill(255);
+            textAlign(LEFT, TOP);
+            textFont('Noto Serif SC');
+            textSize(96);
+            textLeading(110);
+            text(content.bookTitle, 100, 200);
+
+            // 英文装饰（模拟）
+            fill(255, 60);
+            textFont('Noto Sans SC');
+            textSize(14);
+            text("A NOVEL BY " + content.bookAuthor.toUpperCase(), 100, 340);
+
+            // 作者
+            fill(255, 180);
+            textSize(24);
+            text(content.bookAuthor, 100, 380);
+
+            // 中间装饰线
+            stroke(content.accentColor);
+            strokeWeight(2);
+            line(100, 450, 300, 450);
+
+            // 点评区域 - 底部
+            fill(255, 240);
+            textAlign(LEFT, TOP);
+            textFont('Noto Serif SC');
+            textSize(32);
+            textLeading(56);
+            text(content.quote, 100, H * 0.55, W - 200, 500);
+
+            // 引号装饰
+            fill(content.accentColor);
+            textSize(120);
+            text("\"", 80, H * 0.52);
+
+            // 底部信息
+            fill(255, 150);
+            textAlign(LEFT, BOTTOM);
+            textFont('Noto Sans SC');
+            textSize(18);
+            text(content.reviewer + "  |  微信读书", 100, H - 100);
+
+            // 右下角装饰方块
+            noStroke();
+            fill(content.accentColor);
+            rect(W - 120, H - 120, 60, 60);
+            fill(255, 80);
+            rect(W - 100, H - 100, 60, 60);
+        }
+
+        // ========== 5. 极简留白式 ==========
+        function drawMinimalWhite() {
+            background(content.bgColor);
+
+            // 极细边框
+            noFill();
+            stroke(content.textColor);
+            strokeWeight(1);
+            rect(60, 60, W - 120, H - 120);
+
+            // 内部小边框
+            stroke(content.subTextColor);
+            strokeWeight(0.5);
+            rect(80, 80, W - 160, H - 160);
+
+            // 顶部小字
+            fill(content.subTextColor);
+            textAlign(CENTER, TOP);
+            textFont('Noto Sans SC');
+            textSize(12);
+            text("WECHAT READING", W/2, 110);
+
+            // 书名 - 居中大字
+            fill(content.textColor);
+            textAlign(CENTER, CENTER);
+            textFont('Noto Serif SC');
+            textSize(64);
+            text(content.bookTitle, W/2, 320);
+
+            // 作者
+            fill(content.subTextColor);
+            textFont('Noto Sans SC');
+            textSize(18);
+            text(content.bookAuthor, W/2, 400);
+
+            // 长分隔线
+            stroke(content.textColor);
+            strokeWeight(0.5);
+            line(W/2 - 100, 460, W/2 + 100, 460);
+
+            // 点评内容 - 居中偏下
+            fill(content.textColor);
+            textAlign(CENTER, TOP);
+            textFont('Noto Serif SC');
+            textSize(28);
+            textLeading(52);
+            text(content.quote, W/2, 540, W - 300, 600);
+
+            // 底部点评人
+            fill(content.subTextColor);
+            textAlign(CENTER, BOTTOM);
+            textFont('Noto Sans SC');
+            textSize(16);
+            text("—— " + content.reviewer, W/2, H - 180);
+
+            // 底部小装饰
+            fill(content.accentColor);
+            noStroke();
+            ellipse(W/2, H - 120, 6, 6);
+        }
+
+        // ========== 6. 复古藏书票式 ==========
+        function drawVintageExLibris() {
+            background(content.bgColor);
+
+            let c = color(content.coverColor);
+            let r = red(c), g = green(c), b = blue(c);
+
+            // 外边框装饰
+            noFill();
+            stroke(content.textColor);
+            strokeWeight(2);
+            rect(80, 80, W - 160, H - 160);
+
+            strokeWeight(1);
+            rect(90, 90, W - 180, H - 180);
+
+            // 四角装饰花纹
+            drawCornerOrnament(90, 90, 1);
+            drawCornerOrnament(W - 90, 90, -1);
+            drawCornerOrnament(90, H - 90, 1, -1);
+            drawCornerOrnament(W - 90, H - 90, -1, -1);
+
+            // 顶部 EX LIBRIS 字样
+            fill(content.textColor);
+            textAlign(CENTER, TOP);
+            textFont('Noto Serif SC');
+            textSize(14);
+            text("EX  LIBRIS", W/2, 120);
+
+            // 装饰线
+            stroke(content.textColor);
+            strokeWeight(0.5);
+            line(W/2 - 80, 150, W/2 + 80, 150);
+
+            // 书封色块（复古风格）
+            fill(r * 0.8, g * 0.8, b * 0.8);
+            noStroke();
+            rect(W/2 - 150, 200, 300, 380);
+
+            // 书封边框
+            noFill();
+            stroke(255, 100);
+            strokeWeight(2);
+            rect(W/2 - 140, 210, 280, 360);
+
+            // 书封上的装饰
+            stroke(255, 60);
+            line(W/2 - 120, 280, W/2 + 120, 280);
+            line(W/2 - 120, 320, W/2 + 120, 320);
+            line(W/2 - 120, 360, W/2 + 120, 360);
+
+            // 书名（书封上）
+            fill(255);
+            noStroke();
+            textAlign(CENTER, CENTER);
+            textFont('Noto Serif SC');
+            textSize(36);
+            text(content.bookTitle, W/2, 420);
+
+            textSize(16);
+            text(content.bookAuthor, W/2, 480);
+
+            // 中间分隔装饰
+            stroke(content.textColor);
+            strokeWeight(1);
+            line(W/2 - 60, 620, W/2 + 60, 620);
+            fill(content.accentColor);
+            noStroke();
+            ellipse(W/2, 620, 8, 8);
+
+            // 点评内容
+            fill(content.textColor);
+            textAlign(CENTER, TOP);
+            textFont('Noto Serif SC');
+            textSize(26);
+            textLeading(48);
+            text(content.quote, W/2, 660, W - 300, 500);
+
+            // 底部信息
+            fill(content.subTextColor);
+            textAlign(CENTER, BOTTOM);
+            textFont('Noto Sans SC');
+            textSize(16);
+            text(content.reviewer + " 藏书", W/2, H - 160);
+
+            // 底部年份装饰
+            fill(content.textColor);
+            textSize(12);
+            text("2024", W/2, H - 130);
+        }
+
+        function drawCornerOrnament(x, y, sx, sy) {
+            sx = sx || 1;
+            sy = sy || 1;
+            stroke(content.textColor);
+            strokeWeight(1);
+            noFill();
+
+            let size = 30;
+            beginShape();
+            vertex(x, y + sy * size);
+            vertex(x, y);
+            vertex(x + sx * size, y);
+            endShape();
+
+            // 小圆点装饰
+            fill(content.accentColor);
+            noStroke();
+            ellipse(x + sx * size * 0.3, y + sy * size * 0.3, 4, 4);
+        }
+
+        // ========== UI 控制函数 ==========
+        function updateContent() {
+            content.bookTitle = document.getElementById('bookTitle').value;
+            content.bookAuthor = document.getElementById('bookAuthor').value;
+            content.reviewer = document.getElementById('reviewer').value;
+            content.quote = document.getElementById('quote').value;
+            content.coverColor = document.getElementById('coverColor').value;
+            content.bgColor = document.getElementById('bgColor').value;
+            content.textColor = document.getElementById('textColor').value;
+            content.subTextColor = document.getElementById('subTextColor').value;
+            content.accentColor = document.getElementById('accentColor').value;
+
+            document.getElementById('coverColor-value').textContent = content.coverColor;
+            document.getElementById('bgColor-value').textContent = content.bgColor;
+            document.getElementById('textColor-value').textContent = content.textColor;
+            document.getElementById('subTextColor-value').textContent = content.subTextColor;
+            document.getElementById('accentColor-value').textContent = content.accentColor;
+
+            redraw();
+        }
+
+        function updateParam(name, value) {
+            content[name] = parseInt(value);
+            document.getElementById(name + '-value').textContent = value;
+            redraw();
+        }
+
+        function setLayout(idx) {
+            currentLayout = idx;
+            for(let i = 0; i < 6; i++) {
+                document.getElementById('layout-' + i).classList.toggle('active', i === idx);
+            }
+            redraw();
+        }
+
+        function downloadImage() {
+            saveCanvas(canvas, 'weread_share_' + currentLayout, 'png');
+        }
+
+        function randomizeStyle() {
+            // 随机颜色
+            const palettes = [
+                {bg: '#faf9f5', text: '#1a1a1a', sub: '#8a8a8a', accent: '#d97757', cover: '#8B4513'},
+                {bg: '#f5f0e8', text: '#2c2c2c', sub: '#9a9590', accent: '#c75b39', cover: '#4a6741'},
+                {bg: '#e8e4e0', text: '#1a1a1a', sub: '#7a7a7a', accent: '#8b6914', cover: '#2c3e50'},
+                {bg: '#f0ebe3', text: '#3d3d3d', sub: '#8a8a8a', accent: '#6b8e6b', cover: '#5d4e37'},
+                {bg: '#faf8f5', text: '#2a2a2a', sub: '#999999', accent: '#b85c38', cover: '#6b4423'},
+                {bg: '#f2efe9', text: '#333333', sub: '#888888', accent: '#7a6b5d', cover: '#3d5a5b'},
+            ];
+            let p = palettes[Math.floor(Math.random() * palettes.length)];
+
+            document.getElementById('bgColor').value = p.bg;
+            document.getElementById('textColor').value = p.text;
+            document.getElementById('subTextColor').value = p.sub;
+            document.getElementById('accentColor').value = p.accent;
+            document.getElementById('coverColor').value = p.cover;
+
+            updateContent();
+        }
+    </script>
+</body>
+</html>

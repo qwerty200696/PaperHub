@@ -86,6 +86,7 @@
                     <el-menu-item index="articles">📰 文章库</el-menu-item>
                     <el-menu-item index="notes">📝 笔记库</el-menu-item>
                     <el-menu-item index="ingest">📥 入库</el-menu-item>
+                    <el-menu-item index="tools" @click="goToTools">🛠️ 工具箱</el-menu-item>
                 </el-menu>
 
                 <!-- 筛选器 (仅在论文库显示) -->
@@ -3349,6 +3350,13 @@
                         //ElementPlus.ElMessage.success('已切换到文章库');
                         loadAllArticles();
                     }
+                    if (index === 'tools') {
+                        goToTools();
+                    }
+                }
+
+                function goToTools() {
+                    window.location.href = '/toolbox';
                 }
 
                 function showIngest() {
