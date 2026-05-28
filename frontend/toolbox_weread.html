@@ -27,7 +27,11 @@
         .weread-review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .weread-review-author { font-weight: 500; color: #374151; }
         .weread-review-stars { color: #f59e0b; }
-        .weread-review-content-short, .weread-review-content-full { color: #64748b; line-height: 1.6; }
+        .weread-review-content-short, .weread-review-content-full { color: #64748b; line-height: 1.6; white-space: pre-wrap; }
+        .weread-review-content-short { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .weread-review-content-full { max-height: 400px; overflow-y: auto; padding-right: 8px; }
+        .weread-review-content-full::-webkit-scrollbar { width: 4px; }
+        .weread-review-content-full::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
         .weread-review-expand-btn { background: none; border: none; color: #409eff; cursor: pointer; font-size: 13px; padding: 4px 0; margin-top: 4px; }
         .weread-review-expand-btn:hover { text-decoration: underline; }
         .weread-review-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #9ca3af; margin-top: 8px; }
@@ -298,7 +302,7 @@
                                         </div>
                                         <div v-if="!review.expanded" class="weread-review-content-short">{{ truncateText(review.content, 120) }}</div>
                                         <div v-else class="weread-review-content-full">{{ review.content }}</div>
-                                        <button v-if="(review.content || '').length > 120" class="weread-review-expand-btn" @click="toggleReview(idx)">
+                                        <button v-if="(review.content || '').length > 120 || (review.content || '').split('\n').length > 3" class="weread-review-expand-btn" @click="toggleReview(idx)">
                                             {{ review.expanded ? '收起' : '展开全部' }}
                                         </button>
                                         <div class="weread-review-meta">
@@ -591,22 +595,28 @@
                 };
 
                 // ========== 测量文字排版高度 ==========
+                // 使用与 wrapText 完全相同的逻辑计算高度，确保一致
                 const measureTextHeight = (ctx, text, maxWidth, lineHeight) => {
                     if (!text) return 0;
-                    const chars = text.split('');
-                    let line = '';
-                    let lines = 1;
-                    for (let i = 0; i < chars.length; i++) {
-                        const testLine = line + chars[i];
-                        const metrics = ctx.measureText(testLine);
-                        if (metrics.width > maxWidth && i > 0) {
-                            line = chars[i];
-                            lines++;
-                        } else {
-                            line = testLine;
+                    const paragraphs = text.split('\n');
+                    let totalLines = 0;
+                    for (let p = 0; p < paragraphs.length; p++) {
+                        const chars = paragraphs[p].split('');
+                        let line = '';
+                        let lines = 1;
+                        for (let i = 0; i < chars.length; i++) {
+                            const testLine = line + chars[i];
+                            const metrics = ctx.measureText(testLine);
+                            if (metrics.width > maxWidth && i > 0) {
+                                line = chars[i];
+                                lines++;
+                            } else {
+                                line = testLine;
+                            }
                         }
+                        totalLines += lines;
                     }
-                    return lines * lineHeight;
+                    return totalLines * lineHeight;
                 };
 
                 // ========== 自适应字号计算 ==========
@@ -636,7 +646,7 @@
                     // 加载封面图
                     const coverImg = await loadCoverImage(coverUrl);
 
-                    // 计算各板式所需高度
+                    // 计算各板式所需高度（取消2400上限，只保留最小高度）
                     let H = 1600;
                     switch(selectedLayout.value) {
                         case 0: H = calcClassicHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
@@ -646,7 +656,7 @@
                         case 4: H = calcMinimalHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
                         case 5: H = calcVintageHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
                     }
-                    H = Math.max(1200, Math.min(2400, H));
+                    H = Math.max(1200, H);
 
                     const displayScale = Math.min(420 / W, 750 / H);
                     canvas.width = W * displayScale;
@@ -665,10 +675,16 @@
 
                 // ========== 1. 经典卡片式 ==========
                 const calcClassicHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
-                    const quoteFontSize = calcAdaptiveFontSize(quote, 440, 26, 20, 32);
+                    const quoteFontSize = calcAdaptiveFontSize(quote, 440, 26, 16, 32);
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
                     const quoteH = measureTextHeight(ctx, quote, 440, quoteFontSize * 1.5);
-                    return 200 + 560 + 80 + quoteH + 200;
+                    // 与 drawClassicCard 完全一致
+                    const bookY = 140;
+                    const infoY = bookY + 40;
+                    const quoteY = infoY + 260;
+                    const textBottom = quoteY + quoteH;
+                    const bottomY = textBottom + 80;
+                    return Math.max(960, bottomY + 120);
                 };
 
                 const drawClassicCard = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
@@ -755,16 +771,19 @@
                     ctx.lineTo(infoX + 440, infoY + 220);
                     ctx.stroke();
 
-                    const quoteFontSize = calcAdaptiveFontSize(quote, 440, 26, 20, 32);
+                    const quoteFontSize = calcAdaptiveFontSize(quote, 440, 26, 16, 32);
                     ctx.fillStyle = '#1a1a1a';
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
-                    wrapText(ctx, quote, infoX, infoY + 260, 440, quoteFontSize * 1.5);
+                    const quoteEndY = wrapText(ctx, quote, infoX, infoY + 260, 440, quoteFontSize * 1.5);
 
                     ctx.fillStyle = '#d97757';
                     ctx.font = '72px "Noto Serif SC", serif';
                     ctx.fillText('"', infoX - 10, infoY + 250);
 
-                    const bottomY = H - 120;
+                    // 底部元素根据文字实际结束位置动态定位
+                    // quoteEndY 是最后一行基线，加上行高得到文字底部，再加间距
+                    const textBottom = quoteEndY + quoteFontSize * 1.5;
+                    const bottomY = Math.max(textBottom + 80, H - 120);
                     ctx.fillStyle = '#8a8a8a';
                     ctx.font = '20px "Noto Sans SC", sans-serif';
                     ctx.textAlign = 'left';
@@ -777,28 +796,36 @@
                     ctx.strokeStyle = '#d97757';
                     ctx.lineWidth = 3;
                     ctx.beginPath();
-                    ctx.moveTo(80, H - 60);
-                    ctx.lineTo(W - 80, H - 60);
+                    ctx.moveTo(80, bottomY + 60);
+                    ctx.lineTo(W - 80, bottomY + 60);
                     ctx.stroke();
                 };
 
                 // ========== 2. 杂志封面式 ==========
                 const calcMagazineHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
-                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 160, 28, 20, 34);
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 160, 28, 16, 34);
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
                     const quoteH = measureTextHeight(ctx, quote, W - 160, quoteFontSize * 1.6);
-                    return 900 + quoteH + 200;
+                    // 与 drawMagazineCover 一致：固定 topH = 900
+                    const topH = 900;
+                    const contentY = topH + 40;
+                    const quoteY = contentY + 45;
+                    const textBottom = quoteY + quoteH;
+                    const barY = textBottom + 80;
+                    return Math.max(topH + 200, barY + 160);
                 };
 
                 const drawMagazineCover = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
+                    const topH = 900;
+
                     if (coverImg) {
                         // 封面图作为上半部分背景
                         ctx.save();
                         ctx.beginPath();
-                        ctx.rect(0, 0, W, H * 0.55);
+                        ctx.rect(0, 0, W, topH);
                         ctx.clip();
                         const imgRatio = coverImg.width / coverImg.height;
-                        const boxRatio = W / (H * 0.55);
+                        const boxRatio = W / topH;
                         let sx, sy, sw, sh;
                         if (imgRatio > boxRatio) {
                             sh = coverImg.height;
@@ -811,46 +838,46 @@
                             sx = 0;
                             sy = (coverImg.height - sh) / 2;
                         }
-                        ctx.drawImage(coverImg, sx, sy, sw, sh, 0, 0, W, H * 0.55);
+                        ctx.drawImage(coverImg, sx, sy, sw, sh, 0, 0, W, topH);
                         // 暗化遮罩保证文字可读
                         ctx.fillStyle = 'rgba(0,0,0,0.45)';
-                        ctx.fillRect(0, 0, W, H * 0.55);
+                        ctx.fillRect(0, 0, W, topH);
                         ctx.restore();
                     } else {
                         ctx.fillStyle = coverColor;
-                        ctx.fillRect(0, 0, W, H * 0.55);
+                        ctx.fillRect(0, 0, W, topH);
                     }
 
-                    const grad = ctx.createLinearGradient(0, H * 0.45, 0, H * 0.55);
+                    const grad = ctx.createLinearGradient(0, topH - 100, 0, topH);
                     grad.addColorStop(0, coverImg ? 'rgba(0,0,0,0.3)' : coverColor);
                     grad.addColorStop(1, '#faf9f5');
                     ctx.fillStyle = grad;
-                    ctx.fillRect(0, H * 0.45, W, H * 0.1);
+                    ctx.fillRect(0, topH - 100, W, 100);
 
                     ctx.fillStyle = '#faf9f5';
-                    ctx.fillRect(0, H * 0.55, W, H * 0.45);
+                    ctx.fillRect(0, topH, W, H - topH);
 
                     ctx.fillStyle = '#fff';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     const titleFontSize = calcAdaptiveFontSize(bookTitle, W - 160, 68, 48, 80);
                     ctx.font = 'bold ' + titleFontSize + 'px "Noto Serif SC", serif';
-                    wrapText(ctx, bookTitle, W/2, H * 0.25, W - 160, titleFontSize * 1.15);
+                    wrapText(ctx, bookTitle, W/2, topH * 0.45, W - 160, titleFontSize * 1.15);
 
                     ctx.fillStyle = 'rgba(255,255,255,0.85)';
                     ctx.font = '24px "Noto Sans SC", sans-serif';
-                    ctx.fillText(bookAuthor, W/2, H * 0.32);
+                    ctx.fillText(bookAuthor, W/2, topH * 0.58);
 
                     ctx.fillStyle = '#d97757';
-                    roundRect(ctx, W/2 - 60, H * 0.37, 120, 36, 18);
+                    roundRect(ctx, W/2 - 60, topH * 0.67, 120, 36, 18);
                     ctx.fill();
                     ctx.fillStyle = '#fff';
                     ctx.font = '13px "Noto Sans SC", sans-serif';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText("EDITOR'S PICK", W/2, H * 0.37 + 18);
+                    ctx.fillText("EDITOR'S PICK", W/2, topH * 0.67 + 18);
 
-                    const contentY = H * 0.58;
+                    const contentY = topH + 40;
 
                     ctx.fillStyle = '#d97757';
                     ctx.textAlign = 'left';
@@ -858,16 +885,18 @@
                     ctx.font = '15px "Noto Sans SC", sans-serif';
                     ctx.fillText('读书笔记', 80, contentY);
 
-                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 160, 28, 20, 34);
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 160, 28, 16, 34);
                     ctx.fillStyle = '#1a1a1a';
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
-                    wrapText(ctx, quote, 80, contentY + 45, W - 160, quoteFontSize * 1.6);
+                    const quoteEndY = wrapText(ctx, quote, 80, contentY + 45, W - 160, quoteFontSize * 1.6);
 
                     ctx.fillStyle = '#d97757';
                     ctx.font = '90px "Noto Serif SC", serif';
                     ctx.fillText('"', 55, contentY + 25);
 
-                    const barY = H - 160;
+                    // 底部元素根据文字实际结束位置动态定位
+                    const textBottom = quoteEndY + quoteFontSize * 1.6;
+                    const barY = Math.max(textBottom + 80, H - 160);
                     ctx.strokeStyle = '#1a1a1a';
                     ctx.lineWidth = 1;
                     ctx.beginPath();
@@ -892,10 +921,17 @@
 
                 // ========== 3. 便签/手账式 ==========
                 const calcStickyHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
-                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 24, 18, 30);
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 24, 16, 30);
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
                     const quoteH = measureTextHeight(ctx, quote, W - 300, quoteFontSize * 1.6);
-                    return 200 + 200 + quoteH + 200;
+                    // 与 drawStickyNote 完全一致
+                    const padY = 100;
+                    const quoteY = padY + 200;
+                    const textBottom = quoteY + quoteH;
+                    const contentEnd = 200 + quoteH;
+                    const padH = Math.max(400, contentEnd + 100);
+                    const reviewerY = Math.max(textBottom + 60, padY + padH - 50);
+                    return Math.max(800, reviewerY + 120);
                 };
 
                 const drawStickyNote = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
@@ -912,7 +948,12 @@
                     }
 
                     const padX = 100, padY = 100, padW = W - 200;
-                    const padH = H - 200;
+                    // 便签高度根据内容动态计算
+                    const quoteFontSize = calcAdaptiveFontSize(quote, padW - 100, 24, 16, 30);
+                    ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
+                    const quoteH = measureTextHeight(ctx, quote, padW - 100, quoteFontSize * 1.6);
+                    const contentEnd = 200 + quoteH;
+                    const padH = Math.max(400, contentEnd + 100);
 
                     ctx.fillStyle = 'rgba(0,0,0,0.06)';
                     roundRect(ctx, padX + 8, padY + 8, padW, padH, 4);
@@ -928,7 +969,8 @@
 
                     ctx.strokeStyle = 'rgba(200,195,180,0.4)';
                     ctx.lineWidth = 1;
-                    for(let i = 0; i < 25; i++) {
+                    const lineCount = Math.floor((padH - 240) / 55);
+                    for(let i = 0; i < lineCount; i++) {
                         const y = padY + 100 + i * 55;
                         if(y < padY + padH - 40) {
                             ctx.beginPath();
@@ -979,20 +1021,22 @@
                     ctx.font = '16px "Noto Sans SC", sans-serif';
                     ctx.fillText(bookAuthor, padX + 160, padY + 90);
 
-                    const quoteFontSize = calcAdaptiveFontSize(quote, padW - 100, 24, 18, 30);
                     ctx.fillStyle = '#1a1a1a';
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
-                    wrapText(ctx, quote, padX + 50, padY + 200, padW - 100, quoteFontSize * 1.6);
+                    const quoteEndY = wrapText(ctx, quote, padX + 50, padY + 200, padW - 100, quoteFontSize * 1.6);
 
                     ctx.fillStyle = 'rgba(255,235,100,0.5)';
                     roundRect(ctx, padX + 45, padY + 200 + quoteFontSize * 1.6 * 2, 280, 30, 3);
                     ctx.fill();
 
+                    // 底部元素根据文字实际结束位置动态定位
+                    const textBottom = quoteEndY + quoteFontSize * 1.6;
+                    const reviewerY = Math.max(textBottom + 60, padY + padH - 50);
                     ctx.fillStyle = '#d97757';
                     ctx.textAlign = 'right';
                     ctx.textBaseline = 'bottom';
                     ctx.font = '24px "Noto Sans SC", sans-serif';
-                    ctx.fillText('—— ' + reviewer, padX + padW - 50, padY + padH - 50);
+                    ctx.fillText('—— ' + reviewer, padX + padW - 50, reviewerY);
 
                     ctx.fillStyle = '#8a8a8a';
                     ctx.textAlign = 'center';
@@ -1003,10 +1047,14 @@
 
                 // ========== 4. 海报电影感 ==========
                 const calcPosterHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
-                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 200, 28, 20, 34);
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 200, 28, 16, 34);
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
                     const quoteH = measureTextHeight(ctx, quote, W - 200, quoteFontSize * 1.7);
-                    return 600 + quoteH + 200;
+                    // 与 drawPosterCinema 完全一致
+                    const quoteY = 470;
+                    const textBottom = quoteY + quoteH;
+                    const bottomY = textBottom + 80;
+                    return Math.max(900, bottomY + 150);
                 };
 
                 const drawPosterCinema = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
@@ -1041,7 +1089,7 @@
                     }
 
                     ctx.fillStyle = '#d97757';
-                    ctx.fillRect(60, H * 0.38, 6, 360);
+                    ctx.fillRect(60, 390, 6, 360);
 
                     ctx.fillStyle = '#fff';
                     ctx.textAlign = 'left';
@@ -1065,31 +1113,42 @@
                     ctx.lineTo(300, 390);
                     ctx.stroke();
 
-                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 200, 28, 20, 34);
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 200, 28, 16, 34);
                     ctx.fillStyle = 'rgba(255,255,255,0.9)';
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
-                    wrapText(ctx, quote, 100, H * 0.48, W - 200, quoteFontSize * 1.7);
+                    const quoteEndY = wrapText(ctx, quote, 100, 470, W - 200, quoteFontSize * 1.7);
 
                     ctx.fillStyle = '#d97757';
                     ctx.font = '110px "Noto Serif SC", serif';
-                    ctx.fillText('"', 75, H * 0.45);
+                    ctx.fillText('"', 75, 440);
 
+                    // 底部元素根据文字实际结束位置动态定位
+                    const textBottom = quoteEndY + quoteFontSize * 1.7;
+                    const bottomY = Math.max(textBottom + 80, H - 100);
                     ctx.fillStyle = 'rgba(255,255,255,0.6)';
                     ctx.font = '16px "Noto Sans SC", sans-serif';
-                    ctx.fillText(reviewer + '  |  微信读书', 100, H - 100);
+                    ctx.fillText(reviewer + '  |  微信读书', 100, bottomY);
 
                     ctx.fillStyle = '#d97757';
-                    ctx.fillRect(W - 120, H - 120, 60, 60);
+                    ctx.fillRect(W - 120, bottomY + 20, 60, 60);
                     ctx.fillStyle = 'rgba(255,255,255,0.3)';
-                    ctx.fillRect(W - 100, H - 100, 60, 60);
+                    ctx.fillRect(W - 100, bottomY + 40, 60, 60);
                 };
 
                 // ========== 5. 极简留白式 ==========
                 const calcMinimalHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
-                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 26, 20, 32);
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 26, 16, 32);
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
                     const quoteH = measureTextHeight(ctx, quote, W - 300, quoteFontSize * 1.7);
-                    return 600 + quoteH + 200;
+                    // 与 drawMinimalWhite 完全一致（假设 coverImg 存在，取较大值）
+                    const titleFontSize = calcAdaptiveFontSize(bookTitle, W - 200, 60, 40, 72);
+                    const titleH = titleFontSize * 1.15;
+                    const titleY = 340;
+                    const quoteY = titleY + titleH + 110;
+                    const textBottom = quoteY + quoteH;
+                    const reviewerY = textBottom + 60;
+                    const bottomDecorY = reviewerY + 60;
+                    return Math.max(800, bottomDecorY + 80);
                 };
 
                 const drawMinimalWhite = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
@@ -1152,29 +1211,38 @@
                     ctx.lineTo(W/2 + 100, titleY + titleFontSize * 1.15 + 70);
                     ctx.stroke();
 
-                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 26, 20, 32);
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 26, 16, 32);
                     ctx.fillStyle = '#1a1a1a';
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
                     const quoteY = titleY + titleFontSize * 1.15 + 110;
-                    wrapText(ctx, quote, W/2, quoteY, W - 300, quoteFontSize * 1.7);
+                    const quoteEndY = wrapText(ctx, quote, W/2, quoteY, W - 300, quoteFontSize * 1.7);
 
-                    const quoteH = measureTextHeight(ctx, quote, W - 300, quoteFontSize * 1.7);
+                    // 署名根据文字实际结束位置动态定位
+                    const textBottom = quoteEndY + quoteFontSize * 1.7;
+                    const reviewerY = Math.max(textBottom + 60, H - 160);
                     ctx.fillStyle = '#8a8a8a';
                     ctx.font = '15px "Noto Sans SC", sans-serif';
-                    ctx.fillText('—— ' + reviewer, W/2, quoteY + quoteH + 40);
+                    ctx.fillText('—— ' + reviewer, W/2, reviewerY);
 
                     ctx.fillStyle = '#d97757';
                     ctx.beginPath();
-                    ctx.arc(W/2, H - 80, 4, 0, Math.PI * 2);
+                    ctx.arc(W/2, Math.max(reviewerY + 60, H - 80), 4, 0, Math.PI * 2);
                     ctx.fill();
                 };
 
                 // ========== 6. 复古藏书票式 ==========
                 const calcVintageHeight = (ctx, W, bookTitle, bookAuthor, reviewer, quote) => {
-                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 24, 18, 30);
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 24, 16, 30);
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
                     const quoteH = measureTextHeight(ctx, quote, W - 300, quoteFontSize * 1.7);
-                    return 700 + quoteH + 200;
+                    // 与 drawVintageExLibris 完全一致
+                    const coverY = 180;
+                    const coverH = 380;
+                    const quoteY = coverY + coverH + 70;
+                    const textBottom = quoteY + quoteH;
+                    const reviewerY = textBottom + 60;
+                    const yearY = reviewerY + 40;
+                    return Math.max(900, yearY + 80);
                 };
 
                 const drawVintageExLibris = (ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg) => {
@@ -1265,20 +1333,22 @@
                     ctx.arc(W/2, coverY + coverH + 30, 5, 0, Math.PI * 2);
                     ctx.fill();
 
-                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 24, 18, 30);
+                    const quoteFontSize = calcAdaptiveFontSize(quote, W - 300, 24, 16, 30);
                     ctx.fillStyle = '#1a1a1a';
                     ctx.font = quoteFontSize + 'px "Noto Serif SC", serif';
                     const quoteY = coverY + coverH + 70;
-                    wrapText(ctx, quote, W/2, quoteY, W - 300, quoteFontSize * 1.7);
+                    const quoteEndY = wrapText(ctx, quote, W/2, quoteY, W - 300, quoteFontSize * 1.7);
 
-                    const quoteH = measureTextHeight(ctx, quote, W - 300, quoteFontSize * 1.7);
+                    // 署名和年份根据文字实际结束位置动态定位
+                    const textBottom = quoteEndY + quoteFontSize * 1.7;
+                    const reviewerY = Math.max(textBottom + 60, H - 200);
                     ctx.fillStyle = '#8a8a8a';
                     ctx.font = '15px "Noto Sans SC", sans-serif';
-                    ctx.fillText(reviewer + ' 藏书', W/2, quoteY + quoteH + 40);
+                    ctx.fillText(reviewer + ' 藏书', W/2, reviewerY);
 
                     ctx.fillStyle = '#1a1a1a';
                     ctx.font = '11px "Noto Sans SC", sans-serif';
-                    ctx.fillText('2024', W/2, H - 130);
+                    ctx.fillText('2024', W/2, Math.max(reviewerY + 40, H - 130));
                 };
 
                 // 辅助函数
@@ -1299,22 +1369,30 @@
 
                 const wrapText = (ctx, text, x, y, maxWidth, lineHeight) => {
                     if (!text) return y;
-                    const chars = text.split('');
-                    let line = '';
+                    const paragraphs = text.split('\n');
                     let lineY = y;
-                    for(let i = 0; i < chars.length; i++) {
-                        const testLine = line + chars[i];
-                        const metrics = ctx.measureText(testLine);
-                        if(metrics.width > maxWidth && i > 0) {
-                            ctx.fillText(line, x, lineY);
-                            line = chars[i];
-                            lineY += lineHeight;
-                        } else {
-                            line = testLine;
+                    let lastLineY = y;
+                    for (let p = 0; p < paragraphs.length; p++) {
+                        const chars = paragraphs[p].split('');
+                        let line = '';
+                        for(let i = 0; i < chars.length; i++) {
+                            const testLine = line + chars[i];
+                            const metrics = ctx.measureText(testLine);
+                            if(metrics.width > maxWidth && i > 0) {
+                                ctx.fillText(line, x, lineY);
+                                lastLineY = lineY;
+                                line = chars[i];
+                                lineY += lineHeight;
+                            } else {
+                                line = testLine;
+                            }
                         }
+                        ctx.fillText(line, x, lineY);
+                        lastLineY = lineY;
+                        lineY += lineHeight;
                     }
-                    ctx.fillText(line, x, lineY);
-                    return lineY + lineHeight;
+                    // 返回最后一行文字的基线位置（不是下一行起始位置）
+                    return lastLineY;
                 };
 
                 const hexToRgb = (hex) => {
@@ -1368,7 +1446,7 @@
                             case 4: H = calcMinimalHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
                             case 5: H = calcVintageHeight(ctx, W, bookTitle, bookAuthor, reviewer, quote); break;
                         }
-                        H = Math.max(1200, Math.min(2400, H));
+                        H = Math.max(1200, H);
 
                         canvas.width = W;
                         canvas.height = H;
