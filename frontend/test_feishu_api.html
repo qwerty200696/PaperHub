@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>飞书API测试</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .result { margin-top: 20px; padding: 10px; border: 1px solid #ddd; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>飞书群聊API测试</h1>
+    <button onclick="testAPI()">测试获取群列表</button>
+    <div id="result" class="result">点击按钮开始测试...</div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '正在请求...';
+            
+            try {
+                console.log('发送请求到 /api/feishu/groups');
+                
+                const response = await fetch('/api/feishu/groups?sort_type=ByActiveTimeDesc&page_size=5', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                console.log('响应状态:', response.status);
+                
+                const data = await response.json();
+                console.log('响应数据:', data);
+                
+                resultDiv.innerHTML = `
+                    <h3>测试结果</h3>
+                    <p><strong>状态码:</strong> ${response.status}</p>
+                    <p><strong>Success:</strong> ${data.success}</p>
+                    <p><strong>群聊数量:</strong> ${data.groups?.length || 0}</p>
+                    <p><strong>Has More:</strong> ${data.has_more}</p>
+                    <hr>
+                    <h4>前3个群聊:</h4>
+                    <ol>
+                        ${(data.groups || []).slice(0, 3).map(g => `
+                            <li>
+                                <strong>${g.name}</strong><br>
+                                ID: ${g.chat_id}<br>
+                                描述: ${g.description || '无'}
+                            </li>
+                        `).join('')}
+                    </ol>
+                    <hr>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('请求失败:', error);
+                resultDiv.innerHTML = `<p style="color: red;"><strong>错误:</strong> ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
