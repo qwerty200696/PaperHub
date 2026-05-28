@@ -263,7 +263,7 @@
                         </div>
                         <div class="weread-books-grid">
                             <el-card
-                                v-for="book in wereadBooks"
+                                v-for="book in displayBooks"
                                 :key="book.bookId"
                                 class="weread-book-card"
                                 @click="selectWereadBook(book)"
@@ -291,6 +291,15 @@
                                     {{ book.intro }}
                                 </p>
                             </el-card>
+                        </div>
+                        <div v-if="wereadBooks.length > 3" style="text-align: center; margin-top: 16px;">
+                            <el-button
+                                type="primary"
+                                text
+                                @click="toggleShowAllBooks"
+                            >
+                                {{ showAllBooks ? '收起 ▲' : '展开更多 ▼' }}
+                            </el-button>
                         </div>
                     </div>
 
@@ -461,6 +470,7 @@
                 const selectedLayout = ref(0);
                 const coverImageCache = ref(null);
                 const collapsedSections = ref({ layout: false, content: true });
+                const showAllBooks = ref(false);
                 
                 const layouts = [
                     { id: 0, name: '经典卡片', preview: 'linear-gradient(135deg, #faf9f5, #e8e6dc)' },
@@ -514,6 +524,7 @@
 
                     wereadLoading.value = true;
                     wereadBooks.value = [];
+                    showAllBooks.value = false;
 
                     try {
                         const response = await fetch('/api/weread/search', {
@@ -533,6 +544,17 @@
                     } finally {
                         wereadLoading.value = false;
                     }
+                };
+
+                const displayBooks = Vue.computed(() => {
+                    if (showAllBooks.value || wereadBooks.value.length <= 3) {
+                        return wereadBooks.value;
+                    }
+                    return wereadBooks.value.slice(0, 3);
+                });
+
+                const toggleShowAllBooks = () => {
+                    showAllBooks.value = !showAllBooks.value;
                 };
 
                 const selectWereadBook = async (book) => {
@@ -1546,6 +1568,7 @@
                     wereadApiKey,
                     wereadKeyword,
                     wereadBooks,
+                    displayBooks,
                     wereadLoading,
                     selectedWereadBook,
                     wereadBookDetailLoading,
@@ -1557,12 +1580,14 @@
                     selectedLayout,
                     layouts,
                     collapsedSections,
+                    showAllBooks,
                     goBack,
                     openWereadSkillsPage,
                     saveWereadApiKey,
                     clearWereadApiKey,
                     searchWereadBooks,
                     selectWereadBook,
+                    toggleShowAllBooks,
                     toggleReview,
                     truncateText,
                     openShareModal,
