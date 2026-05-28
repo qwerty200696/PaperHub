@@ -62,15 +62,16 @@
         .weread-share-preview {
             flex: 1;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
             padding: 40px;
             background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
             overflow-y: auto;
         }
         .weread-share-preview canvas {
-            max-height: 85vh;
+            max-width: 100%;
             width: auto;
+            height: auto;
             border-radius: 12px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
@@ -96,6 +97,36 @@
         }
         .editor-section:last-of-type {
             border-bottom: none;
+        }
+        .editor-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .editor-section-header h3 {
+            margin: 0;
+        }
+        .editor-section-toggle {
+            font-size: 12px;
+            color: #64748b;
+            transition: transform 0.2s;
+        }
+        .editor-section-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+        .editor-section-body {
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease;
+            max-height: 1000px;
+            opacity: 1;
+            margin-top: 12px;
+        }
+        .editor-section-body.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
         }
         .layout-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         .layout-option { cursor: pointer; border: 2px solid #e2e8f0; border-radius: 10px; padding: 10px 6px; text-align: center; transition: all 0.2s; background: #fff; }
@@ -352,39 +383,49 @@
                 <!-- 右侧编辑区 -->
                 <div class="weread-share-editor">
                     <div class="editor-section">
-                        <h3>选择板式</h3>
-                        <div class="layout-selector">
-                            <div 
-                                v-for="layout in layouts" 
-                                :key="layout.id"
-                                class="layout-option"
-                                :class="{ active: selectedLayout === layout.id }"
-                                @click="selectLayout(layout.id)"
-                            >
-                                <div class="layout-preview" :style="{ background: layout.preview }"></div>
-                                <div class="layout-name">{{ layout.name }}</div>
+                        <div class="editor-section-header" @click="toggleSection('layout')">
+                            <h3>选择板式</h3>
+                            <span class="editor-section-toggle" :class="{ collapsed: collapsedSections.layout }">▼</span>
+                        </div>
+                        <div class="editor-section-body" :class="{ collapsed: collapsedSections.layout }">
+                            <div class="layout-selector">
+                                <div
+                                    v-for="layout in layouts"
+                                    :key="layout.id"
+                                    class="layout-option"
+                                    :class="{ active: selectedLayout === layout.id }"
+                                    @click="selectLayout(layout.id)"
+                                >
+                                    <div class="layout-preview" :style="{ background: layout.preview }"></div>
+                                    <div class="layout-name">{{ layout.name }}</div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="editor-section">
-                        <h3>编辑内容</h3>
-                        <div style="display: flex; flex-direction: column; gap: 12px;">
-                            <div>
-                                <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">书名</label>
-                                <el-input v-model="shareData.editTitle" size="default" placeholder="书名" @input="renderShareCanvas"></el-input>
-                            </div>
-                            <div>
-                                <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">作者</label>
-                                <el-input v-model="shareData.editAuthor" size="default" placeholder="作者" @input="renderShareCanvas"></el-input>
-                            </div>
-                            <div>
-                                <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">点评人</label>
-                                <el-input v-model="shareData.editReviewer" size="default" placeholder="点评人" @input="renderShareCanvas"></el-input>
-                            </div>
-                            <div>
-                                <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">内容</label>
-                                <el-input v-model="shareData.editContent" size="default" type="textarea" :rows="4" placeholder="点评/划线内容" @input="renderShareCanvas"></el-input>
+                        <div class="editor-section-header" @click="toggleSection('content')">
+                            <h3>编辑内容</h3>
+                            <span class="editor-section-toggle" :class="{ collapsed: collapsedSections.content }">▼</span>
+                        </div>
+                        <div class="editor-section-body" :class="{ collapsed: collapsedSections.content }">
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <div>
+                                    <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">书名</label>
+                                    <el-input v-model="shareData.editTitle" size="default" placeholder="书名" @input="renderShareCanvas"></el-input>
+                                </div>
+                                <div>
+                                    <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">作者</label>
+                                    <el-input v-model="shareData.editAuthor" size="default" placeholder="作者" @input="renderShareCanvas"></el-input>
+                                </div>
+                                <div>
+                                    <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">点评人</label>
+                                    <el-input v-model="shareData.editReviewer" size="default" placeholder="点评人" @input="renderShareCanvas"></el-input>
+                                </div>
+                                <div>
+                                    <label style="font-size: 12px; color: #64748b; margin-bottom: 4px; display: block;">内容</label>
+                                    <el-input v-model="shareData.editContent" size="default" type="textarea" :rows="4" placeholder="点评/划线内容" @input="renderShareCanvas"></el-input>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -419,6 +460,7 @@
                 const savingImage = ref(false);
                 const selectedLayout = ref(0);
                 const coverImageCache = ref(null);
+                const collapsedSections = ref({ layout: false, content: true });
                 
                 const layouts = [
                     { id: 0, name: '经典卡片', preview: 'linear-gradient(135deg, #faf9f5, #e8e6dc)' },
@@ -574,6 +616,10 @@
                     renderShareCanvas();
                 };
 
+                const toggleSection = (section) => {
+                    collapsedSections.value[section] = !collapsedSections.value[section];
+                };
+
                 const closeShareModal = () => {
                     shareModalVisible.value = false;
                 };
@@ -658,10 +704,8 @@
                     }
                     H = Math.max(1200, H);
 
-                    const displayScale = Math.min(420 / W, 750 / H);
-                    canvas.width = W * displayScale;
-                    canvas.height = H * displayScale;
-                    ctx.scale(displayScale, displayScale);
+                    canvas.width = W;
+                    canvas.height = H;
 
                     switch(selectedLayout.value) {
                         case 0: drawClassicCard(ctx, W, H, bookTitle, bookAuthor, reviewer, quote, coverColor, coverImg); break;
@@ -1512,6 +1556,7 @@
                     savingImage,
                     selectedLayout,
                     layouts,
+                    collapsedSections,
                     goBack,
                     openWereadSkillsPage,
                     saveWereadApiKey,
@@ -1524,6 +1569,7 @@
                     closeShareModal,
                     downloadShareImage,
                     selectLayout,
+                    toggleSection,
                     renderShareCanvas,
                     getAvatarColor,
                     formatRating,
