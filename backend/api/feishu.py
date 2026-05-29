@@ -830,6 +830,12 @@ BOT_NAME_MAP = {
     'cli_c08abc1da138d00f': 'AIHOT小助手',
 }
 
+# 用户名称映射表（open_id -> 名称）
+# 注：外部群成员可能无法通过 API 获取名称，需手动维护映射
+USER_NAME_MAP = {
+    'ou_229408151b4b49d8239ce737d92df154': '卡兹克',
+}
+
 
 def _resolve_sender_name(sender):
     """
@@ -857,18 +863,20 @@ def _resolve_sender_name(sender):
     sender_type = sender.get('sender_type', 'user')
     sender_id = sender.get('id') or sender.get('sender_id')
 
-    # 2. 如果是机器人 (app)，先查映射表
+    # 2. 如果是机器人 (app)，先查机器人映射表
     if sender_type == 'app':
         if sender_id:
-            # 查映射表
             mapped_name = BOT_NAME_MAP.get(sender_id)
             if mapped_name:
                 return mapped_name
             return f'机器人 ({sender_id[-8:]})'
         return '机器人'
 
-    # 3. 如果是用户但 name 为空（外部群成员权限限制）
+    # 3. 如果是用户但 name 为空，先查用户映射表
     if sender_id:
+        mapped_name = USER_NAME_MAP.get(sender_id)
+        if mapped_name:
+            return mapped_name
         return f'用户 ({sender_id[-8:]})'
 
     return '未知用户'
