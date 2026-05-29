@@ -15,33 +15,74 @@ bp = Blueprint('feishu', __name__, url_prefix='/api/feishu')
 OFFLINE_MESSAGES_DIR = Path(__file__).parent.parent.parent / 'data' / 'feishu_messages'
 OFFLINE_MESSAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-# 置顶群聊存储文件
+# 置顶群聊存储文件（存储完整群聊信息，避免每次调用API）
 PINNED_CHATS_FILE = Path(__file__).parent.parent.parent / 'data' / 'feishu_pinned_chats.json'
 
 
 def _load_pinned_chats():
-    """加载置顶群聊列表"""
+    """加载置顶群聊列表（返回对象数组，包含缓存的群信息）"""
     if PINNED_CHATS_FILE.exists():
         try:
             with open(PINNED_CHATS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                # 兼容旧格式（纯字符串数组）和新格式（对象数组）
+                if data and isinstance(data[0], str):
+                    return [{'chat_id': cid, 'name': None} for cid in data]
+                return data
         except:
             pass
     return []
 
 
-def _save_pinned_chats(pinned_chat_ids):
-    """保存置顶群聊列表"""
+def _save_pinned_chats(pinned_chats):
+    """保存置顶群聊列表（对象数组，含缓存信息）"""
     try:
         with open(PINNED_CHATS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(pinned_chat_ids, f, ensure_ascii=False, indent=2)
+            json.dump(pinned_chats, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"保存置顶群聊失败: {e}")
 
 
 def _get_chat_info(chat_id, as_identity='user', app_id=None, app_secret=None):
-    """获取单个群聊信息"""
+    """获取单个群聊信息（优先使用 chat-list，兼容外部群）"""
     try:
+        # 方案1: 使用 +chat-list 获取所有群聊，然后匹配（支持外部群）
+        # 最多翻2页，获取200个群聊
+        all_chats = []
+        page_token = None
+        for _ in range(2):
+            cmd = ['im', '+chat-list', '--page-size', '100']
+            if page_token:
+                cmd.extend(['--page-token', page_token])
+            result = run_lark_cli(
+                cmd,
+                as_identity=as_identity,
+                app_id=app_id,
+                app_secret=app_secret
+            )
+            if result['success']:
+                chat_data = result['data'].get('data', {})
+                all_chats.extend(chat_data.get('chats', []))
+                page_token = chat_data.get('page_token')
+                if not chat_data.get('has_more'):
+                    break
+            else:
+                break
+
+        for chat in all_chats:
+            if chat.get('chat_id') == chat_id:
+                return {
+                    'chat_id': chat.get('chat_id'),
+                    'name': chat.get('name', '未命名群聊'),
+                    'description': chat.get('description', ''),
+                    'owner_id': chat.get('owner_id'),
+                    'avatar_key': chat.get('avatar_key'),
+                    'external': chat.get('external', False),
+                    'chat_status': chat.get('chat_status', 'normal'),
+                    'member_count': chat.get('member_count', 0)
+                }
+
+        # 方案2: 如果 chat-list 没找到，尝试 chats get（内部群）
         result = run_lark_cli(
             ['im', 'chats', 'get', '--params', json.dumps({'chat_id': chat_id})],
             as_identity=as_identity,
@@ -152,9 +193,12 @@ def _format_chat_groups(chats):
     """格式化群聊数据为统一结构"""
     groups = []
     for chat in chats:
+        name = chat.get('name')
+        if not name or not name.strip():
+            name = '未命名群聊'
         groups.append({
             'chat_id': chat.get('chat_id'),
-            'name': chat.get('name', '未命名群聊'),
+            'name': name,
             'description': chat.get('description', ''),
             'owner_id': chat.get('owner_id'),
             'avatar_key': chat.get('avatar_key'),
@@ -235,28 +279,70 @@ def get_groups():
         }), 500
 
 
+@bp.route('/test', methods=['GET'])
+def test_cli():
+    """
+    测试飞书 CLI 连接状态
+    GET /api/feishu/test
+    """
+    try:
+        result = run_lark_cli(['im', '+chat-list', '--page-size', '1'], as_identity='user')
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': '飞书 CLI 连接正常，用户身份已登录'
+            }), 200
+        else:
+            error_msg = result.get('error', '未知错误')
+            if '未安装' in error_msg or 'FileNotFoundError' in error_msg:
+                return jsonify({
+                    'success': False,
+                    'error': 'lark-cli 未安装，请先执行: npm install -g @larksuite/lark-cli'
+                }), 200
+            elif '登录' in error_msg or 'auth' in error_msg.lower() or 'token' in error_msg.lower() or '身份' in error_msg:
+                return jsonify({
+                    'success': False,
+                    'error': 'lark-cli 未登录，请先执行: lark-cli auth login'
+                }), 200
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'连接失败: {error_msg}'
+                }), 200
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'测试连接异常: {str(e)}'
+        }), 500
+
+
 @bp.route('/pinned', methods=['GET', 'POST', 'DELETE'])
 def pinned_chats():
     """
     置顶群聊管理
-    GET    /api/feishu/pinned     -> 获取置顶群聊列表（含群信息）
-    POST   /api/feishu/pinned     -> { "chatId": "oc_xxx" } 添加置顶
+    GET    /api/feishu/pinned     -> 获取置顶群聊列表（直接读本地缓存，不调用API）
+    POST   /api/feishu/pinned     -> { "chatId": "oc_xxx", "name": "群名称" } 添加置顶
     DELETE /api/feishu/pinned     -> { "chatId": "oc_xxx" } 取消置顶
     """
     try:
         data = request.get_json(silent=True) or {}
-        app_id = data.get('appId')
-        app_secret = data.get('appSecret')
-        as_identity = 'bot' if (app_id and app_secret) else 'user'
 
         if request.method == 'GET':
-            pinned_ids = _load_pinned_chats()
-            # 获取每个置顶群聊的详细信息
+            # 直接返回本地缓存，不调用飞书API
+            pinned = _load_pinned_chats()
+            # 过滤掉 name 为 None 的（兼容旧数据），并构建返回格式
             pinned_groups = []
-            for chat_id in pinned_ids:
-                group_info = _get_chat_info(chat_id, as_identity=as_identity, app_id=app_id, app_secret=app_secret)
-                if group_info:
-                    pinned_groups.append(group_info)
+            pinned_ids = []
+            for item in pinned:
+                cid = item.get('chat_id') if isinstance(item, dict) else item
+                name = item.get('name') if isinstance(item, dict) else None
+                pinned_ids.append(cid)
+                pinned_groups.append({
+                    'chat_id': cid,
+                    'name': name or '未命名群聊',
+                    'member_count': item.get('member_count', 0) if isinstance(item, dict) else 0,
+                    'external': item.get('external', False) if isinstance(item, dict) else False
+                })
 
             return jsonify({
                 'success': True,
@@ -275,23 +361,32 @@ def pinned_chats():
         pinned = _load_pinned_chats()
 
         if request.method == 'POST':
-            if chat_id not in pinned:
-                pinned.insert(0, chat_id)
+            # 检查是否已存在
+            existing_ids = [p.get('chat_id') if isinstance(p, dict) else p for p in pinned]
+            if chat_id not in existing_ids:
+                # 置顶时缓存群名称等信息
+                new_item = {
+                    'chat_id': chat_id,
+                    'name': data.get('name', '未命名群聊'),
+                    'member_count': data.get('member_count', 0),
+                    'external': data.get('external', False),
+                    'pinned_at': datetime.now().isoformat()
+                }
+                pinned.insert(0, new_item)
                 _save_pinned_chats(pinned)
             return jsonify({
                 'success': True,
                 'message': '已置顶',
-                'pinnedChatIds': pinned
+                'pinnedChatIds': [p.get('chat_id') if isinstance(p, dict) else p for p in pinned]
             }), 200
 
         if request.method == 'DELETE':
-            if chat_id in pinned:
-                pinned.remove(chat_id)
-                _save_pinned_chats(pinned)
+            pinned = [p for p in pinned if (p.get('chat_id') if isinstance(p, dict) else p) != chat_id]
+            _save_pinned_chats(pinned)
             return jsonify({
                 'success': True,
                 'message': '已取消置顶',
-                'pinnedChatIds': pinned
+                'pinnedChatIds': [p.get('chat_id') if isinstance(p, dict) else p for p in pinned]
             }), 200
 
     except Exception as e:

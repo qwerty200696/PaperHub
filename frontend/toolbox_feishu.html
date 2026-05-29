@@ -202,31 +202,28 @@
             <div class="content">
                 <div class="tool-section">
                     <div class="api-key-section">
-                        <div class="api-key-label">
+                        <div class="api-key-label" style="display: flex; align-items: center; gap: 12px;">
                             <span>🔑</span>
-                            <span>飞书 API Key 配置（可选，不填则使用用户身份）</span>
+                            <span>飞书 CLI 连接状态</span>
+                            <el-tag v-if="feishuCliStatus === 'connected'" type="success" size="small">✅ 已连接</el-tag>
+                            <el-tag v-else-if="feishuCliStatus === 'error'" type="danger" size="small">❌ 未配置</el-tag>
+                            <el-tag v-else type="info" size="small">⏳ 检测中...</el-tag>
+                            <el-button
+                                size="small"
+                                :type="feishuCliStatus === 'connected' ? 'success' : 'primary'"
+                                :loading="feishuCliTesting"
+                                @click="testFeishuCli"
+                            >
+                                🧪 测试连接
+                            </el-button>
                         </div>
-                        <div style="display: flex; flex-wrap: wrap; gap: 16px;">
-                            <div style="flex: 1; min-width: 250px;">
-                                <el-input
-                                    v-model="feishuAppId"
-                                    placeholder="飞书 App ID"
-                                    class="api-key-input-small"
-                                    @blur="saveFeishuConfig"
-                                ></el-input>
-                            </div>
-                            <div style="flex: 1; min-width: 250px;">
-                                <el-input
-                                    v-model="feishuAppSecret"
-                                    type="password"
-                                    placeholder="飞书 App Secret"
-                                    class="api-key-input-small"
-                                    @blur="saveFeishuConfig"
-                                ></el-input>
-                            </div>
-                        </div>
-                        <p style="font-size: 12px; color: #92400e; margin-top: 8px;">
-                            💡 提示：配置保存在浏览器 localStorage 中。留空则使用 lark-cli 当前登录的用户身份。
+                        <p v-if="feishuCliStatus === 'error'" style="font-size: 12px; color: #f56c6c; margin-top: 8px;">
+                            ⚠️ 未检测到飞书 CLI 配置，请按以下步骤安装配置：<br>
+                            1. 安装: <code>npm install -g @larksuite/lark-cli</code><br>
+                            2. 登录: <code>lark-cli auth login</code>（按提示完成扫码登录）
+                        </p>
+                        <p v-else style="font-size: 12px; color: #67c23a; margin-top: 8px;">
+                            ✅ 当前使用 lark-cli 用户身份访问飞书 API
                         </p>
                     </div>
 
@@ -514,8 +511,9 @@
         createApp({
             setup() {
                 // 配置相关
-                const feishuAppId = ref('');
-                const feishuAppSecret = ref('');
+                // CLI 连接状态
+                const feishuCliStatus = ref(''); // '', 'connected', 'error'
+                const feishuCliTesting = ref(false);
 
                 // 群聊相关
                 const feishuGroups = ref([]);
@@ -578,19 +576,35 @@
                     window.location.href = '/toolbox';
                 };
 
+                // 测试飞书 CLI 连接
+                const testFeishuCli = async () => {
+                    feishuCliTesting.value = true;
+                    try {
+                        const response = await fetch('/api/feishu/test', {
+                            method: 'GET',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            feishuCliStatus.value = 'connected';
+                            ElMessage.success(data.message || '飞书 CLI 连接正常');
+                        } else {
+                            feishuCliStatus.value = 'error';
+                            ElMessage.error(data.error || '飞书 CLI 连接失败');
+                        }
+                    } catch (error) {
+                        feishuCliStatus.value = 'error';
+                        ElMessage.error('测试连接失败: ' + error.message);
+                    } finally {
+                        feishuCliTesting.value = false;
+                    }
+                };
+
                 // 加载配置
                 const loadFeishuConfig = async () => {
-                    const saved = localStorage.getItem('feishu_config');
-                    if (saved) {
-                        try {
-                            const config = JSON.parse(saved);
-                            feishuAppId.value = config.appId || '';
-                            feishuAppSecret.value = config.appSecret || '';
-                        } catch {
-                            // ignore
-                        }
-                    }
-                    // 从后端加载置顶群聊（此时getRequestBody已可用）
+                    // 页面加载时自动测试一次 CLI 连接
+                    await testFeishuCli();
+                    // 从后端加载置顶群聊
                     await loadPinnedChatsFromServer();
                 };
 
@@ -598,19 +612,23 @@
                 const loadPinnedChatsFromServer = async () => {
                     try {
                         const response = await fetch('/api/feishu/pinned', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(getRequestBody())
+                            method: 'GET',
+                            headers: { 'Content-Type': 'application/json' }
                         });
                         const data = await response.json();
                         if (data.success) {
                             pinnedChatIds.value = data.pinnedChatIds || [];
                             // 将置顶群聊的详细信息合并到群聊列表中
                             if (data.pinnedGroups && data.pinnedGroups.length > 0) {
-                                const existingIds = new Set(feishuGroups.value.map(g => g.chat_id));
+                                const existingMap = new Map(feishuGroups.value.map(g => [g.chat_id, g]));
                                 for (const group of data.pinnedGroups) {
-                                    if (!existingIds.has(group.chat_id)) {
+                                    const existing = existingMap.get(group.chat_id);
+                                    if (!existing) {
                                         feishuGroups.value.push(group);
+                                    } else if (group.name && group.name !== '未命名群聊' && (!existing.name || existing.name === '未命名群聊')) {
+                                        existing.name = group.name;
+                                        existing.member_count = group.member_count || existing.member_count;
+                                        existing.external = group.external || existing.external;
                                     }
                                 }
                             }
@@ -620,27 +638,25 @@
                     }
                 };
 
-                // 保存配置
-                const saveFeishuConfig = () => {
-                    localStorage.setItem('feishu_config', JSON.stringify({
-                        appId: feishuAppId.value,
-                        appSecret: feishuAppSecret.value
-                    }));
-                };
-
                 // 置顶群聊
                 const pinGroup = async (group) => {
                     if (!pinnedChatIds.value.includes(group.chat_id)) {
                         try {
+                            const groupName = (group.name && group.name.trim()) ? group.name.trim() : '未命名群聊';
                             const response = await fetch('/api/feishu/pinned', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ chatId: group.chat_id })
+                                body: JSON.stringify({
+                                    chatId: group.chat_id,
+                                    name: groupName,
+                                    member_count: group.member_count || 0,
+                                    external: group.external || false
+                                })
                             });
                             const data = await response.json();
                             if (data.success) {
                                 pinnedChatIds.value = data.pinnedChatIds;
-                                ElMessage.success(`已置顶「${group.name || '未命名群聊'}」`);
+                                ElMessage.success(`已置顶「${groupName}」`);
                             }
                         } catch (error) {
                             console.error('置顶失败:', error);
@@ -677,7 +693,9 @@
                 // 获取置顶群聊名称
                 const getPinnedGroupName = (chatId) => {
                     const group = feishuGroups.value.find(g => g.chat_id === chatId);
-                    if (group) return group.name || '未命名群聊';
+                    if (group && group.name && group.name.trim() && group.name.trim() !== '未命名群聊') {
+                        return group.name.trim();
+                    }
                     // 如果没有在已加载的群聊中找到，显示chatId缩写
                     return chatId.slice(0, 12) + '...';
                 };
@@ -717,14 +735,9 @@
                     totalMessageCount.value = 0;
                 };
 
-                // 获取请求体基础配置
+                // 获取请求体基础配置（默认使用用户身份，无需传递 appId/appSecret）
                 const getRequestBody = () => {
-                    const body = {};
-                    if (feishuAppId.value && feishuAppSecret.value) {
-                        body.appId = feishuAppId.value;
-                        body.appSecret = feishuAppSecret.value;
-                    }
-                    return body;
+                    return {};
                 };
 
                 // 获取群聊列表
@@ -754,11 +767,35 @@
                         }
 
                         if (loadMore) {
-                            const existingIds = new Set(feishuGroups.value.map(g => g.chat_id));
-                            const newGroups = data.groups.filter(g => !existingIds.has(g.chat_id));
-                            feishuGroups.value = [...feishuGroups.value, ...newGroups];
+                            const existingMap = new Map(feishuGroups.value.map(g => [g.chat_id, g]));
+                            for (const group of data.groups) {
+                                const existing = existingMap.get(group.chat_id);
+                                if (!existing) {
+                                    feishuGroups.value.push(group);
+                                } else {
+                                    existing.name = (group.name && group.name.trim()) ? group.name.trim() : (existing.name || '未命名群聊');
+                                    existing.member_count = group.member_count || existing.member_count;
+                                    existing.external = group.external || existing.external;
+                                    existing.description = group.description || existing.description;
+                                    existing.avatar_key = group.avatar_key || existing.avatar_key;
+                                }
+                            }
                         } else {
-                            feishuGroups.value = data.groups;
+                            const existingMap = new Map(feishuGroups.value.map(g => [g.chat_id, g]));
+                            feishuGroups.value = data.groups.map(group => {
+                                const existing = existingMap.get(group.chat_id);
+                                if (existing) {
+                                    return {
+                                        ...existing,
+                                        name: (group.name && group.name.trim()) ? group.name.trim() : (existing.name || '未命名群聊'),
+                                        member_count: group.member_count || existing.member_count,
+                                        external: group.external || existing.external,
+                                        description: group.description || existing.description,
+                                        avatar_key: group.avatar_key || existing.avatar_key
+                                    };
+                                }
+                                return group;
+                            });
                         }
 
                         groupsPageToken.value = data.page_token || '';
@@ -1214,9 +1251,9 @@
                 });
 
                 return {
-                    feishuAppId,
-                    feishuAppSecret,
-                    saveFeishuConfig,
+                    feishuCliStatus,
+                    feishuCliTesting,
+                    testFeishuCli,
 
                     feishuGroups,
                     groupSearchKeyword,
