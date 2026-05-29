@@ -577,12 +577,23 @@ def get_messages():
                     elif 'post' in content_obj:
                         # 处理富文本
                         content = _extract_post_text(content_obj['post'])
-                    elif msg_type == 'video_chat':
-                        # 视频通话消息：解析会议详情
-                        extra = _parse_video_chat_content(content_obj)
-                        content = extra.get('display_text', content)
             except:
                 pass
+
+            # 视频通话消息：lark-cli 只返回 [Video call]，需通过原生 API 获取详情
+            if msg_type == 'video_chat' and content == '[Video call]':
+                try:
+                    video_detail = _fetch_video_chat_detail(
+                        msg.get('message_id'),
+                        as_identity=as_identity,
+                        app_id=app_id,
+                        app_secret=app_secret
+                    )
+                    if video_detail:
+                        extra = video_detail
+                        content = video_detail.get('display_text', content)
+                except Exception as e:
+                    print(f"获取视频通话详情失败: {e}")
 
             # 解析 sender_name
             sender_name = _resolve_sender_name(sender)
@@ -888,6 +899,57 @@ def _resolve_sender_name(sender):
         return f'用户 ({sender_id[-8:]})'
 
     return '未知用户'
+
+
+def _fetch_video_chat_detail(message_id, as_identity='user', app_id=None, app_secret=None):
+    """
+    通过飞书原生 API 获取视频通话消息详情
+
+    lark-cli 只返回简化内容 [Video call]，需要通过原生 API 获取 body.content
+
+    Args:
+        message_id: 消息 ID (om_xxx)
+        as_identity: 'user' 或 'bot'
+        app_id: 应用 ID
+        app_secret: 应用密钥
+
+    Returns:
+        dict: 视频通话详情，失败返回 None
+    """
+    if not message_id:
+        return None
+
+    try:
+        result = run_lark_cli(
+            ['api', 'GET', f'/open-apis/im/v1/messages/{message_id}'],
+            as_identity=as_identity,
+            app_id=app_id,
+            app_secret=app_secret
+        )
+
+        if not result['success']:
+            print(f"获取视频通话详情失败: {result.get('error')}")
+            return None
+
+        data = result['data']
+        items = data.get('data', {}).get('items', [])
+        if not items:
+            return None
+
+        msg = items[0]
+        body = msg.get('body', {})
+        content_str = body.get('content', '{}')
+
+        try:
+            content_obj = json.loads(content_str)
+            return _parse_video_chat_content(content_obj)
+        except json.JSONDecodeError:
+            print(f"解析视频通话 content JSON 失败: {content_str}")
+            return None
+
+    except Exception as e:
+        print(f"获取视频通话详情异常: {e}")
+        return None
 
 
 def _parse_video_chat_content(content_obj):
