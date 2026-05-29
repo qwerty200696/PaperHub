@@ -564,6 +564,8 @@ def get_messages():
 
             # 获取content - lark-cli返回的content在顶层，不在body里
             content = msg.get('content', '')
+            msg_type = msg.get('msg_type', 'text')
+            extra = {}  # 额外信息（如视频通话详情）
 
             # 如果content是JSON字符串（富文本消息），尝试解析
             try:
@@ -575,6 +577,10 @@ def get_messages():
                     elif 'post' in content_obj:
                         # 处理富文本
                         content = _extract_post_text(content_obj['post'])
+                    elif msg_type == 'video_chat':
+                        # 视频通话消息：解析会议详情
+                        extra = _parse_video_chat_content(content_obj)
+                        content = extra.get('display_text', content)
             except:
                 pass
 
@@ -583,7 +589,7 @@ def get_messages():
 
             formatted_messages.append({
                 'message_id': msg.get('message_id'),
-                'msg_type': msg.get('msg_type', 'text'),
+                'msg_type': msg_type,
                 'sender_name': sender_name,
                 'sender_id': sender.get('id') or sender.get('sender_id'),
                 'sender_type': sender.get('sender_type', 'user'),
@@ -592,7 +598,8 @@ def get_messages():
                 'content': content,
                 'mentions': msg.get('mentions') if isinstance(msg.get('mentions'), list) else [],
                 'thread_id': msg.get('thread_id'),
-                'updated': msg.get('updated', False)
+                'updated': msg.get('updated', False),
+                'extra': extra
             })
         
         return jsonify({
@@ -881,6 +888,81 @@ def _resolve_sender_name(sender):
         return f'用户 ({sender_id[-8:]})'
 
     return '未知用户'
+
+
+def _parse_video_chat_content(content_obj):
+    """
+    解析视频通话消息内容
+
+    飞书 video_chat 消息的 content 结构：
+    {
+        "topic": "会议主题",
+        "meet_number": "会议号",
+        "start_time": "1779969304000",  // Unix 毫秒时间戳
+        "end_time": "1779975997000"     // Unix 毫秒时间戳
+    }
+
+    Args:
+        content_obj: 解析后的 JSON 对象
+
+    Returns:
+        dict: 包含会议详情的字典
+    """
+    import datetime
+
+    result = {
+        'topic': content_obj.get('topic', ''),
+        'meet_number': content_obj.get('meet_number', ''),
+        'start_time': '',
+        'end_time': '',
+        'duration': '',
+        'display_text': '[Video call]'
+    }
+
+    # 解析时间戳
+    try:
+        start_ts = content_obj.get('start_time')
+        end_ts = content_obj.get('end_time')
+
+        if start_ts:
+            start_dt = datetime.datetime.fromtimestamp(int(start_ts) / 1000)
+            result['start_time'] = start_dt.strftime('%Y-%m-%d %H:%M:%S')
+
+        if end_ts:
+            end_dt = datetime.datetime.fromtimestamp(int(end_ts) / 1000)
+            result['end_time'] = end_dt.strftime('%Y-%m-%d %H:%M:%S')
+
+        # 计算时长
+        if start_ts and end_ts:
+            duration_sec = (int(end_ts) - int(start_ts)) // 1000
+            if duration_sec < 60:
+                result['duration'] = f'{duration_sec}秒'
+            elif duration_sec < 3600:
+                result['duration'] = f'{duration_sec // 60}分{duration_sec % 60}秒'
+            else:
+                hours = duration_sec // 3600
+                mins = (duration_sec % 3600) // 60
+                result['duration'] = f'{hours}小时{mins}分'
+
+        # 构建显示文本
+        parts = ['📹 视频通话']
+        if result['topic']:
+            parts.append(f'主题: {result["topic"]}')
+        if result['meet_number']:
+            parts.append(f'会议号: {result["meet_number"]}')
+        if result['start_time']:
+            parts.append(f'开始: {result["start_time"]}')
+        if result['end_time']:
+            parts.append(f'结束: {result["end_time"]}')
+        if result['duration']:
+            parts.append(f'时长: {result["duration"]}')
+
+        result['display_text'] = '\n'.join(parts)
+
+    except Exception as e:
+        print(f"解析视频通话时间失败: {e}")
+
+    return result
 
 
 def _extract_post_text(post_obj):

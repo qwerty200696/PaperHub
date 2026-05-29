@@ -295,6 +295,39 @@
             border-left: 4px solid #409eff;
         }
 
+        /* 视频通话信息样式 */
+        .video-chat-info {
+            margin-top: 8px;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%);
+            border-radius: 8px;
+            border-left: 3px solid #409eff;
+            font-size: 13px;
+        }
+
+        .video-chat-row {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 4px;
+            line-height: 1.5;
+        }
+
+        .video-chat-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .video-chat-label {
+            color: #606266;
+            font-weight: 500;
+            min-width: 48px;
+            flex-shrink: 0;
+        }
+
+        .video-chat-value {
+            color: #303133;
+            word-break: break-all;
+        }
+
         /* 响应式布局 */
         @media (max-width: 768px) {
             .content {
@@ -562,6 +595,29 @@
                                         <span class="message-time">{{ formatTime(msg.create_time) }}</span>
                                     </div>
                                     <div class="message-body" v-html="formatMessage(msg.content)"></div>
+                                    <!-- 视频通话详情 -->
+                                    <div v-if="msg.msg_type === 'video_chat' && msg.extra" class="video-chat-info">
+                                        <div v-if="msg.extra.topic" class="video-chat-row">
+                                            <span class="video-chat-label">主题:</span>
+                                            <span class="video-chat-value">{{ msg.extra.topic }}</span>
+                                        </div>
+                                        <div v-if="msg.extra.meet_number" class="video-chat-row">
+                                            <span class="video-chat-label">会议号:</span>
+                                            <span class="video-chat-value">{{ msg.extra.meet_number }}</span>
+                                        </div>
+                                        <div v-if="msg.extra.start_time" class="video-chat-row">
+                                            <span class="video-chat-label">开始:</span>
+                                            <span class="video-chat-value">{{ msg.extra.start_time }}</span>
+                                        </div>
+                                        <div v-if="msg.extra.end_time" class="video-chat-row">
+                                            <span class="video-chat-label">结束:</span>
+                                            <span class="video-chat-value">{{ msg.extra.end_time }}</span>
+                                        </div>
+                                        <div v-if="msg.extra.duration" class="video-chat-row">
+                                            <span class="video-chat-label">时长:</span>
+                                            <span class="video-chat-value" style="color: #409eff; font-weight: 500;">{{ msg.extra.duration }}</span>
+                                        </div>
+                                    </div>
                                     <div v-if="msg.thread_id" style="margin-top: 8px; font-size: 12px; color: #409eff;">
                                         💬 有回复话题
                                     </div>
@@ -1198,7 +1254,7 @@
                     }
 
                     feishuLoading.value = true;
-                    feishuLoadingText.value = '正在批量加载消息（最多10次翻页）...';
+                    feishuLoadingText.value = '正在批量加载消息（1/10）...';
                     messagesFromLocal.value = false;
 
                     let totalPagesLoaded = 0;
@@ -1235,7 +1291,12 @@
 
                             totalPagesLoaded++;
                             totalNewMessages += newMessages.length;
-                            feishuLoadingText.value = `已加载 ${totalPagesLoaded} 页，共 ${totalNewMessages} 条新消息...`;
+                            
+                            // 更新进度显示：X/Y
+                            const currentPage = totalPagesLoaded;
+                            const remainingPages = messagesHasMore.value ? Math.min(MAX_BATCH_PAGES - currentPage, 10) : 0;
+                            const displayTotal = messagesHasMore.value ? Math.min(currentPage + remainingPages, MAX_BATCH_PAGES) : currentPage;
+                            feishuLoadingText.value = `正在批量加载消息（${currentPage}/${displayTotal}）...`;
 
                             feishuMessages.value = [...feishuMessages.value, ...newMessages];
                             messagesPageToken.value = data.page_token || '';
