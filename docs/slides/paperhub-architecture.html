@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<!-- ==================================================================
+     DIAGRAM · PaperHub Architecture (kami palette)
+     PaperHub 系统架构图 — 分层展示前端、后端、数据源与外部服务
+     ================================================================== -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>PaperHub 系统架构图 · kami diagram</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --parchment:  #f5f4ed;
+    --ivory:      #faf9f5;
+    --near-black: #141413;
+    --olive:      #504e49;
+    --stone:      #6b6a64;
+    --brand:      #1B365D;
+    --brand-tint: #EEF2F7;
+    --border:     #e8e6dc;
+
+    --serif: "TsangerJinKai02", "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", "STSong", Georgia, serif;
+    --sans: var(--serif);
+    --mono:  "JetBrains Mono", "SF Mono", Consolas, "TsangerJinKai02", "Source Han Serif SC", monospace;
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--parchment);
+    color: var(--near-black);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+  }
+
+  .frame { max-width: 1000px; width: 100%; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--stone);
+    margin-bottom: 0.5rem;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: 1.9rem;
+    font-weight: 500;
+    letter-spacing: -0.3pt;
+    line-height: 1.15;
+    margin-bottom: 1.6rem;
+  }
+
+  svg { width: 100%; min-width: 860px; display: block; }
+
+  .caption {
+    font-family: var(--serif);
+    font-size: 0.95rem;
+    color: var(--olive);
+    margin-top: 1rem;
+    max-width: 52ch;
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · kami diagram</p>
+    <h1>PaperHub 系统架构</h1>
+
+    <svg viewBox="0 0 960 520" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="0.9" fill="#E3E2DC"/>
+        </pattern>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#504e49"/>
+        </marker>
+        <marker id="arrow-brand" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#1B365D"/>
+        </marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#f5f4ed"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+      <!-- ====== LAYER LABELS (left side) ====== -->
+      <text x="20" y="110" fill="#6b6a64" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">PRESENTATION</text>
+      <text x="20" y="260" fill="#6b6a64" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">BACKEND</text>
+      <text x="20" y="410" fill="#6b6a64" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">DATA & EXTERNAL</text>
+
+      <!-- ====== LAYER BACKGROUNDS ====== -->
+      <rect x="100" y="60" width="820" height="100" rx="4" fill="#faf9f5" stroke="#e8e6dc" stroke-width="0.5" opacity="0.6"/>
+      <rect x="100" y="210" width="820" height="100" rx="4" fill="#faf9f5" stroke="#e8e6dc" stroke-width="0.5" opacity="0.6"/>
+      <rect x="100" y="360" width="820" height="100" rx="4" fill="#faf9f5" stroke="#e8e6dc" stroke-width="0.5" opacity="0.6"/>
+
+      <!-- ====== ARROWS (behind nodes) ====== -->
+      <!-- Frontend -> Backend API -->
+      <line x1="340" y1="160" x2="340" y2="210" stroke="#1B365D" stroke-width="1.4" marker-end="url(#arrow-brand)"/>
+      <line x1="520" y1="160" x2="520" y2="210" stroke="#1B365D" stroke-width="1.4" marker-end="url(#arrow-brand)"/>
+      <line x1="700" y1="160" x2="700" y2="210" stroke="#1B365D" stroke-width="1.4" marker-end="url(#arrow-brand)"/>
+
+      <!-- Backend -> Data Layer -->
+      <line x1="340" y1="310" x2="340" y2="360" stroke="#504e49" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="520" y1="310" x2="610" y2="360" stroke="#504e49" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="700" y1="310" x2="610" y2="360" stroke="#504e49" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- External sources -> Backend (ingest) -->
+      <line x1="220" y1="360" x2="260" y2="310" stroke="#504e49" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="220" y1="410" x2="260" y2="310" stroke="#504e49" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="220" y1="460" x2="260" y2="310" stroke="#504e49" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- AI Service -> Backend -->
+      <line x1="820" y1="360" x2="780" y2="310" stroke="#1B365D" stroke-width="1.4" marker-end="url(#arrow-brand)"/>
+
+      <!-- ====== ARROW LABELS ====== -->
+      <rect x="325" y="175" width="32" height="12" rx="2" fill="#f5f4ed"/>
+      <text x="341" y="185" fill="#1B365D" font-size="8" font-family="'JetBrains Mono', monospace" text-anchor="middle" letter-spacing="0.1em">API</text>
+
+      <rect x="505" y="175" width="32" height="12" rx="2" fill="#f5f4ed"/>
+      <text x="521" y="185" fill="#1B365D" font-size="8" font-family="'JetBrains Mono', monospace" text-anchor="middle" letter-spacing="0.1em">API</text>
+
+      <rect x="685" y="175" width="32" height="12" rx="2" fill="#f5f4ed"/>
+      <text x="701" y="185" fill="#1B365D" font-size="8" font-family="'JetBrains Mono', monospace" text-anchor="middle" letter-spacing="0.1em">API</text>
+
+      <!-- ====== PRESENTATION LAYER (top) ====== -->
+      <!-- Node: Paper Library -->
+      <rect x="260" y="80" width="160" height="64" rx="6" fill="#f5f4ed"/>
+      <rect x="260" y="80" width="160" height="64" rx="6" fill="#EEF2F7" stroke="#1B365D" stroke-width="1"/>
+      <text x="282" y="98" fill="#1B365D" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">FOCAL</text>
+      <text x="340" y="118" fill="#141413" font-size="12" font-weight="500" font-family="inherit" text-anchor="middle">论文库</text>
+      <text x="340" y="134" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace" text-anchor="middle">PDF 预览 · 阅读状态</text>
+
+      <!-- Node: Article Library -->
+      <rect x="440" y="80" width="160" height="64" rx="6" fill="#f5f4ed"/>
+      <rect x="440" y="80" width="160" height="64" rx="6" fill="#EEF2F7" stroke="#1B365D" stroke-width="1"/>
+      <text x="462" y="98" fill="#1B365D" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">FOCAL</text>
+      <text x="520" y="118" fill="#141413" font-size="12" font-weight="500" font-family="inherit" text-anchor="middle">文章库</text>
+      <text x="520" y="134" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace" text-anchor="middle">HTML 渲染 · 微信/知乎</text>
+
+      <!-- Node: Note Library -->
+      <rect x="620" y="80" width="160" height="64" rx="6" fill="#f5f4ed"/>
+      <rect x="620" y="80" width="160" height="64" rx="6" fill="#EEF2F7" stroke="#1B365D" stroke-width="1"/>
+      <text x="642" y="98" fill="#1B365D" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">FOCAL</text>
+      <text x="700" y="118" fill="#141413" font-size="12" font-weight="500" font-family="inherit" text-anchor="middle">笔记库</text>
+      <text x="700" y="134" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace" text-anchor="middle">Markdown · AI 笔记</text>
+
+      <!-- Node: Toolbox -->
+      <rect x="800" y="80" width="120" height="64" rx="6" fill="#f5f4ed"/>
+      <rect x="800" y="80" width="120" height="64" rx="6" fill="#EEEDE6" stroke="#B2B1AC" stroke-width="1"/>
+      <text x="822" y="98" fill="#6b6a64" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">TOOLS</text>
+      <text x="860" y="118" fill="#141413" font-size="12" font-weight="500" font-family="inherit" text-anchor="middle">工具箱</text>
+      <text x="860" y="134" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace" text-anchor="middle">微信读书 · 飞书</text>
+
+      <!-- ====== BACKEND LAYER (middle) ====== -->
+      <!-- Node: Flask API -->
+      <rect x="260" y="230" width="160" height="64" rx="6" fill="#f5f4ed"/>
+      <rect x="260" y="230" width="160" height="64" rx="6" fill="#faf9f5" stroke="#141413" stroke-width="1"/>
+      <text x="282" y="248" fill="#141413" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">API</text>
+      <text x="340" y="268" fill="#141413" font-size="12" font-weight="500" font-family="inherit" text-anchor="middle">Flask REST API</text>
+      <text x="340" y="284" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace" text-anchor="middle">CRUD · 搜索 · 入库</text>
+
+      <!-- Node: Services -->
+      <rect x="440" y="230" width="160" height="64" rx="6" fill="#f5f4ed"/>
+      <rect x="440" y="230" width="160" height="64" rx="6" fill="#faf9f5" stroke="#141413" stroke-width="1"/>
+      <text x="462" y="248" fill="#141413" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">SERVICES</text>
+      <text x="520" y="268" fill="#141413" font-size="12" font-weight="500" font-family="inherit" text-anchor="middle">业务服务层</text>
+      <text x="520" y="284" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace" text-anchor="middle">抓取 · 解析 · 去重</text>
+
+      <!-- Node: AI Engine -->
+      <rect x="620" y="230" width="160" height="64" rx="6" fill="#f5f4ed"/>
+      <rect x="620" y="230" width="160" height="64" rx="6" fill="#EEF2F7" stroke="#1B365D" stroke-width="1"/>
+      <text x="642" y="248" fill="#1B365D" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">AI</text>
+      <text x="700" y="268" fill="#141413" font-size="12" font-weight="500" font-family="inherit" text-anchor="middle">AI 引擎</text>
+      <text x="700" y="284" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace" text-anchor="middle">解读 · 标签推荐</text>
+
+      <!-- ====== DATA & EXTERNAL LAYER (bottom) ====== -->
+      <!-- Node: SQLite -->
+      <rect x="260" y="380" width="160" height="64" rx="6" fill="#f5f4ed"/>
+      <rect x="260" y="380" width="160" height="64" rx="6" fill="#EAE9E2" stroke="#504e49" stroke-width="1"/>
+      <text x="282" y="398" fill="#504e49" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">STORE</text>
+      <text x="340" y="418" fill="#141413" font-size="12" font-weight="500" font-family="inherit" text-anchor="middle">SQLite + FTS5</text>
+      <text x="340" y="434" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace" text-anchor="middle">本地数据库 · 全文检索</text>
+
+      <!-- Node: Local Files -->
+      <rect x="530" y="380" width="160" height="64" rx="6" fill="#f5f4ed"/>
+      <rect x="530" y="380" width="160" height="64" rx="6" fill="#EAE9E2" stroke="#504e49" stroke-width="1"/>
+      <text x="552" y="398" fill="#504e49" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">FILES</text>
+      <text x="610" y="418" fill="#141413" font-size="12" font-weight="500" font-family="inherit" text-anchor="middle">本地文件存储</text>
+      <text x="610" y="434" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace" text-anchor="middle">PDF / HTML / Markdown</text>
+
+      <!-- Node: External Sources -->
+      <rect x="100" y="380" width="120" height="100" rx="6" fill="#f5f4ed"/>
+      <rect x="100" y="380" width="120" height="100" rx="6" fill="#E9E8E1" stroke="#6b6a64" stroke-width="1"/>
+      <text x="122" y="398" fill="#6b6a64" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">SOURCES</text>
+      <text x="160" y="418" fill="#141413" font-size="11" font-weight="500" font-family="inherit" text-anchor="middle">外部数据源</text>
+      <text x="160" y="436" fill="#504e49" font-size="8" font-family="'JetBrains Mono', monospace" text-anchor="middle">arXiv</text>
+      <text x="160" y="450" fill="#504e49" font-size="8" font-family="'JetBrains Mono', monospace" text-anchor="middle">微信 · 知乎</text>
+      <text x="160" y="464" fill="#504e49" font-size="8" font-family="'JetBrains Mono', monospace" text-anchor="middle">通用网页</text>
+
+      <!-- Node: AI Providers -->
+      <rect x="800" y="380" width="120" height="64" rx="6" fill="#f5f4ed"/>
+      <rect x="800" y="380" width="120" height="64" rx="6" fill="#E9E8E1" stroke="#6b6a64" stroke-width="1"/>
+      <text x="822" y="398" fill="#6b6a64" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">EXTERNAL</text>
+      <text x="860" y="418" fill="#141413" font-size="11" font-weight="500" font-family="inherit" text-anchor="middle">AI 服务商</text>
+      <text x="860" y="434" fill="#504e49" font-size="8" font-family="'JetBrains Mono', monospace" text-anchor="middle">豆包 · OpenAI · 千问</text>
+
+      <!-- ====== LEGEND ====== -->
+      <line x1="100" y1="490" x2="920" y2="490" stroke="#DEDED7" stroke-width="0.8"/>
+      <text x="100" y="506" fill="#504e49" font-size="8" font-family="'JetBrains Mono', monospace" letter-spacing="0.22em">LEGEND</text>
+
+      <rect x="100" y="518" width="14" height="10" rx="2" fill="#EEF2F7" stroke="#1B365D" stroke-width="1"/>
+      <text x="120" y="526" fill="#504e49" font-size="8.5" font-family="inherit">核心模块</text>
+
+      <rect x="210" y="518" width="14" height="10" rx="2" fill="#faf9f5" stroke="#141413" stroke-width="1"/>
+      <text x="230" y="526" fill="#504e49" font-size="8.5" font-family="inherit">后端服务</text>
+
+      <rect x="330" y="518" width="14" height="10" rx="2" fill="#EAE9E2" stroke="#504e49" stroke-width="1"/>
+      <text x="350" y="526" fill="#504e49" font-size="8.5" font-family="inherit">数据存储</text>
+
+      <rect x="450" y="518" width="14" height="10" rx="2" fill="#E9E8E1" stroke="#6b6a64" stroke-width="1"/>
+      <text x="470" y="526" fill="#504e49" font-size="8.5" font-family="inherit">外部源</text>
+
+      <rect x="550" y="518" width="14" height="10" rx="2" fill="#EEEDE6" stroke="#B2B1AC" stroke-width="1"/>
+      <text x="570" y="526" fill="#504e49" font-size="8.5" font-family="inherit">工具模块</text>
+
+      <line x1="660" y1="524" x2="690" y2="524" stroke="#1B365D" stroke-width="1.4" marker-end="url(#arrow-brand)"/>
+      <text x="698" y="526" fill="#504e49" font-size="8.5" font-family="inherit">主数据流</text>
+
+      <line x1="800" y1="524" x2="830" y2="524" stroke="#504e49" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="838" y="526" fill="#504e49" font-size="8.5" font-family="inherit">辅助流</text>
+    </svg>
+
+    <p class="caption">PaperHub 采用三层架构：Presentation 层（Vue3 单页应用）通过 REST API 与 Flask 后端通信，后端业务服务层处理多源数据抓取与解析，数据持久化到本地 SQLite 与文件系统，AI 能力通过外部大模型 API 接入。</p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>PaperHub - 个人知识管理系统</title>
+<style>
+  @font-face { font-family: "TsangerJinKai02"; src: url("https://cdn.jsdelivr.net/gh/tw93/Kami@main/assets/fonts/TsangerJinKai02-W04.ttf") format("truetype"); font-weight: 400; }
+  @font-face { font-family: "TsangerJinKai02"; src: url("https://cdn.jsdelivr.net/gh/tw93/Kami@main/assets/fonts/TsangerJinKai02-W05.ttf") format("truetype"); font-weight: 500; }
+  @font-face { font-family: "JetBrains Mono"; src: url("https://cdn.jsdelivr.net/gh/tw93/Kami@main/assets/fonts/JetBrainsMono.woff2") format("woff2"); font-weight: 400; }
+
+  @page {
+    size: 280mm 158mm;
+    margin: 0;
+    background: #f5f4ed;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --parchment:  #f5f4ed;
+    --ivory:      #faf9f5;
+    --near-black: #141413;
+    --dark-warm:  #3d3d3a;
+    --olive:      #504e49;
+    --stone:      #6b6a64;
+    --brand:      #1B365D;
+    --brand-tint: #EEF2F7;
+    --border:     #e8e6dc;
+    --border-soft:#e5e3d8;
+
+    --serif: "TsangerJinKai02", "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", "STSong", Georgia, serif;
+    --sans:  var(--serif);
+    --mono:  "JetBrains Mono", "SF Mono", "Fira Code", Consolas, Monaco, "TsangerJinKai02", "Source Han Serif SC", monospace;
+
+    --rhythm-module:  14pt;
+    --rhythm-section: 18pt;
+  }
+
+  body {
+    color: var(--near-black);
+    font-family: var(--sans);
+    font-size: 13pt;
+    line-height: 1.55;
+    letter-spacing: 0.3pt;
+  }
+
+  .slide {
+    width: 280mm;
+    height: 158mm;
+    padding: 16mm 20mm;
+    background: var(--parchment);
+    break-after: page;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { break-after: auto; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 9.5pt;
+    letter-spacing: 2pt;
+    text-transform: uppercase;
+    color: var(--stone);
+    margin-bottom: 2pt;
+  }
+
+  .page-num {
+    position: absolute;
+    bottom: 10mm;
+    right: 20mm;
+    font-family: var(--mono);
+    font-size: 9pt;
+    color: var(--stone);
+    letter-spacing: 0.5pt;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .footer-mark {
+    position: absolute;
+    bottom: 10mm;
+    left: 20mm;
+    font-family: var(--mono);
+    font-size: 9pt;
+    color: var(--stone);
+    letter-spacing: 1.5pt;
+  }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: 24pt;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.3pt;
+    color: var(--near-black);
+    margin-bottom: var(--rhythm-module);
+  }
+
+  h3 {
+    font-family: var(--serif);
+    font-size: 15pt;
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: 0.3pt;
+    color: var(--brand);
+    margin-bottom: 8pt;
+  }
+
+  .lead {
+    font-family: var(--sans);
+    font-size: 12pt;
+    font-weight: 400;
+    line-height: 1.55;
+    letter-spacing: 0.3pt;
+    color: var(--olive);
+    margin-bottom: 8pt;
+  }
+
+  .mt {
+    font-family: var(--serif);
+    font-size: 16pt;
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: 0.3pt;
+    color: var(--near-black);
+    margin-bottom: 8pt;
+  }
+
+  .ml {
+    font-family: var(--serif);
+    font-size: 24pt;
+    font-weight: 500;
+    color: var(--brand);
+    margin-right: 6pt;
+  }
+
+  .ms {
+    font-family: var(--mono);
+    font-size: 7.5pt;
+    letter-spacing: 1.5pt;
+    text-transform: uppercase;
+    color: var(--stone);
+    border-bottom: 0.3pt solid var(--border);
+    padding-bottom: 4pt;
+    margin-bottom: var(--rhythm-module);
+  }
+
+  .mb {
+    font-family: var(--sans);
+    font-size: 11pt;
+    line-height: 1.55;
+    letter-spacing: 0.3pt;
+    color: var(--dark-warm);
+    margin-bottom: var(--rhythm-section);
+  }
+
+  .mi {
+    font-family: var(--sans);
+    font-size: 11pt;
+    line-height: 1.55;
+    letter-spacing: 0.3pt;
+    color: var(--dark-warm);
+    padding: 8pt 0;
+  }
+
+  .mc {
+    font-family: var(--sans);
+    font-size: 9.5pt;
+    line-height: 1.5;
+    letter-spacing: 0.3pt;
+    color: var(--olive);
+    border-top: 0.3pt solid var(--border);
+    padding-top: 8pt;
+    margin-top: var(--rhythm-section);
+  }
+
+  .co {
+    font-family: var(--sans);
+    font-size: 11pt;
+    font-weight: 500;
+    line-height: 1.55;
+    letter-spacing: 0.3pt;
+    color: var(--brand);
+    position: absolute;
+    bottom: 12mm;
+    left: 20mm;
+    right: 20mm;
+  }
+
+  .c2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22pt;
+  }
+
+  .t2x2 {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 22pt 18pt;
+    margin: -18pt -22pt;
+  }
+  .t2x2 td {
+    vertical-align: top;
+    width: 50%;
+  }
+
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table.data td {
+    padding: 8pt;
+    border-bottom: 0.3pt solid var(--border);
+    font-size: 11pt;
+    line-height: 1.55;
+    letter-spacing: 0.3pt;
+  }
+  table.data td:first-child {
+    font-weight: 500;
+    color: var(--brand);
+  }
+
+  svg {
+    max-height: 105mm;
+    width: auto;
+  }
+
+  .cover {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .cover h1 {
+    font-family: var(--serif);
+    font-size: 38pt;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: 0.3pt;
+    color: var(--near-black);
+    margin-bottom: 12pt;
+  }
+  .cover .sub {
+    font-family: var(--sans);
+    font-size: 14pt;
+    line-height: 1.5;
+    letter-spacing: 0.3pt;
+    color: var(--olive);
+    max-width: 50ch;
+    margin-bottom: 32pt;
+  }
+  .cover .meta {
+    font-family: var(--sans);
+    font-size: 10pt;
+    color: var(--stone);
+    letter-spacing: 0.3pt;
+  }
+
+  .glance-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14pt;
+    margin: 18pt 0;
+  }
+  .glance-cell {
+    padding: 12pt 0 10pt 14pt;
+    border-left: 2pt solid var(--brand);
+    border-radius: 1.5pt;
+  }
+  .glance-label {
+    font-family: var(--mono);
+    font-size: 8.5pt;
+    color: var(--brand);
+    letter-spacing: 1pt;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .glance-value {
+    font-size: 18pt;
+    font-weight: 500;
+    color: var(--near-black);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5pt;
+  }
+  .glance-note {
+    font-size: 9pt;
+    color: var(--olive);
+    line-height: 1.4;
+  }
+
+  .tag {
+    display: inline-block;
+    background: #EEF2F7;
+    color: var(--brand);
+    font-size: 9pt;
+    font-weight: 500;
+    padding: 1pt 5pt;
+    border-radius: 2pt;
+    letter-spacing: 0.4pt;
+    margin-right: 4pt;
+  }
+</style>
+</head>
+<body>
+
+<!-- 封面 -->
+<section class="slide cover">
+  <h1>PaperHub</h1>
+  <div class="sub">本地化、私有化的论文、文章、笔记一体化知识管理系统<br>专为算法工程师设计</div>
+  <div class="meta">2026.5.29 · Phase 0-13 全部完成</div>
+</section>
+
+<!-- 核心理念 -->
+<section class="slide">
+  <span class="eyebrow">01 · 核心理念</span>
+  <h2>本地优先 · 多源接入 · 对话即知识</h2>
+  <p class="lead">PaperHub 是一个面向算法工程师的个人知识管理系统，核心理念围绕三个关键词展开。</p>
+
+  <div class="glance-grid">
+    <div class="glance-cell">
+      <div class="glance-label">LOCAL FIRST</div>
+      <div class="glance-value">本地优先</div>
+      <div class="glance-note">所有数据存储在本地 SQLite 数据库和文件系统中，隐私安全，永久可用，无需担心云服务关停。</div>
+    </div>
+    <div class="glance-cell">
+      <div class="glance-label">MULTI-SOURCE</div>
+      <div class="glance-value">多源接入</div>
+      <div class="glance-note">arXiv 论文、微信公众号、知乎专栏、AI 对话笔记、通用网页，一键入库，统一管理和检索。</div>
+    </div>
+    <div class="glance-cell">
+      <div class="glance-label">DIALOGUE</div>
+      <div class="glance-value">对话即知识</div>
+      <div class="glance-note">与大模型的对话也可以沉淀为知识库，支持 Markdown 完整渲染和标签关联。</div>
+    </div>
+    <div class="glance-cell">
+      <div class="glance-label">CONSISTENCY</div>
+      <div class="glance-value">一致性原则</div>
+      <div class="glance-note">论文库有的，文章库、笔记库也要原封不动抄过去，用户只学习一次就够了。</div>
+    </div>
+  </div>
+
+  <div class="page-num">01</div>
+  <div class="footer-mark">PAPERHUB</div>
+</section>
+
+<!-- 三大模块 -->
+<section class="slide">
+  <span class="eyebrow">02 · 核心架构</span>
+  <h2>三大模块统一架构</h2>
+  <p class="lead">论文库、文章库、笔记库共享同一套交互逻辑和数据模型，实现 100% 一致性体验。</p>
+
+  <table class="t2x2">
+    <tr>
+      <td>
+        <div class="mt"><span class="ml">A</span>论文库</div>
+        <p class="mb">arXiv 论文自动抓取，支持 ID / 链接 / 关键词搜索导入。PDF 原生预览，浏览器内置翻页缩放。4 种阅读状态 + 标星收藏 + 二级分类。</p>
+      </td>
+      <td>
+        <div class="mt"><span class="ml">B</span>文章库</div>
+        <p class="mb">微信公众号 / 知乎专栏 / 通用网页一键入库。HTML iframe 完整渲染，和原文阅读体验一致。图片本地化保存，防盗链完美解决。</p>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <div class="mt"><span class="ml">C</span>笔记库</div>
+        <p class="mb">AI 对话笔记 Markdown 完整渲染，支持代码块语法高亮、表格、引用块。一键同步关联论文/文章的所有标签，双向关联自动维护。</p>
+      </td>
+      <td>
+        <div class="mt"><span class="ml">D</span>统一体验</div>
+        <p class="mb">布局一致：状态筛选在上，标签筛选在下。交互一致：点击切换，多标签交集筛选。排序一致：标星置顶，状态权重，时间倒序。</p>
+      </td>
+    </tr>
+  </table>
+
+  <div class="page-num">02</div>
+  <div class="footer-mark">PAPERHUB</div>
+</section>
+
+<!-- 功能特性 -->
+<section class="slide">
+  <span class="eyebrow">03 · 功能全景</span>
+  <h2>13 个 Phase，覆盖知识管理全链路</h2>
+
+  <table class="data">
+    <tr>
+      <td>Phase 1-2</td>
+      <td>基础骨架 + 多源入库</td>
+      <td>arXiv 抓取、微信/知乎导入、标签系统、去重机制</td>
+    </tr>
+    <tr>
+      <td>Phase 3-4</td>
+      <td>对话笔记 + 视觉化升级</td>
+      <td>Markdown 渲染、多维筛选、标星状态视觉化、5 种排序</td>
+    </tr>
+    <tr>
+      <td>Phase 5</td>
+      <td>三大模块统一架构</td>
+      <td>文章库独立、笔记 Markdown 完整渲染、智能同步标签</td>
+    </tr>
+    <tr>
+      <td>Phase 6-7</td>
+      <td>检索与搜索体验</td>
+      <td>arXiv 关键词检索、公众号订阅、FTS5 全文检索、搜索框 V1.3</td>
+    </tr>
+    <tr>
+      <td>Phase 8-12</td>
+      <td>体验优化与内容扩展</td>
+      <td>图片粘贴上传、硬删除、批量操作、数据备份、通用网页提取、精选公众号</td>
+    </tr>
+    <tr>
+      <td>Phase 13</td>
+      <td>工具箱与第三方集成</td>
+      <td>微信读书搜索、飞书消息拉取、离线缓存</td>
+    </tr>
+  </table>
+
+  <div class="page-num">03</div>
+  <div class="footer-mark">PAPERHUB</div>
+</section>
+
+<!-- 技术栈 -->
+<section class="slide">
+  <span class="eyebrow">04 · 技术实现</span>
+  <h2>技术栈与架构设计</h2>
+  <p class="lead">轻量级技术栈，单文件前端 + Flask 后端，零部署成本。</p>
+
+  <div class="c2">
+    <div>
+      <h3>后端架构</h3>
+      <p class="mb">Flask + SQLite + SQLAlchemy，单进程单线程足够支撑个人使用。全局异常拦截、统一 Session 管理、日志过滤扫描请求，控制台清爽无干扰。</p>
+      <p class="mb">FTS5 全文检索虚拟表 + 触发器增量同步，支持跨模块搜索和高亮展示。Jaccard 词级别相似度去重，避免不同论文 AI 解读被误判为重复。</p>
+    </div>
+    <div>
+      <h3>前端架构</h3>
+      <p class="mb">Vue 3 + Element Plus CDN 版本，单文件 ~4000 行生产代码。localStorage 持久化排序偏好、搜索历史、API Key 配置。</p>
+      <p class="mb">marked.js Markdown 渲染 + 专属 CSS 样式，支持代码块深色主题、语法高亮、表格边框、引用块蓝边。</p>
+    </div>
+  </div>
+
+  <div class="co">设计方法论：数据量小于 1000 时前端算，大于 10000 时后端算，和前端展示数据一致时前端算。</div>
+
+  <div class="page-num">04</div>
+  <div class="footer-mark">PAPERHUB</div>
+</section>
+
+<!-- Phase 13 工具箱 -->
+<section class="slide">
+  <span class="eyebrow">05 · 最新成果</span>
+  <h2>Phase 13：工具箱与第三方集成</h2>
+  <p class="lead">2026.5.29 完成，将外部知识源无缝接入个人知识库。</p>
+
+  <div class="c2">
+    <div>
+      <h3>微信读书搜索</h3>
+      <p class="mb">支持关键词搜索微信读书中的书籍，查看封面、作者、评分、阅读量等元数据。展示热门书评和热门划线，一键生成精美分享卡片。API Key 本地存储，通过 weread-skills 获取。</p>
+    </div>
+    <div>
+      <h3>飞书消息集成</h3>
+      <p class="mb">通过 lark-cli 命令行工具访问飞书 API，获取群聊列表和历史消息。支持分页加载和批量加载，消息离线缓存到本地。智能解析发送者名称，视频通话消息自动解析会议主题和时长。</p>
+    </div>
+  </div>
+
+  <div class="mc">
+    <span class="tag">微信读书</span>
+    <span class="tag">飞书消息</span>
+    <span class="tag">离线缓存</span>
+    <span class="tag">lark-cli</span>
+    <span class="tag">weread-skills</span>
+  </div>
+
+  <div class="page-num">05</div>
+  <div class="footer-mark">PAPERHUB</div>
+</section>
+
+<!-- 数据与成果 -->
+<section class="slide">
+  <span class="eyebrow">06 · 项目成果</span>
+  <h2>从 MVP 到完整知识管理系统</h2>
+
+  <div class="glance-grid">
+    <div class="glance-cell">
+      <div class="glance-label">PHASES</div>
+      <div class="glance-value">13 / 13</div>
+      <div class="glance-note">Phase 0-13 全部完成，Phase 14-15 规划中</div>
+    </div>
+    <div class="glance-cell">
+      <div class="glance-label">DOCS</div>
+      <div class="glance-value">~5 万字</div>
+      <div class="glance-note">13 篇开发经验总结文档，覆盖架构设计、Bug 汇总、踩坑记录</div>
+    </div>
+    <div class="glance-cell">
+      <div class="glance-label">CODE QUALITY</div>
+      <div class="glance-value">S 级</div>
+      <div class="glance-note">架构清晰，文档完善，技术债务已清理，模块化重构完成</div>
+    </div>
+    <div class="glance-cell">
+      <div class="glance-label">MAINTENANCE</div>
+      <div class="glance-value">9 个工具</div>
+      <div class="glance-note">FTS5 重建、文件完整性检查、数据清理、批量修正等维护脚本</div>
+    </div>
+  </div>
+
+  <div class="co">项目健康度评估：S 级 - 架构清晰，文档完善，可以继续快速迭代。</div>
+
+  <div class="page-num">06</div>
+  <div class="footer-mark">PAPERHUB</div>
+</section>
+
+<!-- 路线图 -->
+<section class="slide">
+  <span class="eyebrow">07 · 未来规划</span>
+  <h2>下一步：arXiv 版本更新检测 + 向量语义检索</h2>
+  <p class="lead">两个长期规划方向，持续提升知识管理的智能化水平。</p>
+
+  <div class="c2">
+    <div>
+      <h3>Phase 14：arXiv 版本更新检测</h3>
+      <p class="mb">自动追踪已入库论文的新版本，定期轮询 arXiv API。新旧版本保存，支持版本差异展示，避免错过重要更新。预计工作量 1-2 天。</p>
+    </div>
+    <div>
+      <h3>Phase 15：向量语义检索</h3>
+      <p class="mb">ChromaDB 本地集成，文本向量化存储。支持自然语言语义搜索，提升知识发现能力。预计工作量 3-5 天，技术风险中等。</p>
+    </div>
+  </div>
+
+  <div class="page-num">07</div>
+  <div class="footer-mark">PAPERHUB</div>
+</section>
+
+<!-- 结束页 -->
+<section class="slide cover">
+  <h1>PaperHub</h1>
+  <div class="sub">让知识管理回归简单<br>本地、私有、一体化</div>
+  <div class="meta">github.com · PaperHub Project · 2026</div>
+</section>
+
+</body>
+</html>
