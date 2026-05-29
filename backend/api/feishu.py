@@ -834,7 +834,7 @@ BOT_NAME_MAP = {
 # 注：外部群成员可能无法通过 API 获取名称，需手动维护映射
 USER_NAME_MAP = {
     'ou_229408151b4b49d8239ce737d92df154': '卡兹克',
-    'ou_6ee569cc': 'WaytoAGI-鹏影',
+    'ou_6e89d0b992ec9c39eadf39866ee569cc': 'WaytoAGI-鹏影',
 }
 
 
