@@ -382,18 +382,34 @@
 
                     <!-- 群聊选择区 -->
                     <div style="margin-top: 20px;">
-                        <div class="search-mode-tabs">
+                        <!-- 模式切换 + 操作按钮 同一行 -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                             <el-radio-group v-model="groupSearchMode" size="small">
-                                <el-radio-button label="list">我的群聊</el-radio-button>
-                                <el-radio-button label="search">搜索群聊</el-radio-button>
+                                <el-radio-button label="list">📋 我的群聊</el-radio-button>
+                                <el-radio-button label="search">🔍 搜索群聊</el-radio-button>
                             </el-radio-group>
+
+                            <!-- 列表模式：获取群聊按钮 -->
+                            <div v-if="groupSearchMode === 'list'" style="display: flex; gap: 8px;">
+                                <el-button @click="fetchFeishuGroups" type="primary" :loading="groupsLoading" size="small">
+                                    📥 获取群聊列表
+                                </el-button>
+                                <el-button
+                                    v-if="groupsHasMore"
+                                    @click="loadMoreGroups"
+                                    :loading="groupsLoading"
+                                    size="small"
+                                >
+                                    加载更多
+                                </el-button>
+                            </div>
                         </div>
 
                         <!-- 搜索模式 -->
                         <div v-if="groupSearchMode === 'search'" class="group-search-box">
                             <el-input
                                 v-model="groupSearchKeyword"
-                                placeholder="输入关键词搜索群聊..."
+                                placeholder="输入关键词搜索已加入的群聊..."
                                 clearable
                                 prefix-icon="Search"
                                 @keyup.enter="searchFeishuGroups"
@@ -404,21 +420,9 @@
                                     </el-button>
                                 </template>
                             </el-input>
-                        </div>
-
-                        <!-- 列表模式：获取群聊按钮 + 置顶区 -->
-                        <div v-else style="margin-bottom: 12px;">
-                            <el-button @click="fetchFeishuGroups" type="primary" :loading="groupsLoading" size="small">
-                                📥 获取我的群聊列表
-                            </el-button>
-                            <el-button
-                                v-if="groupsHasMore"
-                                @click="loadMoreGroups"
-                                :loading="groupsLoading"
-                                size="small"
-                            >
-                                加载更多
-                            </el-button>
+                            <p style="font-size: 12px; color: #909399; margin-top: 6px;">
+                                💡 仅搜索你已加入或可见的公开群聊
+                            </p>
                         </div>
 
                         <!-- 群聊列表 -->
@@ -1293,11 +1297,11 @@
                             totalPagesLoaded++;
                             totalNewMessages += newMessages.length;
                             
-                            // 更新进度显示：X/Y
+                            // 更新进度显示：X/Y + 新消息数
                             const currentPage = totalPagesLoaded;
                             const remainingPages = messagesHasMore.value ? Math.min(MAX_BATCH_PAGES - currentPage, 10) : 0;
                             const displayTotal = messagesHasMore.value ? Math.min(currentPage + remainingPages, MAX_BATCH_PAGES) : currentPage;
-                            feishuLoadingText.value = `正在批量加载消息（${currentPage}/${displayTotal}）...`;
+                            feishuLoadingText.value = `正在批量加载消息（${currentPage}/${displayTotal}）... 已获取 ${totalNewMessages} 条新消息`;
 
                             feishuMessages.value = [...feishuMessages.value, ...newMessages];
                             messagesPageToken.value = data.page_token || '';
