@@ -749,7 +749,7 @@ def load_offline_messages():
     加载指定群聊的离线消息
     POST /api/feishu/offline/load
     Body: { "chatId": "oc_xxx" }
-    Query: ?offset=0&limit=50
+    Query: ?offset=0&limit=-1 (limit=-1 表示加载全部)
     """
     try:
         data = request.get_json()
@@ -760,9 +760,9 @@ def load_offline_messages():
         if not chat_id:
             return jsonify({'error': 'chatId 不能为空'}), 400
         
-        # 获取分页参数
+        # 获取分页参数，默认 limit=-1 表示加载全部
         offset = request.args.get('offset', 0, type=int)
-        limit = request.args.get('limit', 50, type=int)
+        limit = request.args.get('limit', -1, type=int)
         
         # 读取文件
         filename = f"{chat_id}.json"
@@ -780,8 +780,13 @@ def load_offline_messages():
         messages = offline_data.get('messages', [])
         total = len(messages)
         
-        # 分页
-        paginated_messages = messages[offset:offset + limit]
+        # 分页：limit=-1 表示加载全部
+        if limit == -1:
+            paginated_messages = messages[offset:]
+            has_more = False
+        else:
+            paginated_messages = messages[offset:offset + limit]
+            has_more = offset + limit < total
         
         return jsonify({
             'success': True,
@@ -791,7 +796,7 @@ def load_offline_messages():
             'total': total,
             'offset': offset,
             'limit': limit,
-            'hasMore': offset + limit < total,
+            'hasMore': has_more,
             'savedAt': offline_data.get('savedAt')
         }), 200
         
