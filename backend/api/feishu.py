@@ -549,20 +549,22 @@ def get_messages():
         has_more = msg_data.get('has_more', False)
         page_token_next = msg_data.get('page_token', '')
         
+        # 注意：飞书 API 返回的 sender 中，机器人(sender_type=app)没有 name 字段
+        # 外部群成员也可能没有 name 字段（权限限制）
+        # 这里不再尝试通过 contact API 获取，因为外部群成员也无法获取
+
         # 格式化消息
         formatted_messages = []
         for msg in messages:
             # 跳过已撤回的消息
             if msg.get('deleted'):
                 continue
-            
-            sender = msg.get('sender', {})
-            if not isinstance(sender, dict):
-                sender = {}
-            
+
+            sender = msg.get('sender', {}) or {}
+
             # 获取content - lark-cli返回的content在顶层，不在body里
             content = msg.get('content', '')
-            
+
             # 如果content是JSON字符串（富文本消息），尝试解析
             try:
                 if isinstance(content, str) and content.startswith('{'):
@@ -575,12 +577,16 @@ def get_messages():
                         content = _extract_post_text(content_obj['post'])
             except:
                 pass
-            
+
+            # 解析 sender_name
+            sender_name = _resolve_sender_name(sender)
+
             formatted_messages.append({
                 'message_id': msg.get('message_id'),
                 'msg_type': msg.get('msg_type', 'text'),
-                'sender_name': sender.get('name') or sender.get('sender_id', '未知用户'),
-                'sender_id': sender.get('sender_id'),
+                'sender_name': sender_name,
+                'sender_id': sender.get('id') or sender.get('sender_id'),
+                'sender_type': sender.get('sender_type', 'user'),
                 'create_time': msg.get('create_time'),
                 'update_time': msg.get('update_time'),
                 'content': content,
@@ -815,6 +821,57 @@ def delete_offline_messages():
             'success': False,
             'error': f'删除失败: {str(e)}'
         }), 500
+
+
+# 机器人名称映射表（app_id -> 名称）
+# 注：飞书 API 不返回机器人名称，需手动维护映射
+BOT_NAME_MAP = {
+    'cli_a136ebe23478900b': '多维表格助手',
+    'cli_c08abc1da138d00f': 'AIHOT小助手',
+}
+
+
+def _resolve_sender_name(sender):
+    """
+    解析消息发送者名称
+
+    飞书 API 的 sender 结构：
+    - 普通用户: {"id": "ou_xxx", "id_type": "open_id", "sender_type": "user", "name": "用户名"}
+    - 机器人: {"id": "cli_xxx", "id_type": "app_id", "sender_type": "app"} (没有 name 字段)
+    - 外部群成员: name 可能为 None（权限限制）
+
+    Args:
+        sender: 消息发送者对象
+
+    Returns:
+        str: 发送者显示名称
+    """
+    if not isinstance(sender, dict):
+        return '未知用户'
+
+    # 1. 优先使用 sender 中的 name 字段
+    name = sender.get('name')
+    if name:
+        return name
+
+    sender_type = sender.get('sender_type', 'user')
+    sender_id = sender.get('id') or sender.get('sender_id')
+
+    # 2. 如果是机器人 (app)，先查映射表
+    if sender_type == 'app':
+        if sender_id:
+            # 查映射表
+            mapped_name = BOT_NAME_MAP.get(sender_id)
+            if mapped_name:
+                return mapped_name
+            return f'机器人 ({sender_id[-8:]})'
+        return '机器人'
+
+    # 3. 如果是用户但 name 为空（外部群成员权限限制）
+    if sender_id:
+        return f'用户 ({sender_id[-8:]})'
+
+    return '未知用户'
 
 
 def _extract_post_text(post_obj):

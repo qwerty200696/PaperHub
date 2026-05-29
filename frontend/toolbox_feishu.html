@@ -10,85 +10,164 @@
     <link rel="stylesheet" href="/src/css/style.css">
     <link rel="icon" href="data:,">
     <style>
-        .feishu-messages-container {
-            max-height: 600px;
-            overflow-y: auto;
-            border: 1px solid #e4e7ed;
-            border-radius: 4px;
-            padding: 16px;
-            background: #f5f7fa;
+        /* 主容器样式 - 与主页面一致 */
+        .main-container {
+            display: flex;
+            min-height: calc(100vh - 64px);
         }
+
+        .content {
+            flex: 1;
+            padding: 24px;
+        }
+
+        /* 工具区域样式 - 与主页面 tool-section 一致 */
+        .tool-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        /* API Key 区域样式 - 与主页面一致 */
+        .api-key-section {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            border: 1px solid #fcd34d;
+        }
+
+        .api-key-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #92400e;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        /* 消息容器样式 - 优化圆角和背景 */
+        .feishu-messages-container {
+            max-height: 500px;
+            overflow-y: auto;
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        /* 消息项样式 - 优化卡片效果 */
         .feishu-message-item {
             display: flex;
             gap: 12px;
-            margin-bottom: 16px;
-            padding: 12px;
-            background: white;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            background: #fff;
             border-radius: 8px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
         }
+
+        .feishu-message-item:hover {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
+        /* 消息头像样式 - 用户默认绿色 */
         .message-avatar {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #00b42a, #10b981);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
             font-size: 16px;
+            color: #fff;
+            font-weight: 600;
             flex-shrink: 0;
         }
+
+        /* 机器人头像 - 蓝色主题 */
+        .message-avatar.bot {
+            background: linear-gradient(135deg, #409eff, #667eea);
+        }
+
+        /* 未知用户头像 - 灰色主题 */
+        .message-avatar.unknown {
+            background: linear-gradient(135deg, #909399, #c0c4cc);
+        }
+
         .message-content {
             flex: 1;
             min-width: 0;
         }
+
         .message-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 6px;
         }
+
         .message-sender {
             font-weight: 600;
-            color: #303133;
+            color: #1e293b;
             font-size: 14px;
         }
+
         .message-time {
             font-size: 12px;
-            color: #909399;
+            color: #94a3b8;
         }
+
         .message-body {
-            color: #606266;
             font-size: 14px;
-            line-height: 1.6;
-            word-wrap: break-word;
+            color: #475569;
+            line-height: 1.5;
+            word-break: break-word;
         }
+
+        /* 加载状态样式 - 与主页面一致 */
         .loading-state {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
+            text-align: center;
+            padding: 48px 24px;
             color: #909399;
         }
+
+        .loading-state .el-icon {
+            font-size: 24px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        /* 空状态样式 - 与主页面一致 */
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
+            padding: 48px 24px;
         }
+
         .empty-icon {
-            font-size: 64px;
+            font-size: 48px;
             margin-bottom: 16px;
+            opacity: 0.6;
         }
+
         .empty-title {
-            font-size: 18px;
-            color: #303133;
-            margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #475569;
+            margin: 0 0 8px 0;
         }
+
         .empty-desc {
-            font-size: 14px;
-            color: #909399;
+            font-size: 13px;
+            color: #94a3b8;
+            margin: 0;
         }
+
+        /* 离线标签样式 */
         .offline-badge {
             display: inline-block;
             padding: 2px 8px;
@@ -98,92 +177,133 @@
             font-size: 12px;
             margin-left: 8px;
         }
+
+        /* 搜索框样式 */
         .group-search-box {
             margin-bottom: 16px;
         }
+
         .load-more-btn {
             margin-top: 16px;
             width: 100%;
         }
+
+        /* 群聊列表面板 - 优化圆角 */
         .chat-list-panel {
             border: 1px solid #e4e7ed;
-            border-radius: 4px;
+            border-radius: 12px;
             max-height: 300px;
             overflow-y: auto;
             background: white;
         }
+
+        /* 群聊列表项 - 优化交互效果 */
         .chat-list-item {
             display: flex;
             align-items: center;
             padding: 10px 12px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s ease;
             border-bottom: 1px solid #f0f0f0;
         }
+
         .chat-list-item:hover {
             background: #f5f7fa;
         }
+
         .chat-list-item.active {
             background: #ecf5ff;
             border-left: 3px solid #409eff;
         }
+
         .chat-list-item.pinned {
             background: #fff8e6;
             border-left: 3px solid #e6a23c;
         }
+
         .chat-list-item.pinned:hover {
             background: #fdf3d6;
         }
+
+        /* 群聊头像 - 使用飞书绿色主题 */
         .chat-list-avatar {
             width: 36px;
             height: 36px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #00b42a, #10b981);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
+            font-weight: 600;
             font-size: 14px;
             flex-shrink: 0;
             margin-right: 10px;
         }
+
         .chat-list-info {
             flex: 1;
             min-width: 0;
         }
+
         .chat-list-name {
             font-size: 14px;
             font-weight: 500;
-            color: #303133;
+            color: #1e293b;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
         .chat-list-meta {
             font-size: 12px;
-            color: #909399;
+            color: #94a3b8;
             margin-top: 2px;
         }
+
         .search-mode-tabs {
             margin-bottom: 12px;
         }
+
         .chat-actions {
             display: flex;
             gap: 4px;
             opacity: 0;
             transition: opacity 0.2s;
         }
+
         .chat-list-item:hover .chat-actions {
             opacity: 1;
         }
+
+        /* 置顶区域标题 - 优化样式 */
         .pinned-section-title {
             font-size: 12px;
             color: #e6a23c;
             font-weight: 600;
-            padding: 6px 12px;
-            background: #fff8e6;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #fff8e6 0%, #fef3c7 100%);
             border-bottom: 1px solid #f0e6c8;
+        }
+
+        /* 当前群聊信息卡片 - 优化样式 */
+        .chat-info-card {
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #ecf5ff 0%, #f0f9ff 100%);
+            border-radius: 10px;
+            border-left: 4px solid #409eff;
+        }
+
+        /* 响应式布局 */
+        @media (max-width: 768px) {
+            .content {
+                padding: 16px;
+            }
+
+            .tool-section {
+                padding: 16px;
+            }
         }
     </style>
 </head>
@@ -348,6 +468,14 @@
                             ⬇️ 加载更多
                         </el-button>
                         <el-button
+                            @click="batchLoadMoreMessages"
+                            type="danger"
+                            :disabled="!selectedFeishuGroup || !messagesHasMore || feishuLoading"
+                            :loading="feishuLoading"
+                        >
+                            🚀 加载更多（10次）
+                        </el-button>
+                        <el-button
                             @click="saveFeishuMessages"
                             type="primary"
                             :disabled="!selectedFeishuGroup || feishuMessages.length === 0"
@@ -384,7 +512,7 @@
                     <!-- 消息列表 -->
                     <div v-else>
                         <!-- 当前群聊信息 -->
-                        <div v-if="currentChatInfo" style="margin-bottom: 16px; padding: 12px; background: #ecf5ff; border-radius: 4px; border-left: 4px solid #409eff;">
+                        <div v-if="currentChatInfo" class="chat-info-card">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <strong>{{ currentChatInfo.name }}</strong>
@@ -400,16 +528,22 @@
                         </div>
 
                         <!-- 消息显示数量控制 -->
-                        <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px;">
                             <div style="font-size: 14px; color: #606266;">
                                 显示 {{ displayFeishuMessages.length }} / {{ feishuMessages.length }} 条
                             </div>
-                            <el-select v-model="feishuMessageLimit" size="small" style="width: 120px;">
-                                <el-option label="显示50条" :value="50"></el-option>
-                                <el-option label="显示100条" :value="100"></el-option>
-                                <el-option label="显示200条" :value="200"></el-option>
-                                <el-option label="显示全部" :value="-1"></el-option>
-                            </el-select>
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <el-select v-model="messageSortOrder" size="small" style="width: 120px;">
+                                    <el-option label="时间倒序" value="desc"></el-option>
+                                    <el-option label="时间正序" value="asc"></el-option>
+                                </el-select>
+                                <el-select v-model="feishuMessageLimit" size="small" style="width: 120px;">
+                                    <el-option label="显示50条" :value="50"></el-option>
+                                    <el-option label="显示100条" :value="100"></el-option>
+                                    <el-option label="显示200条" :value="200"></el-option>
+                                    <el-option label="显示全部" :value="-1"></el-option>
+                                </el-select>
+                            </div>
                         </div>
 
                         <!-- 消息容器 -->
@@ -419,7 +553,9 @@
                                 :key="msg.message_id || index"
                                 class="feishu-message-item"
                             >
-                                <div class="message-avatar">{{ getAvatar(msg.sender_name) }}</div>
+                                <div class="message-avatar" :class="{ bot: msg.sender_type === 'app', unknown: !msg.sender_name || msg.sender_name === '未知用户' }">
+                                    {{ getAvatar(msg.sender_name) }}
+                                </div>
                                 <div class="message-content">
                                     <div class="message-header">
                                         <span class="message-sender">{{ msg.sender_name }}</span>
@@ -536,6 +672,7 @@
                 const currentChatInfo = ref(null);
                 const totalMessageCount = ref(0);
                 const messageContainer = ref(null);
+                const messageSortOrder = ref('desc'); // 'asc' 正序, 'desc' 反序
 
                 // 离线消息相关
                 const showOfflineDialog = ref(false);
@@ -564,7 +701,18 @@
 
                 // 计算属性：显示的消息列表
                 const displayFeishuMessages = computed(() => {
-                    let msgs = feishuMessages.value;
+                    let msgs = [...feishuMessages.value];
+                    
+                    // 按时间排序
+                    if (messageSortOrder.value === 'asc') {
+                        // 正序：旧消息在前
+                        msgs.sort((a, b) => new Date(a.create_time) - new Date(b.create_time));
+                    } else {
+                        // 反序：新消息在前
+                        msgs.sort((a, b) => new Date(b.create_time) - new Date(a.create_time));
+                    }
+                    
+                    // 限制显示数量
                     if (feishuMessageLimit.value !== -1) {
                         msgs = msgs.slice(0, feishuMessageLimit.value);
                     }
@@ -602,10 +750,10 @@
 
                 // 加载配置
                 const loadFeishuConfig = async () => {
-                    // 页面加载时自动测试一次 CLI 连接
-                    await testFeishuCli();
                     // 从后端加载置顶群聊
                     await loadPinnedChatsFromServer();
+                    // 页面加载时自动测试一次 CLI 连接
+                    await testFeishuCli();
                 };
 
                 // 从后端加载置顶群聊
@@ -1038,6 +1186,82 @@
                     }
                 };
 
+                // 批量加载更多消息（10次翻页）
+                const batchLoadMoreMessages = async () => {
+                    if (!selectedFeishuGroup.value) {
+                        ElMessage.warning('请先选择群聊');
+                        return;
+                    }
+                    if (!messagesHasMore.value || messagesFromLocal.value) {
+                        ElMessage.info('没有更多消息了');
+                        return;
+                    }
+
+                    feishuLoading.value = true;
+                    feishuLoadingText.value = '正在批量加载消息（最多10次翻页）...';
+                    messagesFromLocal.value = false;
+
+                    let totalPagesLoaded = 0;
+                    let totalNewMessages = 0;
+                    const MAX_BATCH_PAGES = 10;
+
+                    try {
+                        while (messagesHasMore.value && totalPagesLoaded < MAX_BATCH_PAGES) {
+                            const body = {
+                                ...getRequestBody(),
+                                chatId: selectedFeishuGroup.value,
+                                sort: 'desc',
+                                page_size: 50
+                            };
+
+                            if (messagesPageToken.value) {
+                                body.page_token = messagesPageToken.value;
+                            }
+
+                            const response = await fetch('/api/feishu/messages', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(body)
+                            });
+
+                            const data = await response.json();
+
+                            if (!data.success) {
+                                throw new Error(data.error || '拉取失败');
+                            }
+
+                            const existingIds = new Set(feishuMessages.value.map(m => m.message_id));
+                            const newMessages = data.messages.filter(m => !existingIds.has(m.message_id));
+
+                            totalPagesLoaded++;
+                            totalNewMessages += newMessages.length;
+                            feishuLoadingText.value = `已加载 ${totalPagesLoaded} 页，共 ${totalNewMessages} 条新消息...`;
+
+                            feishuMessages.value = [...feishuMessages.value, ...newMessages];
+                            messagesPageToken.value = data.page_token || '';
+                            messagesHasMore.value = data.has_more || false;
+                            totalMessageCount.value = feishuMessages.value.length;
+
+                            // 如果 has_more 为 false，结束循环
+                            if (!messagesHasMore.value) {
+                                break;
+                            }
+                        }
+
+                        if (totalNewMessages > 0) {
+                            ElMessage.success(`批量加载完成：共 ${totalPagesLoaded} 页，${totalNewMessages} 条新消息`);
+                        } else {
+                            ElMessage.info('没有更多消息了');
+                        }
+
+                    } catch (error) {
+                        console.error('批量加载消息失败:', error);
+                        ElMessage.error(`加载失败: ${error.message}`);
+                    } finally {
+                        feishuLoading.value = false;
+                    }
+                };
+
                 // 加载更多消息（入口）
                 const loadMoreMessages = () => {
                     if (messagesHasMore.value && !feishuLoading.value && !messagesFromLocal.value) {
@@ -1282,6 +1506,7 @@
                     messagesFromLocal,
                     messagesHasMore,
                     feishuMessageLimit,
+                    messageSortOrder,
                     displayFeishuMessages,
                     currentChatInfo,
                     totalMessageCount,
@@ -1289,6 +1514,7 @@
                     fetchFeishuMessages,
                     fetchMessagesWithAutoPage,
                     loadMoreMessages,
+                    batchLoadMoreMessages,
                     saveFeishuMessages,
                     clearCurrentMessages,
 
