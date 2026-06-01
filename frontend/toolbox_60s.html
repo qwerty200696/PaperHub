@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaperHub - 60s 信息流</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+    <link rel="stylesheet" href="/src/css/style.css">
+    <link rel="icon" href="data:,">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .main-container {
+            display: flex;
+            min-height: calc(100vh - 64px);
+        }
+
+        .content {
+            flex: 1;
+            padding: 24px;
+        }
+
+        .tool-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .masonry-grid { column-count: 1; column-gap: 1.5rem; }
+        @media (min-width: 640px) { .masonry-grid { column-count: 2; } }
+        @media (min-width: 1024px) { .masonry-grid { column-count: 3; } }
+        @media (min-width: 1280px) { .masonry-grid { column-count: 4; } }
+        .break-inside-avoid { break-inside: avoid; }
+
+        .info-card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            break-inside: avoid;
+        }
+        .info-card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+        .info-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff;
+        }
+        .info-card-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .info-card-title {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 15px;
+        }
+        .info-card-body {
+            padding: 20px;
+            min-height: 80px;
+        }
+        .refresh-btn {
+            padding: 6px;
+            color: #94a3b8;
+            border-radius: 50%;
+            transition: all 0.2s;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+        .refresh-btn:hover {
+            color: #409eff;
+            background: #f0f9ff;
+        }
+
+        .toolbar-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .status-bar {
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #ecf5ff 0%, #f0f9ff 100%);
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #409eff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .content { padding: 16px; }
+            .tool-section { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <h1>🚀 60s 信息流看板</h1>
+                <el-button @click="goBack" style="background: rgba(255,255,255,0.2); border: none; color: white;">
+                    ← 返回工具箱
+                </el-button>
+                <el-button @click="refreshAll" :loading="refreshingAll" style="background: rgba(255,255,255,0.2); border: none; color: white;">
+                    🔄 全部刷新
+                </el-button>
+            </div>
+        </div>
+
+        <div class="main-container">
+            <div class="content">
+                <div class="tool-section">
+                    <div class="toolbar-section">
+                        <div>
+                            <h2 style="margin: 0 0 4px 0; color: #1e293b; font-size: 18px;">聚合信息流</h2>
+                            <p style="margin: 0; color: #64748b; font-size: 13px;">数据来源: 60s-api.viki.moe · 最后更新: {{ lastUpdateTime }}</p>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <el-select v-model="layoutColumns" size="small" style="width: 110px;">
+                                <el-option label="1列" :value="1"></el-option>
+                                <el-option label="2列" :value="2"></el-option>
+                                <el-option label="3列" :value="3"></el-option>
+                                <el-option label="4列" :value="4"></el-option>
+                            </el-select>
+                            <el-button size="small" @click="toggleAllCards">
+                                {{ allExpanded ? '收起全部' : '展开全部' }}
+                            </el-button>
+                        </div>
+                    </div>
+
+                    <div v-if="loadingCount > 0" class="status-bar">
+                        <el-icon class="is-loading"><Loading /></el-icon>
+                        <span>正在加载数据... ({{ loadedCount }}/{{ dataSources.length }})</span>
+                    </div>
+
+                    <div class="masonry-grid" :style="masonryStyle">
+                        <div v-for="source in dataSources" :key="source.id" class="info-card" v-show="isCardVisible(source.id)">
+                            <div class="info-card-header">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div class="info-card-icon" :style="{ background: source.color }">{{ source.icon }}</div>
+                                    <span class="info-card-title">{{ source.name }}</span>
+                                </div>
+                                <button class="refresh-btn" @click="refreshCard(source.id)" :class="{ 'animate-spin': refreshingCards[source.id] }" title="刷新">
+                                    <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="info-card-body">
+                                <div v-if="cardErrors[source.id]" style="text-align: center; padding: 24px 0; color: #f56c6c;">
+                                    <div style="font-size: 24px; margin-bottom: 8px;">⚠️</div>
+                                    <p style="font-size: 12px; margin: 0 0 8px 0;">加载失败</p>
+                                    <el-button size="small" text type="primary" @click="refreshCard(source.id)">重试</el-button>
+                                </div>
+                                <div v-else-if="!cardData[source.id]" style="text-align: center; padding: 24px 0; color: #c0c4cc;">
+                                    <el-icon class="is-loading" style="font-size: 20px;"><Loading /></el-icon>
+                                    <p style="font-size: 12px; margin-top: 8px;">加载中...</p>
+                                </div>
+                                <div v-else v-html="renderCardContent(source)"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, reactive } = Vue;
+        const { ElMessage } = ElementPlus;
+
+        const API_BASE = 'https://60s-api.viki.moe';
+
+        createApp({
+            setup() {
+                const lastUpdateTime = ref('--:--');
+                const layoutColumns = ref(3);
+                const allExpanded = ref(true);
+                const refreshingAll = ref(false);
+                const loadingCount = ref(0);
+                const loadedCount = ref(0);
+                const cardData = reactive({});
+                const cardErrors = reactive({});
+                const refreshingCards = reactive({});
+                const currentOilRegion = ref('北京');
+
+                const dataSources = [
+                    { id: '60s', name: '每天60秒读懂世界', url: '/v2/60s', type: 'news', icon: '🌍', color: '#3b82f6' },
+                    { id: 'ai', name: 'AI 资讯快报', url: '/v2/ai-news', type: 'ai-news', icon: '🤖', color: '#8b5cf6' },
+                    { id: 'moyu', name: '摸鱼日报', url: '/v2/moyu', type: 'moyu', icon: '🐟', color: '#06b6d4' },
+                    { id: 'weibo', name: '微博热搜', url: '/v2/weibo', type: 'rank', icon: '🔥', color: '#ef4444' },
+                    { id: 'bili', name: '哔哩哔哩热搜', url: '/v2/bili', type: 'rank', icon: '📺', color: '#ec4899' },
+                    { id: 'rednote', name: '小红书热点', url: '/v2/rednote', type: 'rank', icon: '📕', color: '#f43f5e' },
+                    { id: 'douyin', name: '抖音热榜', url: '/v2/douyin', type: 'rank', icon: '🎵', color: '#1e293b' },
+                    { id: 'zhihu', name: '知乎热榜', url: '/v2/zhihu', type: 'rank', icon: '🧠', color: '#2563eb' },
+                    { id: 'baidu', name: '百度热搜', url: '/v2/baidu/hot', type: 'rank', icon: '🐻', color: '#60a5fa' },
+                    { id: 'tieba', name: '百度贴吧话题榜', url: '/v2/baidu/tieba', type: 'rank', icon: '💭', color: '#6366f1' },
+                    { id: 'dongchedi', name: '懂车帝热搜', url: '/v2/dongchedi', type: 'rank', icon: '🚗', color: '#ea580c' },
+                    { id: 'toutiao', name: '头条热搜', url: '/v2/toutiao', type: 'rank', icon: '📰', color: '#dc2626' },
+                    { id: 'bing', name: '必应每日壁纸', url: '/v2/bing', type: 'image', icon: '🖼️', color: '#14b8a6' },
+                    { id: 'epic', name: 'Epic 喜加一', url: '/v2/epic', type: 'game', icon: '🎮', color: '#1e293b' },
+                    { id: 'history', name: '历史上的今天', url: '/v2/today-in-history', type: 'history', icon: '📅', color: '#f59e0b' },
+                    { id: 'gold', name: '实时金价', url: '/v2/gold-price', type: 'gold', icon: '💰', color: '#eab308' },
+                    { id: 'oil', name: '今日油价', url: '/v2/fuel-price', type: 'oil', icon: '⛽', color: '#16a34a' },
+                    { id: 'hitokoto', name: '一言', url: '/v2/hitokoto', type: 'quote', icon: '💬', color: '#a855f7' }
+                ];
+
+                const masonryStyle = computed(() => {
+                    const cols = layoutColumns.value;
+                    return { columnCount: cols };
+                });
+
+                const goBack = () => {
+                    window.location.href = '/toolbox';
+                };
+
+                const isCardVisible = (id) => {
+                    return true;
+                };
+
+                const toggleAllCards = () => {
+                    allExpanded.value = !allExpanded.value;
+                };
+
+                const updateTime = () => {
+                    const now = new Date();
+                    lastUpdateTime.value = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                };
+
+                const formatNumber = (num) => {
+                    if (!num) return '';
+                    if (typeof num === 'string' && /[a-zA-Z\u4e00-\u9fa5]/.test(num)) return num;
+                    const n = parseInt(num);
+                    if (isNaN(n)) return num;
+                    if (n > 10000) return (n / 10000).toFixed(1) + '万';
+                    return n;
+                };
+
+                const refreshCard = async (sourceId) => {
+                    const source = dataSources.find(s => s.id === sourceId);
+                    if (!source) return;
+                    refreshingCards[sourceId] = true;
+                    cardErrors[sourceId] = null;
+                    try {
+                        await fetchDataSource(source);
+                    } finally {
+                        refreshingCards[sourceId] = false;
+                    }
+                    updateTime();
+                };
+
+                const refreshAll = async () => {
+                    refreshingAll.value = true;
+                    loadingCount.value = dataSources.length;
+                    loadedCount.value = 0;
+                    const promises = dataSources.map(async (source) => {
+                        try {
+                            await fetchDataSource(source);
+                        } finally {
+                            loadedCount.value++;
+                        }
+                    });
+                    await Promise.allSettled(promises);
+                    updateTime();
+                    refreshingAll.value = false;
+                    loadingCount.value = 0;
+                };
+
+                const fetchDataSource = async (source) => {
+                    try {
+                        let url = `${API_BASE}${source.url}`;
+                        const params = new URLSearchParams();
+                        if (source.id === 'oil') {
+                            params.append('region', currentOilRegion.value);
+                        }
+                        params.append('t', new Date().getTime());
+
+                        if (source.id === 'ai') {
+                            let res = await fetch(`${url}?${params.toString()}`);
+                            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                            let json = await res.json();
+                            if (!json.data || !json.data.news || json.data.news.length === 0) {
+                                const yesterday = new Date();
+                                yesterday.setDate(yesterday.getDate() - 1);
+                                const yStr = yesterday.toISOString().split('T')[0];
+                                params.append('date', yStr);
+                                res = await fetch(`${url}?${params.toString()}`);
+                                if (res.ok) json = await res.json();
+                            }
+                            cardData[source.id] = json.data || json;
+                            cardErrors[source.id] = null;
+                            return;
+                        }
+
+                        const fetchUrl = `${url}?${params.toString()}`;
+                        const response = await fetch(fetchUrl);
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        const json = await response.json();
+                        cardData[source.id] = json.data || json;
+                        cardErrors[source.id] = null;
+                    } catch (error) {
+                        console.error(`Error fetching ${source.name}:`, error);
+                        cardErrors[source.id] = error.message;
+                    }
+                };
+
+                const renderCardContent = (source) => {
+                    const data = cardData[source.id];
+                    if (!data) return '';
+                    switch (source.type) {
+                        case 'rank': return renderRankList(data);
+                        case 'news': return renderNewsList(data);
+                        case 'ai-news': return renderAiNews(data);
+                        case 'image': return renderImage(data);
+                        case 'game': return renderGameList(data);
+                        case 'history': return renderHistory(data);
+                        case 'gold': return renderGold(data);
+                        case 'oil': return renderOil(data);
+                        case 'moyu': return renderMoyu(data);
+                        case 'quote': return renderQuote(data);
+                        default: return `<pre style="font-size:12px;overflow:auto;max-height:160px;">${JSON.stringify(data, null, 2)}</pre>`;
+                    }
+                };
+
+                const renderRankList = (data) => {
+                    if (!Array.isArray(data)) return '';
+                    return `<ul style="list-style:none;padding:0;margin:0;">${data.slice(0, 15).map((item, index) => {
+                        const title = item.title || item.word || item.keyword || item.name;
+                        const url = item.url || item.link;
+                        const hot = item.hot || item.heat || item.num || item.score;
+                        let rankColor = '#94a3b8';
+                        if (index === 0) rankColor = '#ef4444';
+                        else if (index === 1) rankColor = '#f97316';
+                        else if (index === 2) rankColor = '#f59e0b';
+                        return `<li style="display:flex;align-items:baseline;gap:12px;padding:4px 0;font-size:13px;border-bottom:1px solid #f8fafc;">
+                            <span style="color:${rankColor};font-weight:700;font-family:monospace;font-size:12px;width:16px;flex-shrink:0;">${index + 1}</span>
+                            <a href="${url || '#'}" target="_blank" style="flex:1;color:#334155;text-decoration:none;line-height:1.5;">${title}</a>
+                            ${hot ? `<span style="font-size:11px;color:#94a3b8;white-space:nowrap;">${formatNumber(hot)}</span>` : ''}
+                        </li>`;
+                    }).join('')}</ul>`;
+                };
+
+                const renderNewsList = (data) => {
+                    const newsList = Array.isArray(data) ? data : (data.news || []);
+                    return `<ul style="list-style:none;padding:0;margin:0;">${newsList.map(news => `
+                        <li style="display:flex;gap:8px;padding:4px 0;font-size:13px;color:#475569;line-height:1.6;border-bottom:1px solid #f8fafc;">
+                            <span style="color:#3b82f6;margin-top:6px;width:6px;height:6px;background:#3b82f6;border-radius:50%;flex-shrink:0;"></span>
+                            <span>${news}</span>
+                        </li>
+                    `).join('')}</ul>`;
+                };
+
+                const renderAiNews = (data) => {
+                    if (!data || !data.news || data.news.length === 0) {
+                        return '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:16px 0;">暂无更新</div>';
+                    }
+                    const dateStr = data.date || '';
+                    return `${dateStr ? `<div style="font-size:12px;color:#8b5cf6;margin-bottom:12px;font-weight:500;background:#f5f3ff;display:inline-block;padding:2px 8px;border-radius:4px;">📅 ${dateStr}</div>` : ''}
+                    <ul style="list-style:none;padding:0;margin:0;">${data.news.map(item => `
+                        <li style="padding:8px 0;border-bottom:1px solid #f8fafc;">
+                            <div style="display:flex;align-items:start;gap:8px;">
+                                <span style="color:#8b5cf6;margin-top:6px;width:6px;height:6px;background:#8b5cf6;border-radius:50%;flex-shrink:0;"></span>
+                                <div style="flex:1;">
+                                    <a href="${item.link}" target="_blank" style="font-weight:600;color:#1e293b;text-decoration:none;font-size:13px;display:block;margin-bottom:2px;">${item.title}</a>
+                                    <p style="font-size:12px;color:#64748b;margin:0 0 4px 0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${item.detail}</p>
+                                    <span style="background:#f5f3ff;color:#8b5cf6;font-size:10px;padding:1px 6px;border-radius:3px;border:1px solid #ede9fe;">${item.source}</span>
+                                </div>
+                            </div>
+                        </li>
+                    `).join('')}</ul>`;
+                };
+
+                const renderImage = (data) => {
+                    const url = data.cover || data.url || data.img_url;
+                    const title = data.title || data.copyright || '';
+                    return `<div style="position:relative;border-radius:8px;overflow:hidden;">
+                        <img src="${url}" alt="Image" style="width:100%;height:auto;display:block;" loading="lazy">
+                        ${title ? `<div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,0.7),transparent);padding:12px;color:#fff;font-size:12px;">
+                            <p style="font-weight:600;margin:0;">${title}</p>
+                        </div>` : ''}
+                    </div>`;
+                };
+
+                const renderGameList = (data) => {
+                    if (!Array.isArray(data)) return '';
+                    return `<div style="display:flex;flex-direction:column;gap:12px;">${data.map(game => {
+                        const cover = game.cover || game.image_url || '';
+                        return `<a href="${game.link || game.url || '#'}" target="_blank" style="display:block;text-decoration:none;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;transition:border-color 0.2s;">
+                            <div style="aspect-ratio:16/9;width:100%;overflow:hidden;">
+                                <img src="${cover}" style="width:100%;height:100%;object-fit:cover;">
+                            </div>
+                            <div style="padding:10px 12px;">
+                                <div style="font-weight:600;font-size:13px;color:#1e293b;">${game.title}</div>
+                                <div style="font-size:12px;color:#64748b;margin-top:4px;display:flex;justify-content:space-between;">
+                                    <span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:3px;font-size:10px;">免费</span>
+                                    <span>${game.free_end || ''} 截止</span>
+                                </div>
+                            </div>
+                        </a>`;
+                    }).join('')}</div>`;
+                };
+
+                const renderHistory = (data) => {
+                    let items = [];
+                    let dateStr = '';
+                    if (data.items && Array.isArray(data.items)) {
+                        items = data.items;
+                        dateStr = data.date;
+                    } else if (Array.isArray(data)) {
+                        items = data;
+                    } else if (typeof data === 'object') {
+                        items = Object.entries(data).map(([year, title]) => ({ year, title }));
+                    }
+                    return `${dateStr ? `<div style="margin-bottom:10px;font-weight:600;color:#d97706;font-size:13px;"><span style="background:#fef3c7;padding:2px 8px;border-radius:4px;font-size:12px;">📅 ${dateStr}</span></div>` : ''}
+                    <ul style="list-style:none;padding:0;margin:0;border-left:2px solid #fde68a;margin-left:8px;padding-left:16px;">${items.slice(0, 15).map(item => {
+                        const year = item.year || item.date || '年份';
+                        const title = item.title || item.event || item;
+                        const link = item.link || null;
+                        const type = item.event_type || 'event';
+                        let typeIcon = '';
+                        if (type === 'birth') typeIcon = '👶';
+                        else if (type === 'death') typeIcon = '🪦';
+                        const titleHtml = link
+                            ? `<a href="${link}" target="_blank" style="color:#475569;text-decoration:none;line-height:1.5;">${title}</a>`
+                            : `<span style="color:#475569;line-height:1.5;">${typeof title === 'string' ? title : title.title}</span>`;
+                        return `<li style="position:relative;padding:4px 0;font-size:13px;">
+                            <span style="position:absolute;left:-21px;top:6px;width:10px;height:10px;background:#fbbf24;border-radius:50%;border:2px solid #fff;"></span>
+                            <div>
+                                <span style="font-family:monospace;color:#d97706;font-weight:700;font-size:12px;background:#fffbeb;padding:0 4px;border-radius:2px;">${year}</span>
+                                ${typeIcon ? `<span style="font-size:12px;opacity:0.7;margin-left:4px;">${typeIcon}</span>` : ''}
+                            </div>
+                            ${titleHtml}
+                        </li>`;
+                    }).join('')}</ul>`;
+                };
+
+                const renderGold = (data) => {
+                    let html = '';
+                    if (data.metals && Array.isArray(data.metals)) {
+                        html += `<div style="margin-bottom:12px;">
+                            <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">基础行情</div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                ${data.metals.slice(0, 6).map(metal => `
+                                    <div style="background:#fefce8;padding:8px;border-radius:6px;border:1px solid #fef9c3;text-align:center;">
+                                        <span style="font-size:12px;color:#64748b;">${metal.name}</span><br>
+                                        <span style="font-weight:700;color:#1e293b;">${metal.today_price}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>`;
+                    }
+                    if (data.stores && Array.isArray(data.stores)) {
+                        html += `<div>
+                            <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">品牌金价</div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                ${data.stores.slice(0, 8).map(store => `
+                                    <div style="background:#fff;padding:6px 8px;border-radius:6px;border:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+                                        <span style="color:#475569;font-size:12px;">${store.brand}</span>
+                                        <span style="font-weight:700;color:#ea580c;">${store.price}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>`;
+                    }
+                    return html;
+                };
+
+                const renderOil = (data) => {
+                    const region = data.region || currentOilRegion.value;
+                    const items = data.items || [];
+                    const updateTimeStr = data.updated ? data.updated.split(' ')[0] : '';
+                    return `<div>
+                        <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #dcfce7;padding-bottom:8px;margin-bottom:12px;">
+                            <span style="color:#15803d;font-weight:700;cursor:pointer;font-size:14px;" onclick="window.changeOilCity()">
+                                📍 ${region} ▾
+                            </span>
+                            <span style="font-size:10px;color:#94a3b8;">${updateTimeStr}</span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            ${items.map(item => {
+                                const shortName = item.name.replace('汽油', '').replace('柴油', '');
+                                return `<div style="background:#f0fdf4;padding:10px;border-radius:8px;text-align:center;border:1px solid #dcfce7;">
+                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">${shortName}</div>
+                                    <div style="font-size:18px;font-weight:700;color:#15803d;">${item.price}</div>
+                                    <div style="font-size:10px;color:#94a3b8;">元/升</div>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
+                };
+
+                const renderMoyu = (data) => {
+                    const date = data.date || {};
+                    const progress = data.progress || {};
+                    const nextHoliday = data.nextHoliday || { name: '未知', until: 0 };
+                    const nextWeekend = data.nextWeekend || { daysUntil: 0 };
+                    const createProgress = (label, value) => `
+                        <div style="margin-bottom:8px;">
+                            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+                                <span style="color:#64748b;">${label}</span>
+                                <span style="font-weight:700;color:#0891b2;">${value}%</span>
+                            </div>
+                            <div style="width:100%;background:#f1f5f9;border-radius:999px;height:8px;">
+                                <div style="background:#22d3ee;height:8px;border-radius:999px;transition:width 1s;width:${value}%;"></div>
+                            </div>
+                        </div>`;
+                    return `<div>
+                        <div style="text-align:center;padding-bottom:12px;border-bottom:1px solid #cffafe;margin-bottom:12px;">
+                            <div style="font-size:16px;font-weight:700;color:#334155;">${date.gregorian || ''} ${date.weekday || ''}</div>
+                            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">农历${date.lunar?.monthCN || ''}${date.lunar?.dayCN || ''} · ${date.lunar?.yearGanZhi || ''}${date.lunar?.zodiac || ''}年</div>
+                        </div>
+                        <div style="background:#ecfeff;padding:12px;border-radius:8px;border:1px solid #cffafe;">
+                            ${createProgress('本周进度', progress.week?.percentage || 0)}
+                            ${createProgress('本月进度', progress.month?.percentage || 0)}
+                            ${createProgress('今年进度', progress.year?.percentage || 0)}
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+                            <div style="background:#fff7ed;padding:8px;border-radius:8px;text-align:center;border:1px solid #fed7aa;">
+                                <div style="font-size:12px;color:#ea580c;margin-bottom:4px;">距离周末</div>
+                                <div style="font-size:20px;font-weight:700;color:#ea580c;">${nextWeekend.daysUntil} <span style="font-size:12px;font-weight:400;">天</span></div>
+                            </div>
+                            <div style="background:#f0fdf4;padding:8px;border-radius:8px;text-align:center;border:1px solid #bbf7d0;">
+                                <div style="font-size:12px;color:#16a34a;margin-bottom:4px;">距离${nextHoliday.name}</div>
+                                <div style="font-size:20px;font-weight:700;color:#16a34a;">${nextHoliday.until} <span style="font-size:12px;font-weight:400;">天</span></div>
+                            </div>
+                        </div>
+                        <div style="background:#f8fafc;padding:12px;border-radius:8px;font-size:13px;color:#475569;font-style:italic;border-left:4px solid #22d3ee;margin-top:12px;">
+                            "${data.moyuQuote || '好好工作，努力摸鱼。'}"
+                        </div>
+                    </div>`;
+                };
+
+                const renderQuote = (data) => {
+                    return `<div style="text-align:center;padding:16px 0;position:relative;">
+                        <span style="font-size:48px;color:#e9d5ff;position:absolute;top:-8px;left:0;font-family:serif;">"</span>
+                        <p style="font-size:16px;color:#334155;font-weight:500;font-style:italic;position:relative;z-index:1;margin:8px 0;padding:0 8px;">${data.hitokoto || data.text || JSON.stringify(data)}</p>
+                        <div style="font-size:12px;text-align:right;color:#94a3b8;margin-top:8px;">—— ${data.from || '佚名'}</div>
+                    </div>`;
+                };
+
+                window.changeOilCity = function() {
+                    const newCity = prompt("请输入您想查询的省份或城市 (例如: 上海, 广东, 深圳):", currentOilRegion.value);
+                    if (newCity && newCity.trim() !== "") {
+                        currentOilRegion.value = newCity.trim();
+                        refreshCard('oil');
+                    }
+                };
+
+                onMounted(() => {
+                    refreshAll();
+                });
+
+                return {
+                    lastUpdateTime,
+                    layoutColumns,
+                    allExpanded,
+                    refreshingAll,
+                    loadingCount,
+                    loadedCount,
+                    cardData,
+                    cardErrors,
+                    refreshingCards,
+                    dataSources,
+                    masonryStyle,
+                    goBack,
+                    isCardVisible,
+                    toggleAllCards,
+                    refreshCard,
+                    refreshAll,
+                    renderCardContent
+                };
+            }
+        }).use(ElementPlus).mount('#app');
+    </script>
+</body>
+</html>
