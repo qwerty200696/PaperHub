@@ -15,25 +15,21 @@
             display: flex;
             min-height: calc(100vh - 64px);
         }
-
         .content {
             flex: 1;
             padding: 24px;
         }
-
         .tool-section {
             background: #fff;
             border-radius: 12px;
             padding: 20px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
         }
-
         .masonry-grid { column-count: 1; column-gap: 1.5rem; }
         @media (min-width: 640px) { .masonry-grid { column-count: 2; } }
         @media (min-width: 1024px) { .masonry-grid { column-count: 3; } }
         @media (min-width: 1280px) { .masonry-grid { column-count: 4; } }
         .break-inside-avoid { break-inside: avoid; }
-
         .info-card {
             background: #fff;
             border-radius: 12px;
@@ -87,7 +83,6 @@
             color: #409eff;
             background: #f0f9ff;
         }
-
         .toolbar-section {
             display: flex;
             justify-content: space-between;
@@ -96,7 +91,6 @@
             flex-wrap: wrap;
             gap: 12px;
         }
-
         .status-bar {
             padding: 12px 16px;
             background: linear-gradient(135deg, #ecf5ff 0%, #f0f9ff 100%);
@@ -108,7 +102,89 @@
             align-items: center;
             gap: 8px;
         }
-
+        .offline-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .offline-badge-live {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+        .offline-badge-offline {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        .date-tabs {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .date-tab {
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #64748b;
+            font-family: inherit;
+        }
+        .date-tab:hover {
+            border-color: #409eff;
+            color: #409eff;
+        }
+        .date-tab.active {
+            background: #409eff;
+            color: #fff;
+            border-color: #409eff;
+        }
+        .source-filter {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .source-chip {
+            padding: 4px 12px;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: inherit;
+        }
+        .source-chip:hover {
+            border-color: #409eff;
+            color: #409eff;
+        }
+        .source-chip.active {
+            background: #ecf5ff;
+            color: #409eff;
+            border-color: #b3d8ff;
+        }
+        .offline-info {
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #a16207;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
         @media (max-width: 768px) {
             .content { padding: 16px; }
             .tool-section { padding: 16px; }
@@ -118,7 +194,7 @@
 <body>
     <div id="app">
         <div class="header">
-            <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
                 <h1>🚀 60s 信息流看板</h1>
                 <el-button @click="goBack" style="background: rgba(255,255,255,0.2); border: none; color: white;">
                     ← 返回工具箱
@@ -126,6 +202,12 @@
                 <el-button @click="refreshAll" :loading="refreshingAll" style="background: rgba(255,255,255,0.2); border: none; color: white;">
                     🔄 全部刷新
                 </el-button>
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                    <span class="offline-badge" :class="viewMode === 'live' ? 'offline-badge-live' : 'offline-badge-offline'">
+                        {{ viewMode === 'live' ? '● 实时' : '📁 离线' }}
+                    </span>
+                    <el-switch v-model="isOfflineMode" active-text="离线" inactive-text="实时" @change="toggleViewMode" />
+                </div>
             </div>
         </div>
 
@@ -135,7 +217,10 @@
                     <div class="toolbar-section">
                         <div>
                             <h2 style="margin: 0 0 4px 0; color: #1e293b; font-size: 18px;">聚合信息流</h2>
-                            <p style="margin: 0; color: #64748b; font-size: 13px;">数据来源: 60s-api.viki.moe · 最后更新: {{ lastUpdateTime }}</p>
+                            <p style="margin: 0; color: #64748b; font-size: 13px;">
+                                <template v-if="viewMode === 'live'">数据来源: 60s-api.viki.moe · 最后更新: {{ lastUpdateTime }}</template>
+                                <template v-else>离线数据 · 共 {{ offlineDates.length }} 天记录</template>
+                            </p>
                         </div>
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <el-select v-model="layoutColumns" size="small" style="width: 110px;">
@@ -144,35 +229,79 @@
                                 <el-option label="3列" :value="3"></el-option>
                                 <el-option label="4列" :value="4"></el-option>
                             </el-select>
-                            <el-button size="small" @click="toggleAllCards">
+                            <el-button v-if="viewMode === 'live'" size="small" @click="toggleAllCards">
                                 {{ allExpanded ? '收起全部' : '展开全部' }}
                             </el-button>
                         </div>
                     </div>
 
-                    <div v-if="loadingCount > 0" class="status-bar">
+                    <div v-if="viewMode === 'offline'" class="offline-info">
+                        📁 正在查看离线历史数据，数据来自本地 data/60s 目录
+                    </div>
+
+                    <div v-if="viewMode === 'offline' && offlineDates.length > 0" class="date-tabs">
+                        <button
+                            v-for="d in offlineDates"
+                            :key="d.date"
+                            class="date-tab"
+                            :class="{ active: selectedDate === d.date }"
+                            @click="selectDate(d.date)"
+                        >
+                            {{ formatDateTab(d.date) }}
+                            <span style="font-size:11px;opacity:0.7;">({{ d.sources.length }})</span>
+                        </button>
+                    </div>
+
+                    <div v-if="viewMode === 'offline' && selectedDate" class="source-filter">
+                        <button
+                            class="source-chip"
+                            :class="{ active: selectedSource === 'all' }"
+                            @click="selectedSource = 'all'"
+                        >全部</button>
+                        <button
+                            v-for="src in availableSourcesForDate"
+                            :key="src.id"
+                            class="source-chip"
+                            :class="{ active: selectedSource === src.id }"
+                            @click="selectedSource = src.id"
+                        >{{ src.icon }} {{ src.name }}</button>
+                    </div>
+
+                    <div v-if="viewMode === 'offline' && offlineDates.length === 0" style="text-align:center;padding:48px 0;color:#94a3b8;">
+                        <div style="font-size:48px;margin-bottom:12px;">📭</div>
+                        <p>暂无离线数据</p>
+                        <p style="font-size:12px;margin-top:4px;">切换到实时模式刷新数据，数据会自动保存到本地</p>
+                    </div>
+
+                    <div v-if="viewMode === 'live' && loadingCount > 0" class="status-bar">
                         <el-icon class="is-loading"><Loading /></el-icon>
                         <span>正在加载数据... ({{ loadedCount }}/{{ dataSources.length }})</span>
                     </div>
 
+                    <div v-if="viewMode === 'offline' && offlineLoading" class="status-bar">
+                        <el-icon class="is-loading"><Loading /></el-icon>
+                        <span>正在加载离线数据...</span>
+                    </div>
+
                     <div class="masonry-grid" :style="masonryStyle">
-                        <div v-for="source in dataSources" :key="source.id" class="info-card" v-show="isCardVisible(source.id)">
+                        <div v-for="source in displaySources" :key="source.id" class="info-card" v-show="isCardVisible(source.id)">
                             <div class="info-card-header">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <div class="info-card-icon" :style="{ background: source.color }">{{ source.icon }}</div>
                                     <span class="info-card-title">{{ source.name }}</span>
                                 </div>
-                                <button class="refresh-btn" @click="refreshCard(source.id)" :class="{ 'animate-spin': refreshingCards[source.id] }" title="刷新">
+                                <button v-if="viewMode === 'live'" class="refresh-btn" @click="refreshCard(source.id)" :class="{ 'animate-spin': refreshingCards[source.id] }" title="刷新">
                                     <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                     </svg>
                                 </button>
+                                <span v-else style="font-size:11px;color:#94a3b8;">离线</span>
                             </div>
                             <div class="info-card-body">
                                 <div v-if="cardErrors[source.id]" style="text-align: center; padding: 24px 0; color: #f56c6c;">
                                     <div style="font-size: 24px; margin-bottom: 8px;">⚠️</div>
                                     <p style="font-size: 12px; margin: 0 0 8px 0;">加载失败</p>
-                                    <el-button size="small" text type="primary" @click="refreshCard(source.id)">重试</el-button>
+                                    <el-button v-if="viewMode === 'live'" size="small" text type="primary" @click="refreshCard(source.id)">重试</el-button>
                                 </div>
                                 <div v-else-if="!cardData[source.id]" style="text-align: center; padding: 24px 0; color: #c0c4cc;">
                                     <el-icon class="is-loading" style="font-size: 20px;"><Loading /></el-icon>
@@ -188,10 +317,11 @@
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted, reactive } = Vue;
+        const { createApp, ref, computed, onMounted, reactive, watch } = Vue;
         const { ElMessage } = ElementPlus;
 
         const API_BASE = 'https://60s-api.viki.moe';
+        const LOCAL_API = '';
 
         createApp({
             setup() {
@@ -205,6 +335,13 @@
                 const cardErrors = reactive({});
                 const refreshingCards = reactive({});
                 const currentOilRegion = ref('北京');
+
+                const isOfflineMode = ref(false);
+                const viewMode = ref('live');
+                const offlineDates = ref([]);
+                const selectedDate = ref('');
+                const selectedSource = ref('all');
+                const offlineLoading = ref(false);
 
                 const dataSources = [
                     { id: '60s', name: '每天60秒读懂世界', url: '/v2/60s', type: 'news', icon: '🌍', color: '#3b82f6' },
@@ -232,6 +369,19 @@
                     return { columnCount: cols };
                 });
 
+                const availableSourcesForDate = computed(() => {
+                    if (!selectedDate.value) return [];
+                    const dateInfo = offlineDates.value.find(d => d.date === selectedDate.value);
+                    if (!dateInfo) return [];
+                    return dataSources.filter(s => dateInfo.sources.includes(s.id));
+                });
+
+                const displaySources = computed(() => {
+                    if (viewMode.value === 'live') return dataSources;
+                    if (selectedSource.value === 'all') return availableSourcesForDate.value;
+                    return availableSourcesForDate.value.filter(s => s.id === selectedSource.value);
+                });
+
                 const goBack = () => {
                     window.location.href = '/toolbox';
                 };
@@ -247,6 +397,96 @@
                 const updateTime = () => {
                     const now = new Date();
                     lastUpdateTime.value = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                };
+
+                const formatDateTab = (dateStr) => {
+                    const d = new Date(dateStr + 'T00:00:00');
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    const diff = Math.floor((today - d) / 86400000);
+                    if (diff === 0) return '今天';
+                    if (diff === 1) return '昨天';
+                    if (diff === 2) return '前天';
+                    return `${d.getMonth()+1}/${d.getDate()}`;
+                };
+
+                const getTodayStr = () => {
+                    const d = new Date();
+                    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                };
+
+                const toggleViewMode = (val) => {
+                    viewMode.value = val ? 'offline' : 'live';
+                    if (val) {
+                        loadOfflineDates();
+                    } else {
+                        Object.keys(cardData).forEach(k => delete cardData[k]);
+                        Object.keys(cardErrors).forEach(k => delete cardErrors[k]);
+                        refreshAll();
+                    }
+                };
+
+                const loadOfflineDates = async () => {
+                    try {
+                        const res = await fetch(`${LOCAL_API}/api/60s/dates`);
+                        const json = await res.json();
+                        if (json.ok) {
+                            offlineDates.value = json.dates;
+                            if (json.dates.length > 0 && !selectedDate.value) {
+                                selectedDate.value = json.dates[0].date;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('loadOfflineDates error:', e);
+                    }
+                };
+
+                const selectDate = async (date) => {
+                    selectedDate.value = date;
+                    selectedSource.value = 'all';
+                    await loadOfflineDayData(date);
+                };
+
+                const loadOfflineDayData = async (date) => {
+                    offlineLoading.value = true;
+                    Object.keys(cardData).forEach(k => delete cardData[k]);
+                    Object.keys(cardErrors).forEach(k => delete cardErrors[k]);
+                    try {
+                        const res = await fetch(`${LOCAL_API}/api/60s/load/${date}`);
+                        const json = await res.json();
+                        if (json.ok && json.data) {
+                            for (const [sourceId, data] of Object.entries(json.data)) {
+                                cardData[sourceId] = data;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('loadOfflineDayData error:', e);
+                    } finally {
+                        offlineLoading.value = false;
+                    }
+                };
+
+                watch(selectedDate, (newDate) => {
+                    if (viewMode.value === 'offline' && newDate) {
+                        loadOfflineDayData(newDate);
+                    }
+                });
+
+                const saveDataToLocal = async (sourceId, data) => {
+                    try {
+                        const dateStr = getTodayStr();
+                        await fetch(`${LOCAL_API}/api/60s/save`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                date: dateStr,
+                                source_id: sourceId,
+                                data: data
+                            })
+                        });
+                    } catch (e) {
+                        console.error('saveDataToLocal error:', e);
+                    }
                 };
 
                 const formatNumber = (num) => {
@@ -286,6 +526,7 @@
                     updateTime();
                     refreshingAll.value = false;
                     loadingCount.value = 0;
+                    ElMessage({ message: '数据已刷新并保存到本地', type: 'success', duration: 2000 });
                 };
 
                 const fetchDataSource = async (source) => {
@@ -311,6 +552,7 @@
                             }
                             cardData[source.id] = json.data || json;
                             cardErrors[source.id] = null;
+                            saveDataToLocal(source.id, json.data || json);
                             return;
                         }
 
@@ -320,6 +562,7 @@
                         const json = await response.json();
                         cardData[source.id] = json.data || json;
                         cardErrors[source.id] = null;
+                        saveDataToLocal(source.id, json.data || json);
                     } catch (error) {
                         console.error(`Error fetching ${source.name}:`, error);
                         cardErrors[source.id] = error.message;
@@ -589,7 +832,18 @@
                     toggleAllCards,
                     refreshCard,
                     refreshAll,
-                    renderCardContent
+                    renderCardContent,
+                    isOfflineMode,
+                    viewMode,
+                    offlineDates,
+                    selectedDate,
+                    selectedSource,
+                    offlineLoading,
+                    availableSourcesForDate,
+                    displaySources,
+                    toggleViewMode,
+                    selectDate,
+                    formatDateTab
                 };
             }
         }).use(ElementPlus).mount('#app');
