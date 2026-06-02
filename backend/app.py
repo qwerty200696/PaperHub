@@ -5,6 +5,8 @@ from flask import Flask, jsonify, send_from_directory, request
 from pathlib import Path
 from flask_cors import CORS
 import logging
+import json
+import os
 
 try:
     from backend.config import config, BASE_DIR, init_db, get_session, close_scoped_session
@@ -118,6 +120,70 @@ def create_app(config_name='default'):
     @app.route('/toolbox/timelist')
     def toolbox_timelist():
         return send_from_directory(app.static_folder, 'toolbox_timelist.html')
+
+    DATA_60S_DIR = BASE_DIR / 'data' / '60s'
+    DATA_60S_DIR.mkdir(parents=True, exist_ok=True)
+
+    @app.route('/api/60s/save', methods=['POST'])
+    def save_60s_data():
+        try:
+            payload = request.get_json(force=True)
+            date_str = payload.get('date')
+            source_id = payload.get('source_id')
+            data = payload.get('data')
+            if not date_str or not source_id or data is None:
+                return jsonify({'ok': False, 'error': 'missing fields'}), 400
+            day_dir = DATA_60S_DIR / date_str
+            day_dir.mkdir(parents=True, exist_ok=True)
+            file_path = day_dir / f'{source_id}.json'
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            return jsonify({'ok': True})
+        except Exception as e:
+            logging.error(f'save_60s_data error: {e}')
+            return jsonify({'ok': False, 'error': str(e)}), 500
+
+    @app.route('/api/60s/dates')
+    def list_60s_dates():
+        try:
+            dates = []
+            if DATA_60S_DIR.exists():
+                for d in sorted(DATA_60S_DIR.iterdir(), reverse=True):
+                    if d.is_dir() and d.name[0].isdigit():
+                        sources = [f.stem for f in d.glob('*.json')]
+                        dates.append({'date': d.name, 'sources': sources})
+            return jsonify({'ok': True, 'dates': dates})
+        except Exception as e:
+            logging.error(f'list_60s_dates error: {e}')
+            return jsonify({'ok': False, 'error': str(e)}), 500
+
+    @app.route('/api/60s/load/<date_str>/<source_id>')
+    def load_60s_data(date_str, source_id):
+        try:
+            file_path = DATA_60S_DIR / date_str / f'{source_id}.json'
+            if not file_path.exists():
+                return jsonify({'ok': False, 'error': 'not found'}), 404
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return jsonify({'ok': True, 'data': data})
+        except Exception as e:
+            logging.error(f'load_60s_data error: {e}')
+            return jsonify({'ok': False, 'error': str(e)}), 500
+
+    @app.route('/api/60s/load/<date_str>')
+    def load_60s_day(date_str):
+        try:
+            day_dir = DATA_60S_DIR / date_str
+            if not day_dir.exists():
+                return jsonify({'ok': False, 'error': 'not found'}), 404
+            result = {}
+            for f in day_dir.glob('*.json'):
+                with open(f, 'r', encoding='utf-8') as fh:
+                    result[f.stem] = json.load(fh)
+            return jsonify({'ok': True, 'date': date_str, 'data': result})
+        except Exception as e:
+            logging.error(f'load_60s_day error: {e}')
+            return jsonify({'ok': False, 'error': str(e)}), 500
 
     @app.route('/health')
     def health():
