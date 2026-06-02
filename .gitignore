@@ -17,3 +17,6 @@ __pycache__/
 # Project data
 data/
 frontend/backups/
+
+# IDE
+.claude/
