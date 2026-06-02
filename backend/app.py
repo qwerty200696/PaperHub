@@ -115,6 +115,10 @@ def create_app(config_name='default'):
     def toolbox_60s():
         return send_from_directory(app.static_folder, 'toolbox_60s.html')
 
+    @app.route('/toolbox/timelist')
+    def toolbox_timelist():
+        return send_from_directory(app.static_folder, 'toolbox_timelist.html')
+
     @app.route('/health')
     def health():
         return jsonify({'status': 'ok'})
