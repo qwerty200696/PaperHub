@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
   <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="icon" href="data:,">
   <style>
 :root {
@@ -669,6 +670,48 @@ body {
   word-break: break-all;
   line-height: 1.6;
 }
+
+.todo-desc.md-render {
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.todo-desc.md-render p { margin: 0 0 6px; }
+.todo-desc.md-render p:last-child { margin-bottom: 0; }
+.todo-desc.md-render h1, .todo-desc.md-render h2, .todo-desc.md-render h3 { margin: 8px 0 4px; font-weight: 600; color: var(--color-text); }
+.todo-desc.md-render h1 { font-size: 1.1em; }
+.todo-desc.md-render h2 { font-size: 1.05em; }
+.todo-desc.md-render h3 { font-size: 1em; }
+.todo-desc.md-render ul, .todo-desc.md-render ol { padding-left: 20px; margin: 4px 0; }
+.todo-desc.md-render li { margin: 2px 0; }
+.todo-desc.md-render code { background: var(--color-primary-bg); padding: 1px 5px; border-radius: 3px; font-family: var(--font-mono); font-size: 0.9em; color: var(--color-accent); }
+.todo-desc.md-render pre { background: var(--color-primary-bg); padding: 8px 12px; border-radius: var(--radius-sm); overflow-x: auto; margin: 6px 0; }
+.todo-desc.md-render pre code { background: none; padding: 0; color: var(--color-text); }
+.todo-desc.md-render blockquote { border-left: 3px solid var(--color-primary); padding-left: 12px; margin: 6px 0; color: var(--color-text-muted); }
+.todo-desc.md-render a { color: var(--color-primary); text-decoration: underline; }
+.todo-desc.md-render strong { font-weight: 600; color: var(--color-text); }
+.todo-desc.md-render em { font-style: italic; }
+.todo-desc.md-render hr { border: none; border-top: 1px solid var(--color-border-light); margin: 8px 0; }
+.todo-desc.md-render table { border-collapse: collapse; margin: 6px 0; font-size: 0.95em; }
+.todo-desc.md-render th, .todo-desc.md-render td { border: 1px solid var(--color-border); padding: 4px 8px; }
+.todo-desc.md-render th { background: var(--color-primary-bg); font-weight: 600; }
+
+.todo-due-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.todo-due-info.due-future { background: var(--color-primary-bg); color: var(--color-primary); }
+.todo-due-info.due-today { background: #FFF3E0; color: #E65100; }
+.todo-due-info.due-overdue { background: var(--color-accent-bg); color: var(--color-accent); animation: breathe 2s infinite; }
+.todo-due-info.due-none { background: var(--color-border-light); color: var(--color-text-muted); }
+
+.todo-reminder-icon { cursor: pointer; font-size: 14px; }
 
 .todo-card-footer {
   display: flex;
@@ -1535,6 +1578,17 @@ function escapeHTML(str) {
   return div.innerHTML;
 }
 
+function renderMarkdown(text) {
+  if (!text) return '';
+  try {
+    if (typeof marked !== 'undefined') {
+      marked.setOptions({ breaks: true, gfm: true });
+      return marked.parse(text);
+    }
+  } catch (e) { /* fallback */ }
+  return escapeHTML(text).replace(/\n/g, '<br>');
+}
+
 function debounce(fn, delay = 300) {
   let timer;
   return function (...args) {
@@ -1553,44 +1607,103 @@ function delegate(parent, selector, event, handler) {
 }
 
 const Store = {
-  KEYS: {
-    todos: 'timelist_todos',
-    memorials: 'timelist_memorials',
-    pomodoroStats: 'timelist_pomodoro_stats',
-    settings: 'timelist_settings',
-  },
-  get(key) {
+  _cache: { todos: null, memorials: null, pomodoroStats: null, settings: null, initialized: null, notified: null },
+  _dirty: false,
+  _saveTimer: null,
+  _apiBase: '/api/timelist',
+
+  async _apiGet(path) {
     try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
+      const res = await fetch(`${this._apiBase}${path}`);
+      const data = await res.json();
+      return data.success ? data : null;
+    } catch (e) { console.warn('API GET failed:', path, e); return null; }
   },
-  set(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); }
-    catch { console.warn('localStorage write failed for', key); }
+
+  async _apiPut(path, body) {
+    try {
+      const res = await fetch(`${this._apiBase}${path}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      return data.success;
+    } catch (e) { console.warn('API PUT failed:', path, e); return false; }
   },
-  getTodos() { return this.get(this.KEYS.todos) || []; },
-  saveTodos(todos) { this.set(this.KEYS.todos, todos); },
-  addTodo(todo) { const todos = this.getTodos(); todos.push(todo); this.saveTodos(todos); },
+
+  async _apiPost(path, body) {
+    try {
+      const res = await fetch(`${this._apiBase}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      return data.success ? data : null;
+    } catch (e) { console.warn('API POST failed:', path, e); return null; }
+  },
+
+  _scheduleSave() {
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => this._flushAll(), 500);
+  },
+
+  async _flushAll() {
+    if (!this._dirty) return;
+    this._dirty = false;
+    const payload = {};
+    if (this._cache.todos !== null) payload.todos = this._cache.todos;
+    if (this._cache.memorials !== null) payload.memorials = this._cache.memorials;
+    if (this._cache.pomodoroStats !== null) payload.pomodoroStats = this._cache.pomodoroStats;
+    if (this._cache.settings !== null) payload.settings = this._cache.settings;
+    if (this._cache.initialized !== null) payload.initialized = this._cache.initialized;
+    if (this._cache.notified !== null) payload.notified = this._cache.notified;
+    await this._apiPut('/data', payload);
+  },
+
+  async init() {
+    const result = await this._apiGet('/data');
+    if (result && result.data) {
+      const d = result.data;
+      this._cache.todos = d.todos || [];
+      this._cache.memorials = d.memorials || [];
+      this._cache.pomodoroStats = d.pomodoroStats || [];
+      this._cache.settings = d.settings || { focusMinutes: 25, breakMinutes: 5 };
+      this._cache.initialized = d.initialized || false;
+      this._cache.notified = d.notified || [];
+    } else {
+      this._cache.todos = [];
+      this._cache.memorials = [];
+      this._cache.pomodoroStats = [];
+      this._cache.settings = { focusMinutes: 25, breakMinutes: 5 };
+      this._cache.initialized = false;
+      this._cache.notified = [];
+    }
+  },
+
+  getTodos() { return this._cache.todos || []; },
+  saveTodos(todos) { this._cache.todos = todos; this._scheduleSave(); },
+  addTodo(todo) { this._cache.todos.push(todo); this._scheduleSave(); },
   updateTodo(id, updates) {
-    const todos = this.getTodos();
-    const idx = todos.findIndex(t => t.id === id);
-    if (idx !== -1) { todos[idx] = { ...todos[idx], ...updates, updatedAt: new Date().toISOString() }; this.saveTodos(todos); }
+    const idx = this._cache.todos.findIndex(t => t.id === id);
+    if (idx !== -1) { this._cache.todos[idx] = { ...this._cache.todos[idx], ...updates, updatedAt: new Date().toISOString() }; this._scheduleSave(); }
   },
-  deleteTodo(id) { const todos = this.getTodos().filter(t => t.id !== id); this.saveTodos(todos); },
-  clearDoneTodos() { const todos = this.getTodos().filter(t => t.status !== 'done'); this.saveTodos(todos); },
-  getMemorials() { return this.get(this.KEYS.memorials) || []; },
-  saveMemorials(memorials) { this.set(this.KEYS.memorials, memorials); },
-  addMemorial(memorial) { const memorials = this.getMemorials(); memorials.push(memorial); this.saveMemorials(memorials); },
+  deleteTodo(id) { this._cache.todos = this._cache.todos.filter(t => t.id !== id); this._scheduleSave(); },
+  clearDoneTodos() { this._cache.todos = this._cache.todos.filter(t => t.status !== 'done'); this._scheduleSave(); },
+
+  getMemorials() { return this._cache.memorials || []; },
+  saveMemorials(memorials) { this._cache.memorials = memorials; this._scheduleSave(); },
+  addMemorial(memorial) { this._cache.memorials.push(memorial); this._scheduleSave(); },
   updateMemorial(id, updates) {
-    const memorials = this.getMemorials();
-    const idx = memorials.findIndex(m => m.id === id);
-    if (idx !== -1) { memorials[idx] = { ...memorials[idx], ...updates }; this.saveMemorials(memorials); }
+    const idx = this._cache.memorials.findIndex(m => m.id === id);
+    if (idx !== -1) { this._cache.memorials[idx] = { ...this._cache.memorials[idx], ...updates }; this._scheduleSave(); }
   },
-  deleteMemorial(id) { const memorials = this.getMemorials().filter(m => m.id !== id); this.saveMemorials(memorials); },
+  deleteMemorial(id) { this._cache.memorials = this._cache.memorials.filter(m => m.id !== id); this._scheduleSave(); },
+
   initDefaultMemorials() {
-    if (this.get('timelist_initialized')) return;
-    this.set('timelist_initialized', true);
+    if (this._cache.initialized) return;
+    this._cache.initialized = true;
     const today = getToday();
     const now = new Date(today + 'T00:00:00');
     const daysUntilSaturday = (6 - now.getDay() + 7) % 7 || 7;
@@ -1604,28 +1717,34 @@ const Store = {
       { id: generateId(), title: '春节', targetDate: springDate, type: 'countdown', category: 'holiday', icon: '🧧', createdAt: new Date().toISOString() },
       { id: generateId(), title: '时光清单', targetDate: today, type: 'countup', category: 'custom', icon: '⏳', createdAt: new Date().toISOString() },
     ];
-    const memorials = this.getMemorials();
-    this.saveMemorials([...defaults, ...memorials]);
+    this._cache.memorials = [...defaults, ...this._cache.memorials];
+    this._scheduleSave();
   },
-  getPomodoroStats() { return this.get(this.KEYS.pomodoroStats) || []; },
+
+  getPomodoroStats() { return this._cache.pomodoroStats || []; },
   addPomodoroSession(minutes) {
     const today = getToday();
-    const stats = this.getPomodoroStats();
+    const stats = this._cache.pomodoroStats;
     const idx = stats.findIndex(s => s.date === today);
     if (idx !== -1) { stats[idx].focusMinutes += minutes; stats[idx].sessions += 1; }
     else { stats.push({ date: today, focusMinutes: minutes, sessions: 1 }); }
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
     const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
-    this.set(this.KEYS.pomodoroStats, stats.filter(s => s.date >= cutoffStr));
+    this._cache.pomodoroStats = stats.filter(s => s.date >= cutoffStr);
+    this._scheduleSave();
   },
   getTodayPomodoroStats() {
     const today = getToday();
     const stats = this.getPomodoroStats();
     return stats.find(s => s.date === today) || { date: today, focusMinutes: 0, sessions: 0 };
   },
-  getSettings() { return this.get(this.KEYS.settings) || { focusMinutes: 25, breakMinutes: 5 }; },
-  saveSettings(settings) { this.set(this.KEYS.settings, settings); },
+
+  getSettings() { return this._cache.settings || { focusMinutes: 25, breakMinutes: 5 }; },
+  saveSettings(settings) { this._cache.settings = settings; this._scheduleSave(); },
+
+  getNotified() { return this._cache.notified || []; },
+  saveNotified(notified) { this._cache.notified = notified; this._scheduleSave(); },
 };
 
 const HOLIDAYS = {
@@ -1760,12 +1879,13 @@ const TodoModule = {
     const input = document.getElementById('todoTitleInput');
     const title = input.value.trim();
     if (!title) return;
-    const todo = { id: generateId(), title, description: '', status: 'todo', date: getToday(), priority: 'medium', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const todo = { id: generateId(), title, description: '', status: 'todo', date: '', priority: 'medium', reminder: 'none', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     Store.addTodo(todo);
     input.value = '';
     this.currentStatus = 'todo';
     document.querySelectorAll('.todo-tab').forEach(t => { t.classList.toggle('active', t.dataset.status === 'todo'); });
     this.render();
+    ReminderModule.scheduleAll();
   },
   editTask(id) {
     const todos = Store.getTodos();
@@ -1778,8 +1898,20 @@ const TodoModule = {
           <div class="modal-title">编辑任务</div>
           <div style="display:flex;flex-direction:column;gap:12px;">
             <input type="text" id="editTodoTitle" class="input" value="${escapeHTML(todo.title)}" placeholder="任务标题">
-            <textarea id="editTodoDesc" class="input textarea" placeholder="任务描述（可选）">${escapeHTML(todo.description || '')}</textarea>
-            <input type="date" id="editTodoDate" class="input" value="${todo.date || ''}">
+            <textarea id="editTodoDesc" class="input textarea" rows="4" placeholder="任务描述（支持 Markdown 语法）">${escapeHTML(todo.description || '')}</textarea>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <label style="font-size:var(--font-size-sm);color:var(--color-text-secondary);white-space:nowrap;">到期时间</label>
+              <input type="date" id="editTodoDate" class="input" value="${todo.date || ''}" style="flex:1;">
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <label style="font-size:var(--font-size-sm);color:var(--color-text-secondary);white-space:nowrap;">到期提醒</label>
+              <select id="editTodoReminder" class="select" style="flex:1;">
+                <option value="none" ${(!todo.reminder || todo.reminder === 'none') ? 'selected' : ''}>不提醒</option>
+                <option value="on_due" ${todo.reminder === 'on_due' ? 'selected' : ''}>到期时提醒</option>
+                <option value="1h" ${todo.reminder === '1h' ? 'selected' : ''}>提前1小时</option>
+                <option value="1d" ${todo.reminder === '1d' ? 'selected' : ''}>提前1天</option>
+              </select>
+            </div>
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary" onclick="document.getElementById('editTodoModal').remove()">取消</button>
@@ -1789,9 +1921,15 @@ const TodoModule = {
       </div>
     `;
     document.getElementById('saveTodoEdit').addEventListener('click', () => {
-      Store.updateTodo(id, { title: document.getElementById('editTodoTitle').value.trim(), description: document.getElementById('editTodoDesc').value.trim(), date: document.getElementById('editTodoDate').value });
+      Store.updateTodo(id, {
+        title: document.getElementById('editTodoTitle').value.trim(),
+        description: document.getElementById('editTodoDesc').value.trim(),
+        date: document.getElementById('editTodoDate').value,
+        reminder: document.getElementById('editTodoReminder').value
+      });
       document.getElementById('editTodoModal').remove();
       this.render();
+      ReminderModule.scheduleAll();
     });
     document.getElementById('editTodoModal').addEventListener('click', (e) => { if (e.target.id === 'editTodoModal') e.target.remove(); });
   },
@@ -1825,17 +1963,32 @@ const TodoModule = {
   },
   renderCard(todo) {
     const isOverdue = todo.date && todo.date < getToday() && todo.status !== 'done';
+    const isToday = todo.date && todo.date === getToday();
     const badgeClass = todo.status === 'done' ? 'done' : (isOverdue ? 'overdue' : todo.status === 'in_progress' ? 'progress' : 'todo');
     const badgeText = { todo: '待办', in_progress: '进行中', done: '已完成' }[todo.status];
+    let dueClass = 'due-none';
+    let dueText = '';
+    if (todo.date && todo.status !== 'done') {
+      if (isOverdue) { dueClass = 'due-overdue'; dueText = '⏰ 已逾期'; }
+      else if (isToday) { dueClass = 'due-today'; dueText = '🔥 今天到期'; }
+      else { dueClass = 'due-future'; dueText = '📅 ' + formatDate(todo.date); }
+    } else if (todo.date && todo.status === 'done') {
+      dueClass = 'due-none'; dueText = '📅 ' + formatDate(todo.date);
+    }
+    const reminderIcon = todo.reminder && todo.reminder !== 'none' ? '🔔' : '';
+    const descHtml = todo.description ? renderMarkdown(todo.description) : '';
     return `
       <div class="todo-card card ${isOverdue ? 'todo-overdue' : ''}" data-id="${todo.id}">
         <div class="todo-card-header">
           <span class="todo-title">${escapeHTML(todo.title)}</span>
           <span class="badge badge-${badgeClass}">${badgeText}</span>
         </div>
-        ${todo.description ? `<div class="todo-desc">${escapeHTML(todo.description)}</div>` : ''}
+        ${todo.description ? `<div class="todo-desc md-render">${descHtml}</div>` : ''}
         <div class="todo-card-footer">
-          <span class="todo-date">${todo.date ? formatDate(todo.date) : ''}</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${dueText ? `<span class="todo-due-info ${dueClass}">${dueText}</span>` : ''}
+            ${reminderIcon ? `<span class="todo-reminder-icon" title="已设置提醒">${reminderIcon}</span>` : ''}
+          </div>
           <div class="todo-actions">
             ${todo.status === 'todo' ? `<button class="btn btn-small btn-primary todo-action-start">开始</button>` : ''}
             ${todo.status === 'in_progress' ? `<button class="btn btn-small todo-action-done" style="background:var(--color-done);color:white;">完成</button>` : ''}
@@ -2349,6 +2502,69 @@ const AmbientCanvas = {
   destroy() { if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = null; } },
 };
 
+const ReminderModule = {
+  notifiedKeys: new Set(),
+  checkInterval: null,
+  init() {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    this.scheduleAll();
+    this.checkInterval = setInterval(() => this.checkReminders(), 60000);
+  },
+  scheduleAll() {
+    this.notifiedKeys.clear();
+    const notified = Store.getNotified();
+    notified.forEach(k => this.notifiedKeys.add(k));
+  },
+  checkReminders() {
+    const todos = Store.getTodos();
+    const now = new Date();
+    const todayStr = getToday();
+    for (const todo of todos) {
+      if (todo.status === 'done' || !todo.date || !todo.reminder || todo.reminder === 'none') continue;
+      const notifyKey = `${todo.id}_${todo.date}_${todo.reminder}`;
+      if (this.notifiedKeys.has(notifyKey)) continue;
+      const dueDate = new Date(todo.date + 'T23:59:59');
+      let shouldNotify = false;
+      if (todo.reminder === 'on_due' && todayStr >= todo.date) {
+        shouldNotify = true;
+      } else if (todo.reminder === '1h') {
+        const oneHourBefore = new Date(dueDate.getTime() - 3600000);
+        if (now >= oneHourBefore) shouldNotify = true;
+      } else if (todo.reminder === '1d') {
+        const oneDayBefore = new Date(dueDate.getTime() - 86400000);
+        if (now >= oneDayBefore) shouldNotify = true;
+      }
+      if (shouldNotify) {
+        this.notifiedKeys.add(notifyKey);
+        Store.saveNotified([...this.notifiedKeys]);
+        this._sendNotification(todo);
+      }
+    }
+  },
+  _sendNotification(todo) {
+    const isOverdue = todo.date < getToday();
+    const title = isOverdue ? '⏰ 任务已逾期' : '📋 任务即将到期';
+    const body = `${todo.title}${isOverdue ? '（已逾期）' : ''}`;
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '⏳' });
+    }
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 660;
+      osc.type = 'sine';
+      gain.gain.value = 0.2;
+      osc.start();
+      setTimeout(() => { osc.stop(); ctx.close(); }, 150);
+    } catch {}
+  },
+};
+
 const MineModule = {
   init() {
     document.getElementById('mineExportBtn').addEventListener('click', () => this.exportData());
@@ -2460,7 +2676,7 @@ const MineModule = {
           Store.saveMemorials([...existingMems, ...newMems]);
 
           if (data.settings) Store.saveSettings(data.settings);
-          if (data.pomodoroStats) Store.set(Store.KEYS.pomodoroStats, data.pomodoroStats);
+          if (data.pomodoroStats) { Store._cache.pomodoroStats = data.pomodoroStats; Store._scheduleSave(); }
 
           closeModal();
           this.showToast(`合并成功：新增 ${newTodos.length} 个待办，${newMems.length} 个纪念日`);
@@ -2471,7 +2687,7 @@ const MineModule = {
           Store.saveTodos(data.todos);
           Store.saveMemorials(data.memorials);
           if (data.settings) Store.saveSettings(data.settings);
-          if (data.pomodoroStats) Store.set(Store.KEYS.pomodoroStats, data.pomodoroStats);
+          if (data.pomodoroStats) { Store._cache.pomodoroStats = data.pomodoroStats; Store._scheduleSave(); }
 
           closeModal();
           this.showToast('数据覆盖导入成功');
@@ -2492,7 +2708,7 @@ const MineModule = {
         <div class="modal">
           <div class="modal-title">⚠️ 确认清空</div>
           <div class="confirm-text">
-            此操作将删除所有本地存储的数据，包括：<br>
+            此操作将删除所有数据，包括：<br>
             · 所有待办事项<br>
             · 所有纪念日<br>
             · 番茄钟统计记录<br>
@@ -2518,10 +2734,13 @@ const MineModule = {
     });
 
     document.getElementById('clearConfirm').addEventListener('click', () => {
-      Object.values(Store.KEYS).forEach(key => {
-        localStorage.removeItem(key);
-      });
-      localStorage.removeItem('timelist_initialized');
+      Store._cache.todos = [];
+      Store._cache.memorials = [];
+      Store._cache.pomodoroStats = [];
+      Store._cache.settings = { focusMinutes: 25, breakMinutes: 5 };
+      Store._cache.initialized = false;
+      Store._cache.notified = [];
+      Store._scheduleSave();
       closeModal();
       this.showToast('所有数据已清空');
       this.render();
@@ -2554,16 +2773,17 @@ const MineModule = {
     `;
 
     const subtitle = document.getElementById('mineSubtitle');
-    const size = this.calcStorageSize();
-    subtitle.textContent = `数据存储在本地浏览器 · ${size}`;
+    subtitle.textContent = `数据存储在服务器 · 自动保存`;
   },
 
   calcStorageSize() {
-    let bytes = 0;
-    Object.values(Store.KEYS).forEach(key => {
-      const val = localStorage.getItem(key);
-      if (val) bytes += val.length * 2;
-    });
+    const data = {
+      todos: Store._cache.todos,
+      memorials: Store._cache.memorials,
+      pomodoroStats: Store._cache.pomodoroStats,
+      settings: Store._cache.settings
+    };
+    const bytes = new Blob([JSON.stringify(data)]).size;
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -2572,12 +2792,12 @@ const MineModule = {
 
 const App = {
   currentTab: 'todo',
-  init() {
+  async init() {
+    await Store.init();
     this.updateHeaderDate();
     this.initTabs();
     this.initSections();
     this.switchTab(this.currentTab);
-    window.addEventListener('storage', (e) => { if (e.key && e.key.startsWith('timelist_')) this.refreshCurrentTab(); });
   },
   updateHeaderDate() {
     const now = new Date();
@@ -2596,6 +2816,7 @@ const App = {
     if (typeof PomodoroModule !== 'undefined') PomodoroModule.init();
     if (typeof MemorialModule !== 'undefined') MemorialModule.init();
     if (typeof MineModule !== 'undefined') MineModule.init();
+    if (typeof ReminderModule !== 'undefined') ReminderModule.init();
   },
   switchTab(tabName) {
     this.currentTab = tabName;
