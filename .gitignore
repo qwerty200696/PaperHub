@@ -28,3 +28,9 @@ frontend/backups/
 *.jpeg
 *.gif
 *.webp
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
