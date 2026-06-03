@@ -8,8 +8,8 @@ echo "   PaperHub - Backend Server"
 echo "========================================="
 echo ""
 
-# 使用 python3
-PYTHON="/opt/anaconda3/envs/py38/bin/python"
+# Use python3 from PATH (works on Railway and local envs)
+PYTHON="$(command -v python3)"
 
 echo "Using Python: $PYTHON"
 echo ""
@@ -18,7 +18,8 @@ echo "Installing dependencies..."
 $PYTHON -m pip install -r requirements.txt
 
 echo ""
-echo "Starting server..."
-echo "Access: http://localhost:5799"
+# Railway sets PORT env var; fall back to 5799
+PORT="${PORT:-5799}"
+echo "Starting server on port $PORT..."
 echo ""
-$PYTHON app.py 5799
+$PYTHON app.py $PORT

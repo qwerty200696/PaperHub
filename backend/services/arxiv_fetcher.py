@@ -67,8 +67,9 @@ def download_pdf(pdf_url, arxiv_id):
 
 
 def extract_pdf_text(file_path):
+    """提取 PDF 文本内容，使用 PyPDF2（无需 C 扩展，跨平台兼容）。"""
     try:
-        import fitz
+        from PyPDF2 import PdfReader
     except ImportError:
         return None
 
@@ -77,10 +78,12 @@ def extract_pdf_text(file_path):
         if not Path(full_path).is_absolute():
             full_path = BASE_DIR / file_path
 
-        doc = fitz.open(str(full_path))
+        reader = PdfReader(str(full_path))
         full_text = []
-        for page in doc:
-            full_text.append(page.get_text())
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                full_text.append(text)
         return '\n'.join(full_text)
     except Exception:
         return None
