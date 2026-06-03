@@ -129,6 +129,51 @@
             word-break: break-word;
         }
 
+        .message-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .feishu-message-item:hover .message-actions {
+            opacity: 1;
+        }
+
+        .msg-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            background: #fff;
+            font-size: 12px;
+            color: #606266;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .msg-action-btn:hover {
+            border-color: #409eff;
+            color: #409eff;
+            background: #ecf5ff;
+        }
+
+        .msg-action-btn.action-note:hover {
+            border-color: #67c23a;
+            color: #67c23a;
+            background: #f0f9eb;
+        }
+
+        .msg-action-btn.action-todo:hover {
+            border-color: #e6a23c;
+            color: #e6a23c;
+            background: #fdf6ec;
+        }
+
         /* 加载状态样式 - 与主页面一致 */
         .loading-state {
             text-align: center;
@@ -600,6 +645,11 @@
                                         <span class="message-time">{{ formatTime(msg.create_time) }}</span>
                                     </div>
                                     <div class="message-body" v-html="formatMessage(msg.content)"></div>
+                                    <!-- 消息操作按钮 -->
+                                    <div class="message-actions">
+                                        <button class="msg-action-btn action-note" @click="addToNote(msg)">📝 加入笔记库</button>
+                                        <button class="msg-action-btn action-todo" @click="addToTodo(msg)">📋 加入待办</button>
+                                    </div>
                                     <!-- 视频通话详情 -->
                                     <div v-if="msg.msg_type === 'video_chat' && msg.extra" class="video-chat-info">
                                         <div v-if="msg.extra.topic" class="video-chat-row">
@@ -1536,6 +1586,124 @@
                     }
                 };
 
+                const extractDateFromMessage = (msg) => {
+                    const content = msg.content || '';
+                    const datePatterns = [
+                        /(\d{4})[年\-\/](\d{1,2})[月\-\/](\d{1,2})[日号]?/,
+                        /(\d{1,2})[月\-\/](\d{1,2})[日号]?/,
+                        /明天/,
+                        /后天/,
+                        /下周[一二三四五六日天]/,
+                        /周一|周二|周三|周四|周五|周六|周日|周天/,
+                    ];
+                    for (const pattern of datePatterns) {
+                        const match = content.match(pattern);
+                        if (match) {
+                            const today = new Date();
+                            if (match[0] === '明天') {
+                                today.setDate(today.getDate() + 1);
+                                return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                            }
+                            if (match[0] === '后天') {
+                                today.setDate(today.getDate() + 2);
+                                return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                            }
+                            const weekMap = { '周一': 1, '周二': 2, '周三': 3, '周四': 4, '周五': 5, '周六': 6, '周日': 0, '周天': 0 };
+                            if (match[0].startsWith('下周') || weekMap[match[0]] !== undefined) {
+                                const targetDay = weekMap[match[0].replace('下周', '周')];
+                                const currentDay = today.getDay();
+                                let daysAhead = targetDay - currentDay;
+                                if (match[0].startsWith('下周')) daysAhead += 7;
+                                if (daysAhead <= 0) daysAhead += 7;
+                                today.setDate(today.getDate() + daysAhead);
+                                return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                            }
+                            if (pattern === datePatterns[0] && match[1] && match[2] && match[3]) {
+                                return `${match[1]}-${String(parseInt(match[2])).padStart(2, '0')}-${String(parseInt(match[3])).padStart(2, '0')}`;
+                            }
+                            if (pattern === datePatterns[1] && match[1] && match[2]) {
+                                const year = today.getFullYear();
+                                const month = parseInt(match[1]);
+                                const day = parseInt(match[2]);
+                                return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                            }
+                        }
+                    }
+                    return '';
+                };
+
+                const addToNote = async (msg) => {
+                    try {
+                        const chatName = currentChatInfo.value?.name || '飞书消息';
+                        const senderName = msg.sender_name || '未知用户';
+                        const timeStr = msg.create_time || '';
+                        const content = msg.content || '';
+                        const noteTitle = `[飞书] ${senderName}: ${content.slice(0, 50)}${content.length > 50 ? '...' : ''}`;
+                        const noteContent = `**来源**: 飞书群聊「${chatName}」\n**发送者**: ${senderName}\n**时间**: ${formatTime(timeStr)}\n\n---\n\n${content}`;
+
+                        const response = await fetch('/api/notes', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                title: noteTitle,
+                                content: noteContent,
+                                source: 'feishu'
+                            })
+                        });
+
+                        const data = await response.json();
+                        if (data.success || data.id) {
+                            ElMessage.success('已加入笔记库');
+                        } else if (data.duplicate) {
+                            ElMessage.warning('该消息已在笔记库中');
+                        } else {
+                            ElMessage.error(data.error || '加入笔记库失败');
+                        }
+                    } catch (error) {
+                        console.error('加入笔记库失败:', error);
+                        ElMessage.error('加入笔记库失败: ' + error.message);
+                    }
+                };
+
+                const addToTodo = async (msg) => {
+                    try {
+                        const senderName = msg.sender_name || '未知用户';
+                        const content = msg.content || '';
+                        const extractedDate = extractDateFromMessage(msg);
+                        const todoTitle = content.slice(0, 80) || '飞书消息待办';
+                        const todoDesc = `**来源**: 飞书消息\n**发送者**: ${senderName}\n**时间**: ${formatTime(msg.create_time)}\n\n${content}`;
+
+                        const newTodo = {
+                            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 9),
+                            title: todoTitle,
+                            description: todoDesc,
+                            status: 'todo',
+                            date: extractedDate || '',
+                            priority: 'medium',
+                            reminder: extractedDate ? 'on_due' : 'none',
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        };
+
+                        const response = await fetch('/api/timelist/todos', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(newTodo)
+                        });
+
+                        const data = await response.json();
+                        if (data.success) {
+                            const dateInfo = extractedDate ? `，到期日期: ${extractedDate}` : '';
+                            ElMessage.success(`已加入待办${dateInfo}`);
+                        } else {
+                            ElMessage.error(data.error || '加入待办失败');
+                        }
+                    } catch (error) {
+                        console.error('加入待办失败:', error);
+                        ElMessage.error('加入待办失败: ' + error.message);
+                    }
+                };
+
                 onMounted(() => {
                     loadFeishuConfig();
                 });
@@ -1594,7 +1762,9 @@
                     getAvatar,
                     formatMessage,
                     formatTime,
-                    goBack
+                    goBack,
+                    addToNote,
+                    addToTodo
                 };
             }
         }).use(ElementPlus).mount('#app');
