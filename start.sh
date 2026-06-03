@@ -22,8 +22,6 @@ else
 fi
 
 echo "Using Python: $PYTHON ($($PYTHON --version 2>&1))"
-echo "Installing dependencies..."
-$PYTHON -m pip install -r backend/requirements.txt
 
 echo ""
 echo "Starting server on port $PORT..."
