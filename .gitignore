@@ -20,3 +20,11 @@ frontend/backups/
 
 # IDE
 .claude/
+
+# AI 生成产物
+*.png
+*.mp4
+*.jpg
+*.jpeg
+*.gif
+*.webp
