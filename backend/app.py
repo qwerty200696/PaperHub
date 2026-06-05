@@ -94,7 +94,11 @@ def create_app(config_name='default'):
 
     @app.route('/')
     def index():
-        return send_from_directory(app.static_folder, 'index.html')
+        return send_from_directory(app.static_folder, 'welcome.html')
+
+    @app.route('/app')
+    def app_page():
+        return send_from_directory(app.static_folder, 'app.html')
 
     @app.route('/modular')
     def modular():
