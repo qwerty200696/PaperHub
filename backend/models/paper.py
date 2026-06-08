@@ -2,6 +2,7 @@
 PaperHub 数据模型
 """
 from datetime import datetime
+from pathlib import Path
 from sqlalchemy import Column, Integer, String, Text, Date, Boolean, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
 
@@ -268,11 +269,57 @@ class Note(Base):
     tags = relationship('Tag', secondary=note_tags, back_populates='notes')
     articles = relationship('Article', secondary=note_articles, back_populates='notes')
 
+    # ── 本地文件读写 ─────────────────────────────────────
+
+    def _get_note_file_path(self):
+        """返回笔记内容对应的本地文件路径：data/notes/{id}.md"""
+        try:
+            from backend.config import NOTES_DIR
+        except ImportError:
+            from config import NOTES_DIR
+        return NOTES_DIR / f"{self.id}.md"
+
+    def save_to_file(self, content):
+        """将笔记内容写入本地 Markdown 文件（异常不传播）"""
+        try:
+            path = self._get_note_file_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding='utf-8')
+            self.file_path = str(path)
+        except Exception as e:
+            print(f"笔记文件写入失败 (note_id={self.id}): {e}")
+
+    def get_file_content(self):
+        """从本地文件读取笔记内容。文件不存在则返回 DB 缓存"""
+        try:
+            from backend.config import NOTES_DIR
+        except ImportError:
+            from config import NOTES_DIR
+        path = NOTES_DIR / f"{self.id}.md"
+        if path.exists():
+            return path.read_text(encoding='utf-8')
+        return self.content
+
+    def delete_file(self):
+        """删除笔记对应的本地文件"""
+        try:
+            from backend.config import NOTES_DIR
+        except ImportError:
+            from config import NOTES_DIR
+        path = NOTES_DIR / f"{self.id}.md"
+        if path.exists():
+            path.unlink()
+        # 也清理旧格式文件（file_path 列中残留的路径）
+        if self.file_path:
+            old = Path(self.file_path)
+            if old.exists() and old.is_file():
+                old.unlink()
+
     def to_dict(self, include_papers=False, include_articles=False, include_tags=True):
         result = {
             'id': self.id,
             'title': self.title or '',
-            'content': self.content,
+            'content': self.get_file_content(),
             'source': self.source,
             'url': self.url,
             'file_path': self.file_path,

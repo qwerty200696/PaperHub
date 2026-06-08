@@ -126,6 +126,10 @@ def get_note_routes(app):
                     note.tags.append(tag)
 
             session.commit()
+
+            # 写入本地文件（commit 成功后，避免脏文件）
+            note.save_to_file(content)
+
             return jsonify({'success': True, 'note': note.to_dict(include_papers=True), 'id': note.id}), 201
         except Exception as e:
             session.rollback()
@@ -180,6 +184,11 @@ def get_note_routes(app):
                 note.pinned = data['pinned']
 
             session.commit()
+
+            # 同步写入本地文件（commit 成功后）
+            if 'content' in data:
+                note.save_to_file(data['content'])
+
             return jsonify({'note': note.to_dict(include_papers=True)})
         except Exception as e:
             session.rollback()
@@ -189,7 +198,7 @@ def get_note_routes(app):
 
     @notes_bp.route('/<int:note_id>', methods=['DELETE'])
     def delete_note(note_id):
-        """删除笔记（硬删除 + 同步清理笔记内引用的本地图片）"""
+        """删除笔记（硬删除 + 同步清理本地文件和笔记内引用的图片）"""
         try:
             from backend.config import PAPERS_DIR
         except ImportError:
@@ -203,20 +212,22 @@ def get_note_routes(app):
             if not note:
                 return jsonify({'error': '笔记不存在'}), 404
 
-            # 清理笔记内容中引用的 note_images 图片
+            # 先清理笔记内容中引用的 note_images 图片
             note_images_dir = PAPERS_DIR / 'note_images'
-            if note.content:
-                # 匹配 Markdown 图片语法 ![...](/static/note_images/xxx.png)
-                image_paths = re.findall(r'/static/note_images/([^\)\s]+)', note.content)
+            file_content = note.get_file_content()
+            if file_content:
+                image_paths = re.findall(r'/static/note_images/([^\)\s]+)', file_content)
                 for img_name in image_paths:
                     try:
                         img_path = note_images_dir / img_name
                         img_path_abs = os.path.abspath(str(img_path))
-                        # 安全校验，确保图片在 note_images 目录内
                         if str(note_images_dir) in img_path_abs and os.path.exists(img_path_abs):
                             os.remove(img_path_abs)
                     except Exception as e:
                         print(f"清理笔记图片失败: {e}")
+
+            # 删除本地文件
+            note.delete_file()
 
             session.delete(note)
             session.commit()
@@ -492,27 +503,30 @@ def get_note_routes(app):
             data = request.get_json()
             note_ids = data.get('note_ids', [])
             action = data.get('action')
-            
+
             if not note_ids:
                 return jsonify({'error': 'note_ids is required'}), 400
-            
+
             if not action:
                 return jsonify({'error': 'action is required'}), 400
-            
+
             results = {'success': [], 'failed': []}
-            
+
             notes = session.query(Note).filter(
                 Note.id.in_(note_ids),
                 Note.is_deleted == False
             ).all()
             note_map = {n.id: n for n in notes}
-            
+
+            # 收集需要删除的笔记（批量 delete 延到最后统一处理，避免中间 commit 不一致）
+            notes_to_delete = []
+
             for note_id in note_ids:
                 note = note_map.get(note_id)
                 if not note:
                     results['failed'].append({'id': note_id, 'error': 'Note not found'})
                     continue
-                
+
                 try:
                     if action == 'update_status':
                         status = data.get('status')
@@ -521,7 +535,7 @@ def get_note_routes(app):
                         else:
                             results['failed'].append({'id': note_id, 'error': 'Invalid status'})
                             continue
-                    
+
                     elif action == 'add_tags':
                         tag_names = data.get('tag_names', [])
                         for tag_name in tag_names:
@@ -532,48 +546,57 @@ def get_note_routes(app):
                                 session.flush()
                             if tag not in note.tags:
                                 note.tags.append(tag)
-                    
+
                     elif action == 'remove_tags':
                         tag_names = data.get('tag_names', [])
                         for tag_name in tag_names:
                             tag = session.query(Tag).filter(Tag.name == tag_name).first()
                             if tag and tag in note.tags:
                                 note.tags.remove(tag)
-                    
+
                     elif action == 'toggle_star':
                         note.starred = not note.starred
-                    
+
                     elif action == 'set_star':
                         note.starred = data.get('starred', False)
-                    
+
                     elif action == 'toggle_pinned':
                         note.pinned = not note.pinned
-                    
+
                     elif action == 'delete':
-                        # 清理笔记图片
-                        note_images_dir = PAPERS_DIR / 'note_images'
-                        if note.content:
-                            image_paths = re.findall(r'/static/note_images/([^\)\s]+)', note.content)
-                            for img_name in image_paths:
-                                try:
-                                    img_path = note_images_dir / img_name
-                                    img_path_abs = os.path.abspath(str(img_path))
-                                    if str(note_images_dir) in img_path_abs and os.path.exists(img_path_abs):
-                                        os.remove(img_path_abs)
-                                except Exception as e:
-                                    print(f"清理笔记图片失败: {e}")
-                        
-                        session.delete(note)
-                    
+                        notes_to_delete.append(note)
+
                     else:
                         results['failed'].append({'id': note_id, 'error': f'Unknown action: {action}'})
                         continue
-                    
+
                     results['success'].append(note_id)
-                
+
                 except Exception as e:
                     results['failed'].append({'id': note_id, 'error': str(e)})
-            
+
+            # 统一处理批量删除（清理文件 + 数据库删除）
+            for note in notes_to_delete:
+                try:
+                    note_images_dir = PAPERS_DIR / 'note_images'
+                    file_content = note.get_file_content()
+                    if file_content:
+                        image_paths = re.findall(r'/static/note_images/([^\)\s]+)', file_content)
+                        for img_name in image_paths:
+                            try:
+                                img_path = note_images_dir / img_name
+                                img_path_abs = os.path.abspath(str(img_path))
+                                if str(note_images_dir) in img_path_abs and os.path.exists(img_path_abs):
+                                    os.remove(img_path_abs)
+                            except Exception as e:
+                                print(f"清理笔记图片失败: {e}")
+
+                    note.delete_file()
+                    session.delete(note)
+                except Exception as e:
+                    print(f"批量删除笔记失败 (note_id={note.id}): {e}")
+                    results['failed'].append({'id': note.id, 'error': str(e)})
+
             session.commit()
             
             return jsonify({

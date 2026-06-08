@@ -24,11 +24,12 @@ DB_DIR = DATA_DIR / 'db'
 VECTORS_DIR = DATA_DIR / 'vectors'
 BACKUPS_DIR = DATA_DIR / 'backups'
 NOTE_IMAGES_DIR = PAPERS_DIR / 'note_images'
+NOTES_DIR = DATA_DIR / 'notes'
 
 # 确保目录存在
 for dir_path in [PAPERS_DIR, DB_DIR, VECTORS_DIR, BACKUPS_DIR,
                  PAPERS_DIR / 'arxiv', PAPERS_DIR / 'conference', PAPERS_DIR / 'others',
-                 NOTE_IMAGES_DIR]:
+                 NOTE_IMAGES_DIR, NOTES_DIR]:
     dir_path.mkdir(parents=True, exist_ok=True)
 
 
