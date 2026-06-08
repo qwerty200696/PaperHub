@@ -16,7 +16,7 @@ from typing import Any
 import requests
 
 API_CREATE = "https://apihub.agnes-ai.com/v1/videos"
-API_RESULT = "https://apihub.agnes-ai.com/v1/videos/{}"
+API_RESULT = "https://apihub.agnes-ai.com/agnesapi"
 DEFAULT_MODEL = "agnes-video-v2.0"
 DEFAULT_API_KEY = os.environ.get("AGNES_API_KEY", "")
 
@@ -26,7 +26,8 @@ NUM_FRAMES_OPTIONS = [81, 121, 161, 201, 241, 281, 321, 361, 401, 441]
 
 # ── API 调用 ───────────────────────────────────────────────
 
-def api_request(api_key: str, method: str, url: str, payload: dict | None = None) -> dict:
+def api_request(api_key: str, method: str, url: str, payload: dict | None = None,
+                params: dict | None = None) -> dict:
     """通用 API 请求，带重试和代理绕过。"""
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -38,7 +39,7 @@ def api_request(api_key: str, method: str, url: str, payload: dict | None = None
                 resp = requests.post(url, json=payload, headers=headers,
                                      timeout=120, proxies={"http": None, "https": None})
             else:
-                resp = requests.get(url, headers=headers, timeout=120,
+                resp = requests.get(url, headers=headers, params=params, timeout=120,
                                     proxies={"http": None, "https": None})
             return resp.json()
         except requests.exceptions.RequestException as e:
@@ -83,12 +84,12 @@ def create_task(api_key: str, prompt: str, mode: str = "txt2vid",
     return api_request(api_key, "POST", API_CREATE, payload)
 
 
-def poll_result(api_key: str, task_id: str, interval: float = 5.0,
+def poll_result(api_key: str, video_id: str, interval: float = 5.0,
                 timeout: int = 1800) -> dict:
     """轮询任务结果，等待 completed 或 failed。"""
     start = time.time()
     while time.time() - start < timeout:
-        result = api_request(api_key, "GET", API_RESULT.format(task_id))
+        result = api_request(api_key, "GET", API_RESULT, params={"video_id": video_id})
         status = result.get("status", "")
         progress = result.get("progress", 0)
         print(f"  状态: {status}  进度: {progress}%")
@@ -104,7 +105,7 @@ def poll_result(api_key: str, task_id: str, interval: float = 5.0,
 
         time.sleep(interval)
 
-    raise RuntimeError(f"任务超时 ({timeout} 秒)。任务 ID: {task_id}")
+    raise RuntimeError(f"任务超时 ({timeout} 秒)。Video ID: {video_id}")
 
 
 def download_video(url: str, save_path: str) -> None:
@@ -265,13 +266,13 @@ def main():
         extra=extra,
     )
 
-    task_id = task_data.get("task_id") or task_data.get("id")
-    print(f"\n任务已创建: {task_id}")
+    video_id = task_data.get("video_id") or task_data.get("id") or task_data.get("task_id")
+    print(f"\n任务已创建: video_id={video_id}")
     print(f"状态: {task_data.get('status')}  进度: {task_data.get('progress', 0)}%")
 
     # 轮询结果
     print("\n等待视频生成完成 (轮询中)...")
-    result = poll_result(api_key, task_id, interval=args.poll_interval)
+    result = poll_result(api_key, video_id, interval=args.poll_interval)
 
     print("\n视频生成完成!")
     print(f"  状态: {result.get('status')}")
