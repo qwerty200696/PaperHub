@@ -1,0 +1,8 @@
+# Video outputs
+output_*.mp4
+
+# Concat list files
+concat_*.txt
+
+# tools/2/ directory
+2/
