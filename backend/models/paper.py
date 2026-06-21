@@ -3,7 +3,7 @@ PaperHub 数据模型
 """
 from datetime import datetime
 from pathlib import Path
-from sqlalchemy import Column, Integer, String, Text, Date, Boolean, DateTime, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Text, Date, Boolean, DateTime, ForeignKey, Table, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 try:
@@ -14,6 +14,14 @@ except ImportError:
     except ImportError:
         from sqlalchemy.ext.declarative import declarative_base
         Base = declarative_base()
+
+try:
+    from backend.models.mixins import UserOwnedMixin
+except ImportError:
+    try:
+        from models.mixins import UserOwnedMixin
+    except ImportError:
+        UserOwnedMixin = object
 
 
 # ============================================================
@@ -91,7 +99,7 @@ note_articles = Table(
 # ============================================================
 # 标签表
 # ============================================================
-class Tag(Base):
+class Tag(UserOwnedMixin, Base):
     __tablename__ = 'tags'
 
     id = Column(Integer, primary_key=True)
@@ -106,19 +114,19 @@ class Tag(Base):
     articles = relationship('Article', secondary=article_tags, back_populates='tags')
 
     def to_dict(self):
-        return {
+        return self.to_dict_with_owner({
             'id': self.id,
             'name': self.name,
             'type': self.type,
             'color': self.color,
             'parent_id': self.parent_id
-        }
+        })
 
 
 # ============================================================
 # 论文/文章表
 # ============================================================
-class Paper(Base):
+class Paper(UserOwnedMixin, Base):
     __tablename__ = 'papers'
 
     id = Column(Integer, primary_key=True)
@@ -166,6 +174,8 @@ class Paper(Base):
             'starred': self.starred,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'user_id': self.user_id,
+            'is_public': self.is_public,
             'tags': [t.to_dict() for t in self.tags] if hasattr(self, 'tags') and include_tags else []
         }
         if include_articles and hasattr(self, 'articles'):
@@ -189,7 +199,7 @@ class Paper(Base):
 # ============================================================
 # 网络文章表（微信公众号、知乎、博客等）
 # ============================================================
-class Article(Base):
+class Article(UserOwnedMixin, Base):
     __tablename__ = 'articles'
 
     id = Column(Integer, primary_key=True)
@@ -225,6 +235,8 @@ class Article(Base):
             'starred': self.starred,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'user_id': self.user_id,
+            'is_public': self.is_public,
         }
         if include_tags:
             result['tags'] = [t.to_dict() for t in self.tags] if hasattr(self, 'tags') else []
@@ -248,7 +260,7 @@ class Article(Base):
 # ============================================================
 # 笔记表（纯个人笔记、对话记录）
 # ============================================================
-class Note(Base):
+class Note(UserOwnedMixin, Base):
     __tablename__ = 'notes'
 
     id = Column(Integer, primary_key=True)
@@ -330,6 +342,8 @@ class Note(Base):
             'pinned': self.pinned if hasattr(self, 'pinned') else False,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'user_id': self.user_id,
+            'is_public': self.is_public,
         }
         if include_tags:
             result['tags'] = [t.to_dict() for t in self.tags] if hasattr(self, 'tags') else []
@@ -366,7 +380,7 @@ class PaperVersion(Base):
         }
 
 
-class WechatSubscription(Base):
+class WechatSubscription(UserOwnedMixin, Base):
     __tablename__ = 'wechat_subscriptions'
 
     id = Column(Integer, primary_key=True)
@@ -378,7 +392,7 @@ class WechatSubscription(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     def to_dict(self):
-        return {
+        return self.to_dict_with_owner({
             'id': self.id,
             'account_name': self.account_name,
             'account_id': self.account_id,
@@ -386,10 +400,10 @@ class WechatSubscription(Base):
             'last_post_time': self.last_post_time.isoformat() if self.last_post_time else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
+        })
 
 
-class WechatConfig(Base):
+class WechatConfig(UserOwnedMixin, Base):
     __tablename__ = 'wechat_config'
 
     id = Column(Integer, primary_key=True)
@@ -398,9 +412,60 @@ class WechatConfig(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     def to_dict(self):
-        return {
+        return self.to_dict_with_owner({
             'id': self.id,
             'api_key': self.api_key,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        })
+
+
+# ============================================================
+# 用户-论文独立状态表（P2 阶段新增）
+# ============================================================
+# 设计目的：公共论文（is_public=1）对所有用户可见，
+# 但每个用户应有独立的阅读状态、标星、笔记关联等。
+# 本表记录用户对论文的"个人状态"，与论文本身的公共属性解耦。
+class UserPaperStatus(Base):
+    """用户对论文的独立状态
+
+    使用场景：
+    - 公共论文 A，用户 X 标星、用户 Y 未标星
+    - 公共论文 A，用户 X 已读、用户 Y 未读
+    - 私有论文（is_public=0）通常不需要此表，因为只有 owner 一人，
+      但为统一查询逻辑，私有论文也写入此表。
+    """
+    __tablename__ = 'user_paper_status'
+    __table_args__ = (
+        UniqueConstraint('user_id', 'paper_id', name='uq_user_paper'),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    paper_id = Column(Integer, ForeignKey('papers.id'), nullable=False, index=True)
+    # 用户独立的标星状态（与 papers.starred 解耦）
+    starred = Column(Boolean, default=False, nullable=False)
+    # 用户独立的阅读状态：unread / reading / read
+    read_status = Column(String(20), default='unread', nullable=False)
+    # 用户独立的阅读进度（0-100）
+    read_progress = Column(Integer, default=0)
+    # 用户最后阅读时间
+    last_read_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    user = relationship('User')
+    paper = relationship('Paper')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'paper_id': self.paper_id,
+            'starred': self.starred,
+            'read_status': self.read_status,
+            'read_progress': self.read_progress,
+            'last_read_at': self.last_read_at.isoformat() if self.last_read_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

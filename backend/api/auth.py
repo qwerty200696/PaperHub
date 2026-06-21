@@ -115,9 +115,12 @@ def _is_token_blacklisted(jti):
 
 def _add_token_to_blacklist(jti, exp):
     """将 token 加入黑名单"""
+    import time
     _token_blacklist[jti] = exp
     # 顺手清理已过期的黑名单项，避免内存泄漏
-    now_ts = datetime.utcnow().timestamp()
+    # 注意：使用 time.time() 而非 datetime.utcnow().timestamp()，
+    # 因为后者在非 UTC 时区会返回带时区偏移的值
+    now_ts = time.time()
     for k in list(_token_blacklist.keys()):
         if _token_blacklist[k] < now_ts:
             del _token_blacklist[k]
