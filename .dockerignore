@@ -1,0 +1,76 @@
+# 版本控制
+.git
+.gitignore
+.gitattributes
+
+# 文档与 wiki
+.qoder/
+.trae/
+.claude/
+docs/
+*.md
+!backend/README.md
+!frontend/README.md
+LICENSE
+
+# 数据目录（通过 volume 挂载，不打包进镜像）
+data/
+frontend/backups/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.Python
+
+# Node.js
+node_modules/
+dist/
+.npm
+
+# 测试与脚本
+scripts/tests/
+tools/
+
+# 浏览器扩展（独立部署）
+browser-extension/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 环境变量
+.env
+.env.*
+!.env.example
+
+# 日志
+*.log
+
+# AI 生成产物
+*.png
+*.mp4
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# Railway/Cloudflare 部署配置（Docker 部署不使用）
+Procfile
+railway.json
+railpack.json
+wrangler.jsonc
+.wrangler
+.dev.vars*
+
+# 构建产物
+*.pdf

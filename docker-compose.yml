@@ -1,0 +1,39 @@
+# ==========================================
+# PaperHub Docker Compose 部署配置
+# 使用：docker compose up -d
+# ==========================================
+
+services:
+  paperhub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: paperhub:latest
+    container_name: paperhub
+    restart: unless-stopped
+    ports:
+      - "${PAPERHUB_PORT:-5799}:5799"
+    environment:
+      - TZ=Asia/Shanghai
+      - SECRET_KEY=${SECRET_KEY:-please-change-this-secret-key-in-production}
+      # 如需在容器内使用 AI 功能，可在 .env 中配置以下变量
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      - QWEN_BASE_URL=${QWEN_BASE_URL:-}
+    volumes:
+      # 数据持久化：数据库、PDF、备份、向量索引等全部存储在宿主机
+      - ./data:/app/PaperHub/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5799/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

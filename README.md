@@ -45,6 +45,49 @@ python app.py
 
 浏览器打开: http://localhost:5000
 
+### Docker 部署（推荐生产环境）
+
+> 前置要求：已安装 Docker 与 Docker Compose（Docker 20.10+ / Compose v2+）。
+
+```bash
+# 1. 复制环境变量配置（可选，按需修改）
+cp .env.example .env
+
+# 2. 构建并启动服务（后台运行）
+docker compose up -d --build
+
+# 3. 查看日志
+docker compose logs -f
+
+# 4. 查看服务状态
+docker compose ps
+
+# 5. 停止服务
+docker compose down
+```
+
+浏览器打开: http://localhost:5799
+
+**数据持久化**：所有数据（SQLite 数据库、PDF、备份、向量索引）通过 `./data` 目录挂载到宿主机，容器重建后数据不丢失。
+
+**配置说明**：
+- `PAPERHUB_PORT`：宿主机映射端口（默认 5799）
+- `SECRET_KEY`：Flask 会话密钥，生产环境务必修改
+- `OPENAI_API_KEY` / `DEEPSEEK_API_KEY` / `QWEN_API_KEY`：AI 大模型密钥（可选）
+
+**常用命令**：
+
+```bash
+# 重新构建镜像（代码更新后）
+docker compose up -d --build
+
+# 进入容器调试
+docker compose exec paperhub bash
+
+# 备份数据（在宿主机执行，data 目录即完整备份）
+tar -czf paperhub-backup-$(date +%Y%m%d).tar.gz data/
+```
+
 ## 📂 项目结构
 
 ```
