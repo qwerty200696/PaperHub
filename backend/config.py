@@ -37,6 +37,13 @@ class Config:
     """基础配置"""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
 
+    # JWT 配置（P1 阶段新增，多用户认证）
+    # 生产环境务必通过环境变量注入与 SECRET_KEY 不同的值
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or SECRET_KEY
+    JWT_ACCESS_TOKEN_EXPIRES = int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES', 24 * 3600))  # 默认 24 小时
+    # 灰度开关：P3 阶段强制鉴权时设为 '1'，P1/P2 阶段保持 '0' 不影响现有 API
+    ENFORCE_AUTH = os.environ.get('ENFORCE_AUTH', '0') == '1'
+
     # 数据库配置 - SQLite
     SQLALCHEMY_DATABASE_URI = f'sqlite:///{DB_DIR / "paperhub.db"}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False

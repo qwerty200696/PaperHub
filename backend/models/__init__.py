@@ -6,6 +6,11 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 try:
+    from backend.models.user import User
+except ImportError:
+    from models.user import User
+
+try:
     from backend.models.paper import (
         Paper, Tag, Note, Article, PaperVersion, WechatSubscription, WechatConfig,
         paper_tags, note_tags, note_papers,
@@ -19,7 +24,8 @@ except ImportError:
     )
 
 __all__ = [
-    'Base', 'Paper', 'Tag', 'Note', 'Article', 'PaperVersion', 'WechatSubscription', 'WechatConfig',
+    'Base', 'User',
+    'Paper', 'Tag', 'Note', 'Article', 'PaperVersion', 'WechatSubscription', 'WechatConfig',
     'paper_tags', 'note_tags', 'note_papers',
     'article_papers', 'article_tags', 'note_articles'
 ]
